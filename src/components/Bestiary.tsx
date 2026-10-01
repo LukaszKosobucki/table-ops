@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Search, Filter, Shield, Heart, Zap, Copy, Sparkles, X, Swords, ChevronDown } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { Search, Filter, Shield, Heart, Copy, Sparkles, X, Swords } from 'lucide-react';
 import { MonsterData } from '@/lib/monsters';
 
 interface BestiaryProps {
@@ -26,7 +26,7 @@ export function Bestiary({ initialMonsters }: BestiaryProps) {
     return matchesSearch && matchesCr && matchesType;
   });
 
-  const handleCloneMonster = (m: MonsterData) => {
+  const handleCloneMonster = useCallback((m: MonsterData) => {
     setEditingMonster({
       index: `${m.index}-homebrew-${Date.now()}`,
       name: `${m.name} (Custom)`,
@@ -43,7 +43,7 @@ export function Bestiary({ initialMonsters }: BestiaryProps) {
       specialAbilities: m.specialAbilities ? [...m.specialAbilities] : [],
     });
     setHomebrewModalOpen(true);
-  };
+  }, []);
 
   const handleSaveHomebrew = (e: React.FormEvent) => {
     e.preventDefault();
