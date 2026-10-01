@@ -1,0 +1,103 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id         String      @id @default(cuid())
+  email      String      @unique
+  name       String?
+  campaigns  Campaign[]
+  characters Character[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model Campaign {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  characters  Character[]
+  encounters  Encounter[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Character {
+  id                String               @id @default(cuid())
+  name              String
+  race              String
+  class             String
+  level             Int                  @default(1)
+  hp                Int
+  maxHp             Int
+  ac                Int
+  passivePerception Int                  @default(10)
+  stats             Json?
+  campaignId        String?
+  campaign          Campaign?            @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  userId            String
+  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  combatants        EncounterCombatant[]
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+}
+
+model Monster {
+  id               String               @id @default(cuid())
+  index            String               @unique
+  name             String
+  size             String?
+  type             String?
+  alignment        String?
+  armorClass       Int
+  hitPoints        Int
+  hitDice          String?
+  challengeRating  Float                @default(0)
+  xp               Int                  @default(0)
+  stats            Json?
+  speed            Json?
+  actions          Json?
+  specialAbilities Json?
+  rawData          Json?
+  combatants       EncounterCombatant[]
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+}
+
+model Encounter {
+  id         String               @id @default(cuid())
+  name       String
+  campaignId String
+  campaign   Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  status     String               @default("PLANNED")
+  notes      String?
+  combatants EncounterCombatant[]
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+}
+
+model EncounterCombatant {
+  id          String     @id @default(cuid())
+  encounterId String
+  encounter   Encounter  @relation(fields: [encounterId], references: [id], onDelete: Cascade)
+  name        String
+  initiative  Int        @default(0)
+  currentHp   Int
+  maxHp       Int
+  ac          Int
+  isMonster   Boolean    @default(true)
+  monsterId   String?
+  monster     Monster?   @relation(fields: [monsterId], references: [id], onDelete: SetNull)
+  characterId String?
+  character   Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  conditions  Json?
+  order       Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
