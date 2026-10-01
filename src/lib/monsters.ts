@@ -28,15 +28,18 @@ export interface MonsterData {
 }
 
 export async function getMonsters(): Promise<MonsterData[]> {
-  try {
-    const dbMonsters = await prisma.monster.findMany({
-      orderBy: { name: 'asc' },
-    });
-    if (dbMonsters.length > 0) {
-      return dbMonsters as unknown as MonsterData[];
+  // Query PostgreSQL if DATABASE_URL is configured
+  if (process.env.DATABASE_URL) {
+    try {
+      const dbMonsters = await prisma.monster.findMany({
+        orderBy: { name: 'asc' },
+      });
+      if (dbMonsters.length > 0) {
+        return dbMonsters as unknown as MonsterData[];
+      }
+    } catch {
+      // Database connection fallback to seed file
     }
-  } catch {
-    // Database connection fallback to seed file
   }
 
   try {
