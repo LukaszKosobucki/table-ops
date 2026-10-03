@@ -17,7 +17,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col selection:bg-amber-500 selection:text-slate-950">
+    <div className="min-h-screen bg-app-bg text-slate-100 flex flex-col selection:bg-brand-accent selection:text-slate-950">
       {/* Navigation Header */}
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
 
