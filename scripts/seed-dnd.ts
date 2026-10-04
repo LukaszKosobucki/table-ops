@@ -95,7 +95,7 @@ async function seed() {
         });
       }
       console.log(`🎉 Database successfully seeded with ${monsterRecords.length} monsters!`);
-    } catch (dbError) {
+    } catch {
       console.warn('⚠️  Could not seed PostgreSQL database directly (DB might be offline or DATABASE_URL not set). Seed JSON file is ready for offline fallback.');
     }
 

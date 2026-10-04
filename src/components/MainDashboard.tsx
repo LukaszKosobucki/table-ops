@@ -1,13 +1,43 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Navbar } from './Navbar';
-import { InitiativeTracker } from './InitiativeTracker';
-import { Bestiary } from './Bestiary';
-import { CharacterWizard } from './CharacterWizard';
-import { DiceRoller } from './DiceRoller';
+import dynamic from 'next/dynamic';
+import { Navbar } from './layout/Navbar';
+import { Footer } from './layout/Footer';
+import { InitiativeTracker } from './initiative/InitiativeTracker';
 import { MonsterData } from '@/lib/monsters';
-import { Database, ShieldCheck, Sparkles } from 'lucide-react';
+
+// Vercel React Best Practices: bundle-dynamic-imports
+const Bestiary = dynamic(
+  () => import('./bestiary/Bestiary').then((mod) => mod.Bestiary),
+  {
+    loading: () => <TabLoadingSkeleton title="Bestiariusz D&D 5e" />,
+  }
+);
+
+const CharacterWizard = dynamic(
+  () => import('./characters/CharacterWizard').then((mod) => mod.CharacterWizard),
+  {
+    loading: () => <TabLoadingSkeleton title="Kreator Postaci" />,
+  }
+);
+
+const DiceRoller = dynamic(
+  () => import('./dice/DiceRoller').then((mod) => mod.DiceRoller),
+  {
+    loading: () => <TabLoadingSkeleton title="Symulator Kości" />,
+  }
+);
+
+function TabLoadingSkeleton({ title }: { title: string }) {
+  return (
+    <div className="glass-panel rounded-2xl p-8 text-center animate-pulse space-y-3 border border-slate-800">
+      <div className="h-6 w-48 bg-slate-800 rounded mx-auto" />
+      <div className="h-4 w-72 bg-slate-900 rounded mx-auto" />
+      <p className="text-xs text-slate-400 font-mono pt-4">Ładowanie modułu: {title}...</p>
+    </div>
+  );
+}
 
 interface MainDashboardProps {
   initialMonsters: MonsterData[];
@@ -17,7 +47,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
 
   return (
-    <div className="min-h-screen bg-app-bg text-slate-100 flex flex-col selection:bg-brand-accent selection:text-slate-950">
+    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col selection:bg-amber-500 selection:text-slate-950">
       {/* Navigation Header */}
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -30,24 +60,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
       </main>
 
       {/* Footer Status Bar */}
-      <footer className="border-t border-slate-800/80 bg-slate-950/80 py-4 px-6 text-xs text-slate-400">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
-              <ShieldCheck className="w-4 h-4" /> System Ready
-            </span>
-            <span className="text-slate-700">•</span>
-            <span className="flex items-center gap-1 text-slate-400">
-              <Database className="w-3.5 h-3.5 text-indigo-400" /> PostgreSQL & Prisma 7.9.1
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2 font-mono text-[11px] text-slate-500">
-            <span>D&D 5e SRD API Synchronized</span>
-            <Sparkles className="w-3 h-3 text-amber-500" />
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   );
 }

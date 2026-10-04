@@ -1,53 +1,47 @@
 /**
  * TableOps Design System & Theme Utilities
- * Single source of truth for semantic role colors, status helpers, and Tailwind theme tokens.
+ * Accurately calibrated to the authentic dark tabletop fantasy styling of TableOps:
+ * Deep slate backgrounds (#090d16, slate-900, slate-950), rich amber accents, and indigo magic.
  */
 
 export const THEME_COLORS = {
   // Surfaces
   appBg: '#090d16',
-  surfacePanel: '#0d1322',
-  surfaceCard: '#131b2e',
-  surfaceCardHover: '#1c2742',
-  surfaceElevated: '#1e293b',
+  surfacePanel: 'rgba(15, 23, 42, 0.75)', // slate-900 with glass blur
+  surfaceCard: 'rgba(15, 23, 42, 0.6)',
+  surfaceElevated: '#020617', // slate-950
 
-  // Brand
-  brandPrimary: '#6366f1', // Indigo
-  brandAccent: '#d97706',  // Amber
+  // Brand Accents
+  brandPrimary: '#6366f1', // Indigo 500
+  brandPrimaryDark: '#4f46e5', // Indigo 600
+  brandAccent: '#f59e0b', // Amber 500
+  brandAccentGold: '#fbbf24', // Amber 400
 
   // Roles
-  hero: '#10b981',    // Emerald
-  npc: '#f59e0b',     // Amber
-  monster: '#f43f5e', // Rose
+  hero: '#818cf8', // Indigo 400
+  npc: '#fbbf24', // Amber 400
+  monster: '#f87171', // Red 400
 
   // Health Statuses
-  healthy: '#10b981',  // > 50%
-  bloodied: '#f59e0b', // <= 50%
-  critical: '#f97316', // <= 20%
-  dead: '#e11d48',     // 0 HP
+  healthy: '#34d399', // Emerald 400
+  bloodied: '#fbbf24', // Amber 400
+  critical: '#fb923c', // Orange 400
+  dead: '#f87171', // Red 400
 
   // Combat Turn Indicators
-  turnActive: '#fbbf24',
-  turnNext: '#818cf8',
-
-  // Timeline / Logs
-  logRest: '#c084fc',
-  logCombat: '#fb7185',
-  logSpell: '#38bdf8',
-  logAction: '#fbbf24',
+  turnActiveBorder: '#6366f1', // Indigo 500
+  turnActiveTab: '#f59e0b', // Amber 500
 } as const;
 
 export type EntityRole = 'HERO' | 'NPC' | 'MONSTER';
 export type HealthState = 'HEALTHY' | 'BLOODIED' | 'CRITICAL' | 'DEAD';
-export type SessionLogType = 'REST_SHORT' | 'REST_LONG' | 'COMBAT_END' | 'SPELL_CAST' | 'COMBAT_ACTION';
 
 /**
- * Calculates current health tier and returns semantic styling classes.
+ * Calculates current health tier and returns semantic styling classes matching the original TableOps UI.
  */
 export function getHealthStatus(currentHp: number, maxHp: number): {
   state: HealthState;
   label: string;
-  dotClass: string;
   badgeClass: string;
   fillClass: string;
   textClass: string;
@@ -57,10 +51,9 @@ export function getHealthStatus(currentHp: number, maxHp: number): {
     return {
       state: 'DEAD',
       label: 'Nieprzytomny / Martwy',
-      dotClass: 'bg-status-dead shadow-rose-500/50',
-      badgeClass: 'bg-rose-500/10 text-rose-400 border border-rose-500/30',
-      fillClass: 'bg-status-dead',
-      textClass: 'text-rose-400',
+      badgeClass: 'bg-red-950/80 text-red-400 border border-red-900/60',
+      fillClass: 'bg-red-600',
+      textClass: 'text-red-400',
       isDead: true,
     };
   }
@@ -71,9 +64,8 @@ export function getHealthStatus(currentHp: number, maxHp: number): {
     return {
       state: 'CRITICAL',
       label: 'Krytyczny',
-      dotClass: 'bg-status-critical shadow-orange-500/50 animate-pulse',
-      badgeClass: 'bg-orange-500/10 text-orange-400 border border-orange-500/30',
-      fillClass: 'bg-status-critical',
+      badgeClass: 'bg-orange-950/80 text-orange-400 border border-orange-900/60 animate-pulse',
+      fillClass: 'bg-orange-500',
       textClass: 'text-orange-400',
       isDead: false,
     };
@@ -83,9 +75,8 @@ export function getHealthStatus(currentHp: number, maxHp: number): {
     return {
       state: 'BLOODIED',
       label: 'Ranny',
-      dotClass: 'bg-status-bloodied shadow-amber-500/50',
-      badgeClass: 'bg-amber-500/10 text-amber-400 border border-amber-500/30',
-      fillClass: 'bg-status-bloodied',
+      badgeClass: 'bg-amber-950/80 text-amber-400 border border-amber-900/60',
+      fillClass: 'bg-amber-500',
       textClass: 'text-amber-400',
       isDead: false,
     };
@@ -94,57 +85,32 @@ export function getHealthStatus(currentHp: number, maxHp: number): {
   return {
     state: 'HEALTHY',
     label: 'Zdolny do walki',
-    dotClass: 'bg-status-healthy shadow-emerald-500/50',
-    badgeClass: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30',
-    fillClass: 'bg-status-healthy',
+    badgeClass: 'bg-emerald-950/80 text-emerald-400 border border-emerald-900/60',
+    fillClass: 'bg-emerald-500',
     textClass: 'text-emerald-400',
     isDead: false,
   };
 }
 
 /**
- * Returns role-specific badge styling and display label.
+ * Returns role-specific badge styling and display label matching original TableOps.
  */
 export function getRoleBadge(role: EntityRole): { label: string; badgeClass: string } {
   switch (role) {
     case 'HERO':
-      return { label: 'Bohater Gracza', badgeClass: 'badge-hero' };
+      return {
+        label: 'Postać Gracza',
+        badgeClass: 'bg-indigo-950/60 text-indigo-300 border border-indigo-700/50',
+      };
     case 'NPC':
-      return { label: 'Ważny NPC', badgeClass: 'badge-npc' };
+      return {
+        label: 'Ważny NPC',
+        badgeClass: 'bg-amber-950/60 text-amber-300 border border-amber-700/50',
+      };
     case 'MONSTER':
-      return { label: 'Przeciwnik / Potwór', badgeClass: 'badge-monster' };
-  }
-}
-
-/**
- * Returns timeline log badge styling and metadata.
- */
-export function getLogTypeBadge(type: SessionLogType): { label: string; badgeClass: string } {
-  switch (type) {
-    case 'REST_SHORT':
       return {
-        label: 'Krótki Odpoczynek',
-        badgeClass: 'bg-purple-500/10 text-purple-300 border border-purple-500/30',
-      };
-    case 'REST_LONG':
-      return {
-        label: 'Długi Odpoczynek',
-        badgeClass: 'bg-purple-500/20 text-purple-200 border border-purple-400/40 font-semibold',
-      };
-    case 'COMBAT_END':
-      return {
-        label: 'Koniec Potyczki',
-        badgeClass: 'bg-rose-500/10 text-rose-400 border border-rose-500/30',
-      };
-    case 'SPELL_CAST':
-      return {
-        label: 'Rzucenie Zaklęcia',
-        badgeClass: 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/30',
-      };
-    case 'COMBAT_ACTION':
-      return {
-        label: 'Akcja w Walce',
-        badgeClass: 'bg-amber-500/10 text-amber-300 border border-amber-500/30',
+        label: 'Przeciwnik / Potwór',
+        badgeClass: 'bg-red-950/60 text-red-300 border border-red-700/50',
       };
   }
 }
