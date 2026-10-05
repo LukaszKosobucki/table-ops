@@ -1,4 +1,4 @@
-# Schemat Bazy Danych (Relacyjny np. PostgreSQL)
+# Schemat Bazy Danych (Supabase PostgreSQL)
 
 Poniżej znajduje się uproszczony schemat encji i ich relacji. 
 

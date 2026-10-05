@@ -29,7 +29,7 @@ Wszystkie nowe widoki i komponenty **muszą** ściśle bazować na dotychczas za
 
 ```mermaid
 flowchart TD
-    K0["Krok 0: Migracja i Schemat Bazy Danych (Prisma/PostgreSQL)"]
+    K0["Krok 0: Migracja i Schemat Bazy Danych (Supabase PostgreSQL + Prisma)"]
     F1["Faza 1: Moduł Zarządzania Sesjami (Ekran Startowy)"]
     F2["Faza 2: Główny Panel Sesji (3-kolumnowy Dashboard GM-a)"]
     F3["Faza 3: Kreator i Zarządzanie Postaciami (Bohaterowie & NPC)"]
@@ -51,9 +51,9 @@ flowchart TD
 
 ---
 
-## KROK 0: Aktualizacja Schematu Bazy Danych (Prisma / PostgreSQL)
+## KROK 0: Aktualizacja Schematu Bazy Danych (Supabase PostgreSQL + Prisma)
 
-*Cel:* Zsynchronizowanie pliku [`prisma/schema.prisma`](file:///Users/lukaszkosobucki/Documents/table-ops/prisma/schema.prisma) ze specyfikacją [`user-stories-and-spec/schemat_bazy_danych.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/schemat_bazy_danych.md). Głównym korzeniem logiki staje się encja `Session`.
+*Cel:* Zsynchronizowanie pliku [`prisma/schema.prisma`](file:///Users/lukaszkosobucki/Documents/table-ops/prisma/schema.prisma) ze specyfikacją [`user-stories-and-spec/schemat_bazy_danych.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/schemat_bazy_danych.md) oraz bazą Supabase (PostgreSQL). Głównym korzeniem logiki staje się encja `Session`.
 
 ### Chunk 0.1: Modele Sesji, Postaci i Potyczek w Prisma
 * **Backend:**
@@ -301,7 +301,7 @@ flowchart TD
 
 | Etap | Zadanie | Zależności | Czas realizacji (orientacyjny) |
 | :--- | :--- | :--- | :--- |
-| **Krok 0** | Aktualizacja schematu Prisma (`schema.prisma`) | *Brak* | 1 chunk |
+| **Krok 0** | Aktualizacja schematu Prisma (`schema.prisma`) pod Supabase (PostgreSQL) | *Brak* | 1 chunk |
 | **Faza 1** | Backend CRUD Sesji + UI Wyboru Sesji | Krok 0 | 2 chunki |
 | **Faza 2** | Full-state API + 3-Kolumnowy Dashboard | Faza 1 | 2 chunki |
 | **Faza 3** | CRUD Postaci + Kreator z automatyką slotów czarów | Faza 2 | 2 chunki |

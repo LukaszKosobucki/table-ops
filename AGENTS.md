@@ -10,7 +10,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 # TableOps AI Agent Guidelines & Operating Instructions
 
-This repository defines guidelines and workflows for AI coding agents operating on the **TableOps** codebase — a modern Virtual Tabletop (VTT) and D&D companion application built with Next.js 16 (App Router + Turbopack), React 19, Tailwind CSS v4, Prisma, and TypeScript.
+This repository defines guidelines and workflows for AI coding agents operating on the **TableOps** codebase — a modern Virtual Tabletop (VTT) and D&D companion application built with Next.js 16 (App Router + Turbopack), React 19, Tailwind CSS v4, Supabase (PostgreSQL) + Prisma, and TypeScript.
 
 The instructions below integrate the capabilities and principles of the active skill suite installed in `.agents/skills/`:
 - **`react-best-practices`**: Vercel engineering performance optimization guidelines
