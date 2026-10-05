@@ -75,14 +75,16 @@ flowchart TD
 *User Stories:* [`user-stories-and-spec/user_stories_modu_sesji.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_modu_sesji.md)  
 *API Spec:* [`user-stories-and-spec/wymagania_crud_api.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/wymagania_crud_api.md) (Sekcja 1)
 
-### Chunk 1.1: Backend – CRUD Sesji
+### Chunk 1.1: Backend – CRUD Sesji (✅ Zakończone)
 * **Backend:**
-  * Endpoint `GET /api/sessions`: zwraca listę sesji posortowaną po `updatedAt DESC` wraz z zagregowaną liczbą przypisanych postaci i logów.
-  * Endpoint `POST /api/sessions`: walidacja nazwy (min. 2 znaki, max. 60 znaków) i utworzenie nowej sesji.
-  * Endpoint `PUT /api/sessions/[id]`: aktualizacja nazwy sesji.
-  * Endpoint `DELETE /api/sessions/[id]`: usunięcie sesji wraz z powiązanymi postaciami, walkami i logami (kaskadowo w transakcji Prisma).
+  * Moduł domeny [`src/lib/sessions.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/sessions.ts) z walidacją nazwy (min. 2, max. 60 znaków), funkcjami `getSessions`, `createSession`, `updateSession`, `deleteSession` oraz wstrzykiwaniem klienta Prisma (DI).
+  * Endpoint `GET /api/sessions`: zwraca listę sesji posortowaną po `updatedAt DESC` wraz z zagregowaną liczbą przypisanych postaci i logów (`_count: { characters, sessionLogs }`).
+  * Endpoint `POST /api/sessions`: walidacja nazwy i utworzenie nowej sesji (HTTP 201).
+  * Endpoint `PUT /api/sessions/[id]`: aktualizacja nazwy sesji z obsługą błędu 404 (HTTP 200).
+  * Endpoint `DELETE /api/sessions/[id]`: usunięcie sesji z obsługą błędu 404 i kaskadowym usuwaniem powiązanych danych (HTTP 200).
 * **Testowanie:**
-  * Testy integracyjne Vitest dla operacji tworzenia, edycji i usuwania sesji.
+  * Testy jednostkowe logiki i walidacji w [`src/lib/sessions.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/sessions.test.ts).
+  * Testy integracyjne endpointów w [`src/app/api/sessions/sessions-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/sessions-api.test.ts).
 
 ### Chunk 1.2: Frontend – Ekran Wyboru i Tworzenia Sesji
 * **Frontend:**
