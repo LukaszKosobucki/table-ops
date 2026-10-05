@@ -6,98 +6,189 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id         String      @id @default(cuid())
-  email      String      @unique
-  name       String?
-  campaigns  Campaign[]
-  characters Character[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+enum CharacterType {
+  HERO
+  NPC
 }
 
-model Campaign {
-  id          String      @id @default(cuid())
-  name        String
-  description String?
-  userId      String
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  characters  Character[]
-  encounters  Encounter[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+enum CombatStatusEnum {
+  PREPARING
+  ACTIVE
+  FINISHED
+}
+
+enum SessionLogType {
+  REST_SHORT
+  REST_LONG
+  COMBAT_END
+  SPELL_CAST
+  COMBAT_ACTION
+  CUSTOM_NOTE
+}
+
+model Session {
+  id              String           @id @default(uuid())
+  name            String
+  characters      Character[]
+  encounterGroups EncounterGroup[]
+  combats         Combat[]
+  sessionLogs     SessionLog[]
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @updatedAt @map("updated_at")
+
+  @@map("sessions")
 }
 
 model Character {
-  id                String               @id @default(cuid())
+  id                String            @id @default(uuid())
+  sessionId         String            @map("session_id")
+  session           Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  type              CharacterType     @default(HERO)
   name              String
-  race              String
-  class             String
-  level             Int                  @default(1)
-  hp                Int
-  maxHp             Int
-  ac                Int
-  passivePerception Int                  @default(10)
+  race              String?
+  class             String?
+  level             Int               @default(1)
+  maxHp             Int               @map("max_hp")
+  currentHp         Int               @map("current_hp")
+  ac                Int               @default(10) @map("armor_class")
+  passivePerception Int               @default(10) @map("passive_perception")
   stats             Json?
-  campaignId        String?
-  campaign          Campaign?            @relation(fields: [campaignId], references: [id], onDelete: SetNull)
-  userId            String
-  user              User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
-  combatants        EncounterCombatant[]
-  createdAt         DateTime             @default(now())
-  updatedAt         DateTime             @updatedAt
+  proficiencies     Json?
+  traits            Json?
+  inventory         Json?
+  spells            Json?
+  encounterMembers  EncounterMember[]
+  combatants        Combatant[]
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  @@index([sessionId])
+  @@map("characters")
+}
+
+model EncounterGroup {
+  id        String            @id @default(uuid())
+  sessionId String            @map("session_id")
+  session   Session           @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  name      String
+  members   EncounterMember[]
+  createdAt DateTime          @default(now()) @map("created_at")
+  updatedAt DateTime          @updatedAt @map("updated_at")
+
+  @@index([sessionId])
+  @@map("encounter_groups")
+}
+
+model EncounterMember {
+  id           String         @id @default(uuid())
+  groupId      String         @map("group_id")
+  group        EncounterGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  characterId  String?        @map("character_id")
+  character    Character?     @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  apiMonsterId String?        @map("api_monster_id")
+  monsterId    String?        @map("monster_id")
+  monster      Monster?       @relation(fields: [monsterId], references: [id], onDelete: SetNull)
+  count        Int            @default(1)
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  @@index([groupId])
+  @@index([characterId])
+  @@index([monsterId])
+  @@map("encounter_members")
+}
+
+model Combat {
+  id               String           @id @default(uuid())
+  sessionId        String           @map("session_id")
+  session          Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  status           CombatStatusEnum @default(PREPARING)
+  currentRound     Int              @default(1) @map("current_round")
+  currentTurnIndex Int              @default(0) @map("current_turn_index")
+  combatants       Combatant[]
+  sessionLogs      SessionLog[]
+  createdAt        DateTime         @default(now()) @map("created_at")
+  endedAt          DateTime?        @map("ended_at")
+
+  @@index([sessionId])
+  @@map("combats")
+}
+
+model Combatant {
+  id           String         @id @default(uuid())
+  combatId     String         @map("combat_id")
+  combat       Combat         @relation(fields: [combatId], references: [id], onDelete: Cascade)
+  characterId  String?        @map("character_id")
+  character    Character?     @relation(fields: [characterId], references: [id], onDelete: SetNull)
+  apiMonsterId String?        @map("api_monster_id")
+  monsterId    String?        @map("monster_id")
+  monster      Monster?       @relation(fields: [monsterId], references: [id], onDelete: SetNull)
+  nameOverride String?        @map("name_override")
+  initiative   Int            @default(0)
+  currentHp    Int            @map("current_hp")
+  maxHp        Int            @map("max_hp")
+  ac           Int            @default(10) @map("armor_class")
+  order        Int            @default(0)
+  statuses     CombatStatus[]
+  createdAt    DateTime       @default(now()) @map("created_at")
+  updatedAt    DateTime       @updatedAt @map("updated_at")
+
+  @@index([combatId])
+  @@index([characterId])
+  @@index([monsterId])
+  @@map("combatants")
+}
+
+model CombatStatus {
+  id            String    @id @default(uuid())
+  combatantId   String    @map("combatant_id")
+  combatant     Combatant @relation(fields: [combatantId], references: [id], onDelete: Cascade)
+  statusName    String    @map("status_name")
+  durationTurns Int       @map("duration_turns")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([combatantId])
+  @@map("combat_statuses")
+}
+
+model SessionLog {
+  id          String         @id @default(uuid())
+  sessionId   String         @map("session_id")
+  session     Session        @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  combatId    String?        @map("combat_id")
+  combat      Combat?        @relation(fields: [combatId], references: [id], onDelete: SetNull)
+  logType     SessionLogType @map("log_type")
+  description String
+  metadata    Json?
+  createdAt   DateTime       @default(now()) @map("created_at")
+
+  @@index([sessionId])
+  @@index([combatId])
+  @@map("session_logs")
 }
 
 model Monster {
-  id               String               @id @default(cuid())
-  index            String               @unique
+  id               String            @id @default(uuid())
+  index            String            @unique
   name             String
   size             String?
   type             String?
   alignment        String?
-  armorClass       Int
-  hitPoints        Int
-  hitDice          String?
-  challengeRating  Float                @default(0)
-  xp               Int                  @default(0)
+  armorClass       Int               @map("armor_class")
+  hitPoints        Int               @map("hit_points")
+  hitDice          String?           @map("hit_dice")
+  challengeRating  Float             @default(0) @map("challenge_rating")
+  xp               Int               @default(0)
   stats            Json?
   speed            Json?
   actions          Json?
-  specialAbilities Json?
-  rawData          Json?
-  combatants       EncounterCombatant[]
-  createdAt        DateTime             @default(now())
-  updatedAt        DateTime             @updatedAt
-}
+  specialAbilities Json?             @map("special_abilities")
+  rawData          Json?             @map("raw_data")
+  encounterMembers EncounterMember[]
+  combatants       Combatant[]
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
 
-model Encounter {
-  id         String               @id @default(cuid())
-  name       String
-  campaignId String
-  campaign   Campaign             @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  status     String               @default("PLANNED")
-  notes      String?
-  combatants EncounterCombatant[]
-  createdAt  DateTime             @default(now())
-  updatedAt  DateTime             @updatedAt
-}
-
-model EncounterCombatant {
-  id          String     @id @default(cuid())
-  encounterId String
-  encounter   Encounter  @relation(fields: [encounterId], references: [id], onDelete: Cascade)
-  name        String
-  initiative  Int        @default(0)
-  currentHp   Int
-  maxHp       Int
-  ac          Int
-  isMonster   Boolean    @default(true)
-  monsterId   String?
-  monster     Monster?   @relation(fields: [monsterId], references: [id], onDelete: SetNull)
-  characterId String?
-  character   Character? @relation(fields: [characterId], references: [id], onDelete: SetNull)
-  conditions  Json?
-  order       Int        @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  @@map("monsters")
 }

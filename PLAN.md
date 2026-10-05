@@ -55,7 +55,7 @@ flowchart TD
 
 *Cel:* Zsynchronizowanie pliku [`prisma/schema.prisma`](file:///Users/lukaszkosobucki/Documents/table-ops/prisma/schema.prisma) ze specyfikacją [`user-stories-and-spec/schemat_bazy_danych.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/schemat_bazy_danych.md) oraz bazą Supabase (PostgreSQL). Głównym korzeniem logiki staje się encja `Session`.
 
-### Chunk 0.1: Modele Sesji, Postaci i Potyczek w Prisma
+### Chunk 0.1: Modele Sesji, Postaci i Potyczek w Prisma (✅ Zakończone)
 * **Backend:**
   * Utworzenie modelu `Session` (`id`, `name`, `createdAt`, `updatedAt`).
   * Aktualizacja modelu `Character` (`sessionId`, `type` [HERO/NPC], `name`, `class`, `level`, `maxHp`, `currentHp`, `ac`, `stats` [JSON], `proficiencies` [JSON], `traits` [JSON], `inventory` [JSON], `spells` [JSON]).
@@ -63,9 +63,11 @@ flowchart TD
   * Dodanie modeli aktywnej walki: `Combat` (`id`, `sessionId`, `status` [PREPARING/ACTIVE/FINISHED], `currentRound`, `currentTurnIndex`, `createdAt`, `endedAt`), `Combatant` (`id`, `combatId`, `characterId?`, `apiMonsterId?`, `nameOverride`, `initiative`, `currentHp`, `maxHp`, `ac`, `order`), `CombatStatus` (`id`, `combatantId`, `statusName`, `durationTurns`).
   * Dodanie modelu historii: `SessionLog` (`id`, `sessionId`, `combatId?`, `logType` [REST_SHORT/REST_LONG/COMBAT_END/SPELL_CAST/COMBAT_ACTION], `description`, `metadata` [JSON], `createdAt`).
   * Zachowanie i powiązanie z istniejącym modelem `Monster`.
+  * Dodanie indeksów na kluczach obcych (`@@index`) wg wytycznych wydajności Supabase PostgreSQL.
 * **Weryfikacja / Testy:**
-  * Wykonanie `npm run prisma:generate` oraz `npm run prisma:push`.
-  * Weryfikacja poprawności generowanych typów TypeScript w `node_modules/@prisma/client`.
+  * Wykonanie `npm run prisma:generate`.
+  * Weryfikacja poprawności generowanych typów TypeScript w `node_modules/@prisma/client` oraz test w [`src/lib/prisma-schema.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/prisma-schema.test.ts).
+  * Wykonanie pełnego suite testów Vitest, lintera Biome oraz Next.js build.
 
 ---
 
