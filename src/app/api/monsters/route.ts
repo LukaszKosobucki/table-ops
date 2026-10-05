@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getMonsters } from '@/lib/monsters';
 
+export const dynamic = 'force-static';
+
 export async function GET() {
   try {
     const monsters = await getMonsters();
