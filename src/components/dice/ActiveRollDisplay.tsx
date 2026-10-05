@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
 import { Sparkles } from 'lucide-react';
-import { RollLog } from './types';
+import type { RollLog } from './types';
 
 interface ActiveRollDisplayProps {
   isRolling: boolean;
@@ -26,8 +25,8 @@ export function ActiveRollDisplay({
           isRolling
             ? 'scale-110 blur-[1px] text-amber-300'
             : activeRollResult === 20
-            ? 'text-amber-400 drop-shadow-[0_0_25px_rgba(251,191,36,0.8)] animate-bounce'
-            : 'text-slate-100'
+              ? 'text-amber-400 drop-shadow-[0_0_25px_rgba(251,191,36,0.8)] animate-bounce'
+              : 'text-slate-100'
         }`}
       >
         {activeRollResult !== null ? activeRollResult : '--'}

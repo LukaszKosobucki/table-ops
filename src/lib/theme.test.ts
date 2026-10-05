@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { getHealthStatus, getRoleBadge, THEME_COLORS } from './theme';
 
 describe('theme - getHealthStatus', () => {

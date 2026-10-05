@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { DICE_TYPES } from './types';
 
 interface DiceSelectorProps {

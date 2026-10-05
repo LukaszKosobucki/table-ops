@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
-import { MonsterData } from '@/lib/monsters';
-import { Combatant } from './types';
-import { TurnControls } from './TurnControls';
-import { CombatantCard } from './CombatantCard';
+import { useState } from 'react';
+import type { MonsterData } from '@/lib/monsters';
 import { AddCombatantsPanel } from './AddCombatantsPanel';
+import { CombatantCard } from './CombatantCard';
 import { GmNotes } from './GmNotes';
+import { TurnControls } from './TurnControls';
+import type { Combatant } from './types';
 
 interface InitiativeTrackerProps {
   monsters: MonsterData[];
@@ -120,9 +120,7 @@ export function InitiativeTracker({ monsters }: InitiativeTrackerProps) {
   };
 
   const handleAddCombatant = (newCombatant: Combatant) => {
-    setCombatants((prev) =>
-      [...prev, newCombatant].sort((a, b) => b.initiative - a.initiative)
-    );
+    setCombatants((prev) => [...prev, newCombatant].sort((a, b) => b.initiative - a.initiative));
   };
 
   return (
@@ -139,7 +137,9 @@ export function InitiativeTracker({ monsters }: InitiativeTrackerProps) {
         <div className="lg:col-span-2 space-y-4">
           <h3 className="text-lg font-bold text-slate-200 flex items-center justify-between">
             <span>Kolejność Inicjatywy ({combatants.length})</span>
-            <span className="text-xs text-slate-400 font-normal">Posortowane według inicjatywy (D20)</span>
+            <span className="text-xs text-slate-400 font-normal">
+              Posortowane według inicjatywy (D20)
+            </span>
           </h3>
 
           {combatants.length === 0 ? (

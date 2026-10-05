@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Shield, Heart, Copy } from 'lucide-react';
-import { MonsterData } from '@/lib/monsters';
+import { Copy, Heart, Shield } from 'lucide-react';
+import type { MonsterData } from '@/lib/monsters';
 
 interface MonsterCardProps {
   monster: MonsterData;
@@ -36,8 +35,12 @@ export function MonsterCard({ monster, onSelect, onClone }: MonsterCardProps) {
           <div className="bg-slate-950/60 p-2 rounded-xl border border-slate-800/60 flex items-center gap-2">
             <Shield className="w-4 h-4 text-indigo-400" />
             <div>
-              <div className="text-[10px] text-slate-500 uppercase font-semibold">Klasa Pancerza</div>
-              <div className="text-sm font-bold text-slate-200 font-mono">{monster.armorClass} AC</div>
+              <div className="text-[10px] text-slate-500 uppercase font-semibold">
+                Klasa Pancerza
+              </div>
+              <div className="text-sm font-bold text-slate-200 font-mono">
+                {monster.armorClass} AC
+              </div>
             </div>
           </div>
 
@@ -45,7 +48,9 @@ export function MonsterCard({ monster, onSelect, onClone }: MonsterCardProps) {
             <Heart className="w-4 h-4 text-red-500 fill-red-500/20" />
             <div>
               <div className="text-[10px] text-slate-500 uppercase font-semibold">Punkty Życia</div>
-              <div className="text-sm font-bold text-slate-200 font-mono">{monster.hitPoints} HP</div>
+              <div className="text-sm font-bold text-slate-200 font-mono">
+                {monster.hitPoints} HP
+              </div>
             </div>
           </div>
         </div>

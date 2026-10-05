@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
 import { ChevronRight } from 'lucide-react';
-import { RACES, CLASSES } from './types';
+import { CLASSES, RACES } from './types';
 
 interface StepRaceClassProps {
   selectedRace: string;

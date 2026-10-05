@@ -1,7 +1,6 @@
 'use client';
 
-import React from 'react';
-import { RollLog } from './types';
+import type { RollLog } from './types';
 
 interface RollHistoryProps {
   logs: RollLog[];
@@ -30,8 +29,8 @@ export function RollHistory({ logs, onClear }: RollHistoryProps) {
               log.isCrit
                 ? 'bg-amber-950/40 border-amber-500/60 text-amber-200'
                 : log.isFumble
-                ? 'bg-red-950/40 border-red-800/60 text-red-300'
-                : 'bg-slate-900/60 border-slate-800 text-slate-300'
+                  ? 'bg-red-950/40 border-red-800/60 text-red-300'
+                  : 'bg-slate-900/60 border-slate-800 text-slate-300'
             }`}
           >
             <div className="flex items-center gap-2">

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
 import { Heart, Shield } from 'lucide-react';
+import { useState } from 'react';
 import { getHealthStatus } from '@/lib/theme';
 
 interface HpControlsProps {
@@ -14,11 +14,12 @@ interface HpControlsProps {
 export function HpControls({ currentHp, maxHp, ac, onModifyHp }: HpControlsProps) {
   const [customDelta, setCustomDelta] = useState('');
   const status = getHealthStatus(currentHp, maxHp);
-  const hpPercent = maxHp > 0 ? Math.max(0, Math.min(100, Math.round((currentHp / maxHp) * 100))) : 0;
+  const hpPercent =
+    maxHp > 0 ? Math.max(0, Math.min(100, Math.round((currentHp / maxHp) * 100))) : 0;
 
   const handleApplyCustom = (isDamage: boolean) => {
     const val = parseInt(customDelta, 10);
-    if (isNaN(val) || val <= 0) return;
+    if (Number.isNaN(val) || val <= 0) return;
     onModifyHp(isDamage ? -val : val);
     setCustomDelta('');
   };
@@ -45,10 +46,7 @@ export function HpControls({ currentHp, maxHp, ac, onModifyHp }: HpControlsProps
 
       {/* Progress Track */}
       <div className="hp-track">
-        <div
-          className={`hp-fill ${status.fillClass}`}
-          style={{ width: `${hpPercent}%` }}
-        />
+        <div className={`hp-fill ${status.fillClass}`} style={{ width: `${hpPercent}%` }} />
       </div>
 
       {/* Quick HP Adjustment Buttons */}

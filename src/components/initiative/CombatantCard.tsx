@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Skull, User, Trash2 } from 'lucide-react';
-import { Combatant, AVAILABLE_CONDITIONS } from './types';
+import { Skull, Trash2, User } from 'lucide-react';
+import { AVAILABLE_CONDITIONS, type Combatant } from './types';
 
 interface CombatantCardProps {
   combatant: Combatant;
@@ -28,8 +27,8 @@ export function CombatantCard({
         isActiveTurn
           ? 'bg-gradient-to-r from-indigo-950/80 via-slate-900 to-slate-900 border-2 border-indigo-500 shadow-xl shadow-indigo-500/10'
           : isDead
-          ? 'bg-slate-950/60 border border-red-900/40 opacity-60'
-          : 'glass-card hover:bg-slate-800/50'
+            ? 'bg-slate-950/60 border border-red-900/40 opacity-60'
+            : 'glass-card hover:bg-slate-800/50'
       }`}
     >
       {isActiveTurn && (
@@ -49,7 +48,9 @@ export function CombatantCard({
               ) : (
                 <User className="w-4 h-4 text-indigo-400" />
               )}
-              <span className={`font-bold ${isDead ? 'line-through text-slate-500' : 'text-slate-100'}`}>
+              <span
+                className={`font-bold ${isDead ? 'line-through text-slate-500' : 'text-slate-100'}`}
+              >
                 {c.name}
               </span>
               <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 font-mono">
@@ -76,13 +77,19 @@ export function CombatantCard({
         {/* Right: HP tracker & Controls */}
         <div className="flex items-center gap-3 self-end sm:self-center">
           <div className="flex flex-col items-end gap-1">
-            <span className={`text-xs font-mono font-bold ${isDead ? 'text-red-500' : 'text-slate-300'}`}>
+            <span
+              className={`text-xs font-mono font-bold ${isDead ? 'text-red-500' : 'text-slate-300'}`}
+            >
               {c.currentHp} / {c.maxHp} HP
             </span>
             <div className="w-32 bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
               <div
                 className={`h-full transition-all duration-300 ${
-                  hpPercent <= 25 ? 'bg-red-500' : hpPercent <= 50 ? 'bg-amber-500' : 'bg-emerald-500'
+                  hpPercent <= 25
+                    ? 'bg-red-500'
+                    : hpPercent <= 50
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
                 }`}
                 style={{ width: `${Math.min(100, Math.max(0, hpPercent))}%` }}
               />

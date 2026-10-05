@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Skull, Plus } from 'lucide-react';
-import { MonsterData } from '@/lib/monsters';
-import { Combatant } from './types';
+import { Plus, Skull } from 'lucide-react';
+import type React from 'react';
+import { useState } from 'react';
+import type { MonsterData } from '@/lib/monsters';
+import type { Combatant } from './types';
 
 interface AddCombatantsPanelProps {
   monsters: MonsterData[];
@@ -53,10 +54,10 @@ export function AddCombatantsPanel({
     const newCombatant: Combatant = {
       id: `${isMonsterAdd ? 'm' : 'pc'}-${Date.now()}`,
       name: customName,
-      initiative: parseInt(customInit) || 10,
-      currentHp: parseInt(customHp) || 10,
-      maxHp: parseInt(customHp) || 10,
-      ac: parseInt(customAc) || 10,
+      initiative: parseInt(customInit, 10) || 10,
+      currentHp: parseInt(customHp, 10) || 10,
+      maxHp: parseInt(customHp, 10) || 10,
+      ac: parseInt(customAc, 10) || 10,
       isMonster: isMonsterAdd,
       conditions: [],
     };
@@ -98,7 +99,10 @@ export function AddCombatantsPanel({
       </div>
 
       {/* Quick Custom Combatant Form */}
-      <form onSubmit={handleAddCustom} className="glass-card rounded-2xl p-5 border border-slate-800 space-y-4">
+      <form
+        onSubmit={handleAddCustom}
+        className="glass-card rounded-2xl p-5 border border-slate-800 space-y-4"
+      >
         <h4 className="font-bold text-slate-100 flex items-center gap-2">
           <Plus className="w-5 h-5 text-indigo-400" />
           Dodaj Własną Postać / Przeciwnika

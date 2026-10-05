@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
-import { X, Copy, Swords } from 'lucide-react';
-import { MonsterData } from '@/lib/monsters';
+import { Copy, Swords, X } from 'lucide-react';
+import type { MonsterData } from '@/lib/monsters';
 
 interface MonsterStatblockModalProps {
   monster: MonsterData | null;
@@ -10,11 +9,7 @@ interface MonsterStatblockModalProps {
   onClone: (monster: MonsterData) => void;
 }
 
-export function MonsterStatblockModal({
-  monster,
-  onClose,
-  onClone,
-}: MonsterStatblockModalProps) {
+export function MonsterStatblockModal({ monster, onClose, onClone }: MonsterStatblockModalProps) {
   if (!monster) return null;
 
   const calculateModifier = (score: number = 10) => {
@@ -47,13 +42,20 @@ export function MonsterStatblockModal({
         {/* Core combat values */}
         <div className="grid grid-cols-3 gap-3">
           <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center">
-            <span className="text-xs text-slate-500 font-semibold block uppercase">Klasa Pancerza</span>
-            <span className="text-lg font-bold text-amber-400 font-mono">{monster.armorClass} AC</span>
+            <span className="text-xs text-slate-500 font-semibold block uppercase">
+              Klasa Pancerza
+            </span>
+            <span className="text-lg font-bold text-amber-400 font-mono">
+              {monster.armorClass} AC
+            </span>
           </div>
           <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center">
-            <span className="text-xs text-slate-500 font-semibold block uppercase">Punkty Życia</span>
+            <span className="text-xs text-slate-500 font-semibold block uppercase">
+              Punkty Życia
+            </span>
             <span className="text-lg font-bold text-red-400 font-mono">
-              {monster.hitPoints} <span className="text-xs font-normal text-slate-500">({monster.hitDice})</span>
+              {monster.hitPoints}{' '}
+              <span className="text-xs font-normal text-slate-500">({monster.hitDice})</span>
             </span>
           </div>
           <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 text-center">
@@ -76,7 +78,9 @@ export function MonsterStatblockModal({
               <div key={stat.name}>
                 <div className="text-xs text-slate-500 font-bold">{stat.name}</div>
                 <div className="text-sm font-bold text-slate-200 font-mono">{stat.score}</div>
-                <div className="text-xs text-amber-400 font-mono">{calculateModifier(stat.score)}</div>
+                <div className="text-xs text-amber-400 font-mono">
+                  {calculateModifier(stat.score)}
+                </div>
               </div>
             ))}
           </div>
@@ -90,8 +94,11 @@ export function MonsterStatblockModal({
               Akcje w Walce (Actions)
             </h4>
             <div className="space-y-2">
-              {monster.actions.map((act, i) => (
-                <div key={i} className="bg-slate-900/60 p-3 rounded-xl border border-slate-800/80">
+              {monster.actions.map((act) => (
+                <div
+                  key={act.name}
+                  className="bg-slate-900/60 p-3 rounded-xl border border-slate-800/80"
+                >
                   <span className="font-bold text-amber-300 text-sm">{act.name}. </span>
                   <span className="text-slate-300 text-sm leading-relaxed">{act.desc}</span>
                 </div>

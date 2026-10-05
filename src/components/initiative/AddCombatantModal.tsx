@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
 import { Plus, Skull, User, X } from 'lucide-react';
-import { MonsterData } from '@/lib/monsters';
-import { Combatant } from './types';
+import type React from 'react';
+import { useState } from 'react';
 import { getAbilityModifier } from '@/lib/dnd-rules';
+import type { MonsterData } from '@/lib/monsters';
+import type { Combatant } from './types';
 
 interface AddCombatantModalProps {
   isOpen: boolean;
@@ -191,7 +192,10 @@ export function AddCombatantModal({
                 onChange={(e) => setIsMonster(e.target.checked)}
                 className="rounded border-border-default bg-surface-card text-brand-primary focus:ring-brand-primary"
               />
-              <label htmlFor="isMonsterCheck" className="text-xs text-muted cursor-pointer select-none">
+              <label
+                htmlFor="isMonsterCheck"
+                className="text-xs text-muted cursor-pointer select-none"
+              >
                 Oznacz jako wroga / potwora
               </label>
             </div>
@@ -208,7 +212,9 @@ export function AddCombatantModal({
         ) : (
           <form onSubmit={handleAddFromBestiary} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-muted mb-1">Wybierz z Bestiariusza:</label>
+              <label className="block text-xs font-medium text-muted mb-1">
+                Wybierz z Bestiariusza:
+              </label>
               <select
                 value={selectedMonsterIndex}
                 onChange={(e) => setSelectedMonsterIndex(e.target.value)}
@@ -233,7 +239,8 @@ export function AddCombatantModal({
                 className="w-full px-3 py-2 text-sm text-center rounded-xl bg-surface-card border border-border-default text-foreground focus:outline-none focus:border-brand-primary font-mono"
               />
               <p className="text-[11px] text-muted mt-1">
-                Dla wielu potworów automatycznie zostaną dodane sufiksy A, B, C... a inicjatywa zostanie wylosowana.
+                Dla wielu potworów automatycznie zostaną dodane sufiksy A, B, C... a inicjatywa
+                zostanie wylosowana.
               </p>
             </div>
 

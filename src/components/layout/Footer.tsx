@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { Database, ShieldCheck, Sparkles } from 'lucide-react';
 
 export function Footer() {

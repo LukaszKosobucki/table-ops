@@ -1,7 +1,6 @@
 'use client';
 
-import React from 'react';
-import { Search, Filter, Sparkles } from 'lucide-react';
+import { Filter, Search, Sparkles } from 'lucide-react';
 
 interface MonsterFiltersProps {
   searchQuery: string;

@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
-import { MonsterData } from '@/lib/monsters';
-import { MonsterFilters } from './MonsterFilters';
-import { MonsterCard } from './MonsterCard';
-import { MonsterStatblockModal } from './MonsterStatblockModal';
+import type React from 'react';
+import { useCallback, useState } from 'react';
+import type { MonsterData } from '@/lib/monsters';
 import { HomebrewMonsterModal } from './HomebrewMonsterModal';
+import { MonsterCard } from './MonsterCard';
+import { MonsterFilters } from './MonsterFilters';
+import { MonsterStatblockModal } from './MonsterStatblockModal';
 
 interface BestiaryProps {
   initialMonsters: MonsterData[];
@@ -26,7 +27,7 @@ export function Bestiary({ initialMonsters }: BestiaryProps) {
     const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesCr = selectedCr === 'ALL' || m.challengeRating.toString() === selectedCr;
     const matchesType =
-      selectedType === 'ALL' || (m.type && m.type.toLowerCase().includes(selectedType.toLowerCase()));
+      selectedType === 'ALL' || m.type?.toLowerCase().includes(selectedType.toLowerCase());
     return matchesSearch && matchesCr && matchesType;
   });
 

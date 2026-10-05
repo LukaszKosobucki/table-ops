@@ -1,9 +1,11 @@
-import { PrismaClient } from '@prisma/client';
+import fs from 'node:fs';
+import path from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
-import fs from 'fs';
-import path from 'path';
+import { PrismaClient } from '@prisma/client';
 
-const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/tableops?schema=public';
+const connectionString =
+  process.env.DATABASE_URL ||
+  'postgresql://postgres:postgres@localhost:5432/tableops?schema=public';
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
 
@@ -23,7 +25,7 @@ const FEATURED_MONSTERS = [
   'mimic',
   'gelatinous-cube',
   'mind-flayer',
-  'lich'
+  'lich',
 ];
 
 async function seed() {
@@ -34,10 +36,12 @@ async function seed() {
     if (!listRes.ok) {
       throw new Error(`Failed to fetch monster list: ${listRes.statusText}`);
     }
-    const listData = (await listRes.json()) as { results: { index: string; name: string; url: string }[] };
+    const listData = (await listRes.json()) as {
+      results: { index: string; name: string; url: string }[];
+    };
     console.log(`Found ${listData.results.length} monsters in D&D 5e SRD.`);
 
-    const targets = listData.results.filter(m => FEATURED_MONSTERS.includes(m.index));
+    const targets = listData.results.filter((m) => FEATURED_MONSTERS.includes(m.index));
     const monsterRecords = [];
 
     for (const item of targets) {
@@ -46,10 +50,12 @@ async function seed() {
       if (!detailRes.ok) continue;
 
       const d = await detailRes.json();
-      
-      const acValue = Array.isArray(d.armor_class) 
-        ? d.armor_class[0]?.value ?? 10 
-        : (typeof d.armor_class === 'number' ? d.armor_class : 10);
+
+      const acValue = Array.isArray(d.armor_class)
+        ? (d.armor_class[0]?.value ?? 10)
+        : typeof d.armor_class === 'number'
+          ? d.armor_class
+          : 10;
 
       const record = {
         index: d.index,
@@ -96,9 +102,10 @@ async function seed() {
       }
       console.log(`🎉 Database successfully seeded with ${monsterRecords.length} monsters!`);
     } catch {
-      console.warn('⚠️  Could not seed PostgreSQL database directly (DB might be offline or DATABASE_URL not set). Seed JSON file is ready for offline fallback.');
+      console.warn(
+        '⚠️  Could not seed PostgreSQL database directly (DB might be offline or DATABASE_URL not set). Seed JSON file is ready for offline fallback.'
+      );
     }
-
   } catch (error) {
     console.error('❌ Error during D&D seed execution:', error);
   } finally {

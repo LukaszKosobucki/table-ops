@@ -1,6 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-import { MonsterData } from './monsters';
+import fs from 'node:fs';
+import path from 'node:path';
+import type { MonsterData } from './monsters';
 
 export const FALLBACK_MOCK_MONSTERS: MonsterData[] = [
   {

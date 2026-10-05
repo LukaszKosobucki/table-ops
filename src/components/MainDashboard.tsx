@@ -1,19 +1,16 @@
 'use client';
 
-import React, { useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Navbar } from './layout/Navbar';
-import { Footer } from './layout/Footer';
+import { useState } from 'react';
+import type { MonsterData } from '@/lib/monsters';
 import { InitiativeTracker } from './initiative/InitiativeTracker';
-import { MonsterData } from '@/lib/monsters';
+import { Footer } from './layout/Footer';
+import { Navbar } from './layout/Navbar';
 
 // Vercel React Best Practices: bundle-dynamic-imports
-const Bestiary = dynamic(
-  () => import('./bestiary/Bestiary').then((mod) => mod.Bestiary),
-  {
-    loading: () => <TabLoadingSkeleton title="Bestiariusz D&D 5e" />,
-  }
-);
+const Bestiary = dynamic(() => import('./bestiary/Bestiary').then((mod) => mod.Bestiary), {
+  loading: () => <TabLoadingSkeleton title="Bestiariusz D&D 5e" />,
+});
 
 const CharacterWizard = dynamic(
   () => import('./characters/CharacterWizard').then((mod) => mod.CharacterWizard),
@@ -22,12 +19,9 @@ const CharacterWizard = dynamic(
   }
 );
 
-const DiceRoller = dynamic(
-  () => import('./dice/DiceRoller').then((mod) => mod.DiceRoller),
-  {
-    loading: () => <TabLoadingSkeleton title="Symulator Kości" />,
-  }
-);
+const DiceRoller = dynamic(() => import('./dice/DiceRoller').then((mod) => mod.DiceRoller), {
+  loading: () => <TabLoadingSkeleton title="Symulator Kości" />,
+});
 
 function TabLoadingSkeleton({ title }: { title: string }) {
   return (

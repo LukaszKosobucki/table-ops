@@ -7,7 +7,10 @@
     "build": "next build",
     "build:demo": "NEXT_PUBLIC_DEMO_MODE=true GITHUB_PAGES=true next build && touch out/.nojekyll",
     "start": "next start",
-    "lint": "eslint",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -29,6 +32,7 @@
     "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.15",
     "@playwright/test": "^1.63.0",
     "@prisma/config": "^7.10.0",
     "@tailwindcss/postcss": "^4.3.3",
@@ -42,8 +46,6 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/coverage-v8": "^5.0.3",
-    "eslint": "^9.39.5",
-    "eslint-config-next": "^16.3.8",
     "jsdom": "^30.1.2",
     "prisma": "^7.10.0",
     "tailwindcss": "^4.3.3",
@@ -51,5 +53,15 @@
     "typescript": "^6.0.3",
     "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^5.0.3"
+  },
+  "overrides": {
+    "mysql2": "^3.24.5",
+    "deepmerge-ts": "^8.0.2"
+  },
+  "allowScripts": {
+    "@prisma/engines@7.10.0": true,
+    "esbuild@0.28.2": true,
+    "prisma@7.10.0": true,
+    "unrs-resolver@1.12.2": true
   }
 }

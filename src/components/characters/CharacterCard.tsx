@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
 import { Eye } from 'lucide-react';
-import { Character } from './types';
+import type { Character } from './types';
 
 interface CharacterCardProps {
   character: Character;
@@ -23,7 +22,8 @@ export function CharacterCard({ character }: CharacterCardProps) {
         <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
           <Eye className="w-4 h-4 text-indigo-400" />
           <span className="text-xs font-semibold text-slate-300">
-            Pasywna Percepcja: <span className="text-amber-400 font-mono">{character.passivePerception}</span>
+            Pasywna Percepcja:{' '}
+            <span className="text-amber-400 font-mono">{character.passivePerception}</span>
           </span>
         </div>
       </div>
@@ -43,7 +43,9 @@ export function CharacterCard({ character }: CharacterCardProps) {
         </div>
 
         <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-center">
-          <div className="text-[10px] text-slate-500 uppercase font-semibold">Modyfikator Biegłości</div>
+          <div className="text-[10px] text-slate-500 uppercase font-semibold">
+            Modyfikator Biegłości
+          </div>
           <div className="text-base font-bold text-indigo-400 font-mono">
             +{Math.ceil(character.level / 4) + 1}
           </div>

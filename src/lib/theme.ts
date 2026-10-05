@@ -39,7 +39,10 @@ export type HealthState = 'HEALTHY' | 'BLOODIED' | 'CRITICAL' | 'DEAD';
 /**
  * Calculates current health tier and returns semantic styling classes matching the original TableOps UI.
  */
-export function getHealthStatus(currentHp: number, maxHp: number): {
+export function getHealthStatus(
+  currentHp: number,
+  maxHp: number
+): {
   state: HealthState;
   label: string;
   badgeClass: string;

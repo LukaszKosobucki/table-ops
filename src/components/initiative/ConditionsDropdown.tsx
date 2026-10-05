@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
 import { AlertCircle, Plus, X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { AVAILABLE_CONDITIONS } from './types';
 
 interface ConditionsDropdownProps {
@@ -9,10 +9,7 @@ interface ConditionsDropdownProps {
   onToggleCondition: (condition: string) => void;
 }
 
-export function ConditionsDropdown({
-  conditions,
-  onToggleCondition,
-}: ConditionsDropdownProps) {
+export function ConditionsDropdown({ conditions, onToggleCondition }: ConditionsDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 

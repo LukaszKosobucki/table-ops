@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { isDemoMode, getMockMonsters, FALLBACK_MOCK_MONSTERS } from './mock-data';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { FALLBACK_MOCK_MONSTERS, getMockMonsters, isDemoMode } from './mock-data';
 import { getMonsters } from './monsters';
 
 describe('mock-data - isDemoMode and getMockMonsters', () => {

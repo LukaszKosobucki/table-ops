@@ -1,5 +1,5 @@
+import { getMockMonsters, isDemoMode } from './mock-data';
 import { prisma } from './prisma';
-import { isDemoMode, getMockMonsters } from './mock-data';
 
 export interface MonsterData {
   id?: string;

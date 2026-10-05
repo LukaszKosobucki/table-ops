@@ -1,7 +1,6 @@
 'use client';
 
-import React from 'react';
-import { Swords, RotateCcw, ChevronRight } from 'lucide-react';
+import { ChevronRight, RotateCcw, Swords } from 'lucide-react';
 
 interface TurnControlsProps {
   round: number;
@@ -9,11 +8,7 @@ interface TurnControlsProps {
   onRollAllMonsterInitiative: () => void;
 }
 
-export function TurnControls({
-  round,
-  onNextTurn,
-  onRollAllMonsterInitiative,
-}: TurnControlsProps) {
+export function TurnControls({ round, onNextTurn, onRollAllMonsterInitiative }: TurnControlsProps) {
   return (
     <div className="glass-panel rounded-2xl p-5 border border-indigo-500/20 bg-gradient-to-r from-slate-900/90 via-slate-900/80 to-indigo-950/40 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
       <div className="flex items-center gap-4">
@@ -22,8 +17,12 @@ export function TurnControls({
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wider text-amber-400">Aktywna Potyczka</span>
-            <span className="text-xs px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">Runda {round}</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-amber-400">
+              Aktywna Potyczka
+            </span>
+            <span className="text-xs px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">
+              Runda {round}
+            </span>
           </div>
           <h2 className="text-xl font-bold text-white">Initiative Tracker GM</h2>
         </div>

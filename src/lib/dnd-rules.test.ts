@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  getAbilityModifier,
-  formatModifier,
-  calculateUnarmoredAc,
   calculateMaxHp,
   calculatePassivePerception,
+  calculateUnarmoredAc,
+  formatModifier,
+  getAbilityModifier,
   roll4d6DropLowest,
 } from './dnd-rules';
 
@@ -36,7 +36,7 @@ describe('dnd-rules - calculateUnarmoredAc', () => {
   it('computes 10 + DEX modifier', () => {
     expect(calculateUnarmoredAc(10)).toBe(10);
     expect(calculateUnarmoredAc(14)).toBe(12); // DEX +2
-    expect(calculateUnarmoredAc(8)).toBe(9);   // DEX -1
+    expect(calculateUnarmoredAc(8)).toBe(9); // DEX -1
   });
 });
 
@@ -77,9 +77,7 @@ describe('dnd-rules - roll4d6DropLowest', () => {
       expect(result.rolls.every((r) => r >= 1 && r <= 6)).toBe(true);
       expect(result.total).toBeGreaterThanOrEqual(3);
       expect(result.total).toBeLessThanOrEqual(18);
-      expect(result.total).toBe(
-        result.rolls.reduce((a, b) => a + b, 0) - result.dropped
-      );
+      expect(result.total).toBe(result.rolls.reduce((a, b) => a + b, 0) - result.dropped);
     }
   });
 });

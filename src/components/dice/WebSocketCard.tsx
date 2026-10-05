@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { Wifi } from 'lucide-react';
 
 export function WebSocketCard() {
@@ -11,10 +10,11 @@ export function WebSocketCard() {
         <span>Gotowość do WebSockets / Socket.io</span>
       </div>
       <p className="text-xs text-slate-400 leading-relaxed">
-        Struktura aplikacji została zorganizowana pod kątem natychmiastowej integracji Pusher/Socket.io dla trybu multiplayer graczy.
+        Struktura aplikacji została zorganizowana pod kątem natychmiastowej integracji
+        Pusher/Socket.io dla trybu multiplayer graczy.
       </p>
       <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-[11px] font-mono text-indigo-300 space-y-1">
-        <div>{"// Emisja zdarzenia rzutu kością:"}</div>
+        <div>{'// Emisja zdarzenia rzutu kością:'}</div>
         <div className="text-emerald-400">
           socket.emit(&apos;roll:broadcast&apos;, &#123; player, total &#125;)
         </div>

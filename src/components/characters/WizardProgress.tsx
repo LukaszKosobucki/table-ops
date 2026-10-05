@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { Sparkles } from 'lucide-react';
 
 interface WizardProgressProps {
@@ -15,7 +14,9 @@ export function WizardProgress({ currentStep }: WizardProgressProps) {
           <Sparkles className="w-5 h-5 text-indigo-400" />
           Kreator Wielokrokowy Postaci (Wizard)
         </h3>
-        <p className="text-xs text-slate-400">Wygeneruj czystą kartę postaci w 4 szybkich krokach.</p>
+        <p className="text-xs text-slate-400">
+          Wygeneruj czystą kartę postaci w 4 szybkich krokach.
+        </p>
       </div>
 
       {/* Steps Indicator */}
@@ -27,8 +28,8 @@ export function WizardProgress({ currentStep }: WizardProgressProps) {
               currentStep === s
                 ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30'
                 : currentStep > s
-                ? 'bg-emerald-950 text-emerald-400 border border-emerald-700'
-                : 'bg-slate-900 text-slate-500 border border-slate-800'
+                  ? 'bg-emerald-950 text-emerald-400 border border-emerald-700'
+                  : 'bg-slate-900 text-slate-500 border border-slate-800'
             }`}
           >
             {currentStep > s ? '✓' : s}

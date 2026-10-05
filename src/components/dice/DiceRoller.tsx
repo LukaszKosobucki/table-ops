@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
 import { Dices } from 'lucide-react';
-import { RollLog } from './types';
+import { useState } from 'react';
 import { ActiveRollDisplay } from './ActiveRollDisplay';
 import { DiceSelector } from './DiceSelector';
 import { RollHistory } from './RollHistory';
+import type { RollLog } from './types';
 import { WebSocketCard } from './WebSocketCard';
 
 export function DiceRoller() {

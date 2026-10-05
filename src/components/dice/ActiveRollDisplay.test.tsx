@@ -1,28 +1,17 @@
-import React from 'react';
-import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import { ActiveRollDisplay } from './ActiveRollDisplay';
 
 describe('ActiveRollDisplay Component', () => {
   it('renders default placeholder when activeRollResult is null', () => {
-    render(
-      <ActiveRollDisplay
-        isRolling={false}
-        activeRollResult={null}
-      />
-    );
+    render(<ActiveRollDisplay isRolling={false} activeRollResult={null} />);
 
     expect(screen.getByText('Wynik Ostatniego Rzutu')).toBeInTheDocument();
     expect(screen.getByText('--')).toBeInTheDocument();
   });
 
   it('renders the active roll result number', () => {
-    render(
-      <ActiveRollDisplay
-        isRolling={false}
-        activeRollResult={18}
-      />
-    );
+    render(<ActiveRollDisplay isRolling={false} activeRollResult={18} />);
 
     expect(screen.getByText('18')).toBeInTheDocument();
   });
@@ -70,12 +59,7 @@ describe('ActiveRollDisplay Component', () => {
   });
 
   it('applies blur/animation class while isRolling is true', () => {
-    render(
-      <ActiveRollDisplay
-        isRolling={true}
-        activeRollResult={15}
-      />
-    );
+    render(<ActiveRollDisplay isRolling={true} activeRollResult={15} />);
 
     const resultElement = screen.getByText('15');
     expect(resultElement.className).toContain('blur-[1px]');

@@ -1,8 +1,8 @@
 'use client';
 
-import React from 'react';
 import { Sparkles } from 'lucide-react';
-import { MonsterData } from '@/lib/monsters';
+import type React from 'react';
+import type { MonsterData } from '@/lib/monsters';
 
 interface HomebrewMonsterModalProps {
   isOpen: boolean;
@@ -50,7 +50,9 @@ export function HomebrewMonsterModal({
               <input
                 type="number"
                 value={monsterData.armorClass || 10}
-                onChange={(e) => onChangeMonster({ ...monsterData, armorClass: Number(e.target.value) })}
+                onChange={(e) =>
+                  onChangeMonster({ ...monsterData, armorClass: Number(e.target.value) })
+                }
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
               />
             </div>
@@ -60,7 +62,9 @@ export function HomebrewMonsterModal({
               <input
                 type="number"
                 value={monsterData.hitPoints || 10}
-                onChange={(e) => onChangeMonster({ ...monsterData, hitPoints: Number(e.target.value) })}
+                onChange={(e) =>
+                  onChangeMonster({ ...monsterData, hitPoints: Number(e.target.value) })
+                }
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-amber-500 font-mono"
               />
             </div>
@@ -81,7 +85,9 @@ export function HomebrewMonsterModal({
             </div>
 
             <div>
-              <label className="text-xs text-slate-400 mb-1 block">Typ (e.g. humanoid, dragon)</label>
+              <label className="text-xs text-slate-400 mb-1 block">
+                Typ (e.g. humanoid, dragon)
+              </label>
               <input
                 type="text"
                 value={monsterData.type || 'humanoid'}

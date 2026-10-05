@@ -1,8 +1,7 @@
 'use client';
 
-import React from 'react';
-import { Dices, ChevronLeft, ChevronRight } from 'lucide-react';
-import { CharacterStats } from './types';
+import { ChevronLeft, ChevronRight, Dices } from 'lucide-react';
+import type { CharacterStats } from './types';
 
 interface StepStatsProps {
   stats: CharacterStats;

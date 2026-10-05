@@ -1,14 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
 import { Award } from 'lucide-react';
-import { Character, CharacterStats, RACES, CLASSES } from './types';
+import { useState } from 'react';
 import { CharacterCard } from './CharacterCard';
-import { WizardProgress } from './WizardProgress';
+import { StepIdentity } from './StepIdentity';
 import { StepRaceClass } from './StepRaceClass';
 import { StepStats } from './StepStats';
-import { StepIdentity } from './StepIdentity';
 import { StepSummary } from './StepSummary';
+import { type Character, type CharacterStats, CLASSES, RACES } from './types';
+import { WizardProgress } from './WizardProgress';
 
 export function CharacterWizard() {
   const [createdCharacters, setCreatedCharacters] = useState<Character[]>([

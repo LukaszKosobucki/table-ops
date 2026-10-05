@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { CheckCircle2, ChevronLeft, Sparkles } from 'lucide-react';
 
 interface StepSummaryProps {
