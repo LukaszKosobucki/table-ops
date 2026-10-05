@@ -15,6 +15,8 @@ This repository defines guidelines and workflows for AI coding agents operating 
 The instructions below integrate the capabilities and principles of the active skill suite installed in `.agents/skills/`:
 - **`react-best-practices`**: Vercel engineering performance optimization guidelines
 - **`improve-codebase-architecture`**: Deep module design, locality, and architectural refactoring
+- **`tdd`**: Test-driven development (red-green loop, pre-agreed seams, vertical slicing, anti-pattern avoidance)
+- **`supabase` & `supabase-postgres-best-practices`**: Supabase client patterns, security, and PostgreSQL best practices
 - **`grill-me`**: Socratic pre-implementation stress-testing and decision trees
 - **`rtk`**: CLI proxy and token-conscious shell execution
 - **`caveman`**: Terse, high-density communication mode
@@ -65,7 +67,39 @@ Before writing non-trivial features, refactoring architecture, or changing the d
 
 ---
 
-## 3. React & Next.js Performance Standards (`react-best-practices`)
+## 3. Test-Driven Development (`tdd`)
+
+When building new features, business rules, or fixing bugs, apply the **Red → Green** loop:
+
+1. **The Red → Green Loop**:
+   - **Red before Green**: Write the failing test first, then write only enough code to pass it.
+   - Do not anticipate future tests or add speculative code.
+   - **One slice at a time**: Work in **vertical slices** (tracer bullets: one seam → one test → one minimal implementation → repeat) rather than writing bulk tests first (horizontal slicing).
+   - Refactoring belongs to the review stage, not during the red → green cycle.
+
+2. **Seams: Where Tests Go**:
+   - A **seam** is the public boundary tested: the interface where observable behavior is verified without reaching inside.
+   - **Test only at pre-agreed seams**: Confirm the public interface and seams before writing tests.
+   - Tests verify behavior through public interfaces, not implementation details. A good test reads like a specification (e.g., `"wizard calculates spell slots correctly for level 5"`) and survives refactors because it does not care about internal structure.
+
+3. **Mocking Boundaries**:
+   - Mock **only at external system boundaries**:
+     - External network APIs (e.g. D&D 5e SRD API, third-party endpoints).
+     - Time, clock, and randomness/dice seeds (when deterministic results are needed).
+   - **Never mock**:
+     - Internal collaborators, your own classes, domain entities, or anything you control.
+   - **Design for mockability**:
+     - Use dependency injection (pass external clients in).
+     - Prefer SDK-style interfaces over generic fetchers so mocks remain simple and single-purpose.
+
+4. **Anti-Patterns to Avoid**:
+   - **Implementation-coupled**: Mocking internal collaborators, testing private methods, or verifying via side channels (e.g. checking raw DB rows instead of public interface). Tell: test breaks when you refactor without behavior changes.
+   - **Tautological**: Assertion recomputes the expected value the same way the code does (`expect(add(a, b)).toBe(a + b)`). Expected values must come from an independent ground truth: known literals, D&D rules tables, or worked examples.
+   - **Horizontal slicing**: Writing all tests first, then implementation. Bulk tests verify imagined behavior rather than user-facing capabilities.
+
+---
+
+## 4. React & Next.js Performance Standards (`react-best-practices`)
 
 Follow Vercel's 70 performance rules prioritized by impact:
 
@@ -90,7 +124,7 @@ Follow Vercel's 70 performance rules prioritized by impact:
 
 ---
 
-## 4. Design & Styling System (`STYLEGUIDE.md`)
+## 5. Design & Styling System (`STYLEGUIDE.md`)
 
 - **Strict Token Adherence**:
   - NEVER hardcode arbitrary hex color values (e.g., `#6b21a8`, `#1e293b`) directly in component classes or inline styles.
@@ -105,7 +139,7 @@ Follow Vercel's 70 performance rules prioritized by impact:
 
 ---
 
-## 5. Token Efficiency & Shell Workflow (`rtk`)
+## 6. Token Efficiency & Shell Workflow (`rtk`)
 
 - **CLI Optimization**:
   - When executing shell exploration or repetitive status commands, leverage `rtk` wrappers when appropriate to filter noise and preserve context window tokens:
@@ -118,7 +152,7 @@ Follow Vercel's 70 performance rules prioritized by impact:
 
 ---
 
-## 6. Communication Style & Voice Modes (`caveman`)
+## 7. Communication Style & Voice Modes (`caveman`)
 
 - **Default Mode**:
   - Concise, professional, GitHub-flavored markdown.
@@ -132,10 +166,13 @@ Follow Vercel's 70 performance rules prioritized by impact:
 
 ---
 
-## 7. Verification & Quality Gates
+## 8. Verification & Quality Gates
 
 Before concluding any implementation task:
-1. **Lint Check**: Run `npm run lint` and ensure 0 errors.
-2. **Build Check**: Run `npm run build` to verify Turbopack and TypeScript type correctness.
-3. **Database & Schema**: Ensure Prisma schema changes are reflected with `npx prisma generate` and migrations.
-4. **Documentation**: Keep [`PLAN.md`](./PLAN.md) updated when tasks/chunks are completed.
+1. **Lint Check**: Run `npm run lint` and ensure 0 errors (Biome).
+2. **Unit & Integration Tests**: Run `npm test` and ensure all tests pass (Vitest).
+3. **E2E Tests**: Run `npm run test:e2e` when touching user-facing flows or navigation (Playwright).
+4. **Build Check**: Run `npm run build` to verify Turbopack and TypeScript type correctness.
+5. **Database & Schema**: Ensure Prisma schema changes are reflected with `npx prisma generate` and migrations.
+6. **Documentation**: Keep [`PLAN.md`](./PLAN.md) updated when tasks/chunks are completed.
+
