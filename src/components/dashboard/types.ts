@@ -48,5 +48,9 @@ export interface DashboardLog {
   createdAt: string | Date;
 }
 
-export type CenterWorkspaceView = 'combat' | 'character-inspect' | 'log-inspect';
+export type CenterWorkspaceView =
+  | 'combat'
+  | 'character-inspect'
+  | 'log-inspect'
+  | 'encounter-builder';
 export type MobileDashboardTab = 'party' | 'workspace' | 'timeline';

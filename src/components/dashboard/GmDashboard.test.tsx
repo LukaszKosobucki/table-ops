@@ -114,4 +114,23 @@ describe('GmDashboard Component (Chunk 2.2)', () => {
 
     expect(screen.getByTestId('dashboard-timeline-column')).not.toHaveClass('hidden');
   });
+
+  it('switches center workspace to encounter builder on tab click and allows returning', async () => {
+    const user = userEvent.setup();
+    render(<GmDashboard sessionId="ses-1" sessionName="Wrota Baldura" initialMonsters={[]} />);
+
+    // Click "Kreator Potyczek" tab in workspace column
+    const encounterTabBtn = screen.getByTestId('tab-encounter-builder');
+    await user.click(encounterTabBtn);
+
+    // Verify encounter builder header is visible
+    expect(screen.getByText(/Kreator Potyczek \(Encounter Builder\)/i)).toBeInTheDocument();
+
+    // Click back button
+    const backBtn = screen.getByTitle('Powrót do walki');
+    await user.click(backBtn);
+
+    // Verify returned to combat initiative tracker
+    expect(screen.getByText(/Kolejność Inicjatywy/i)).toBeInTheDocument();
+  });
 });

@@ -443,3 +443,56 @@ export function calculateEncounterDifficulty(
     thresholds,
   };
 }
+
+export const CR_TO_XP_TABLE: Record<number, number> = {
+  0: 10,
+  0.125: 25,
+  0.25: 50,
+  0.5: 100,
+  1: 200,
+  2: 450,
+  3: 700,
+  4: 1100,
+  5: 1800,
+  6: 2300,
+  7: 2900,
+  8: 3900,
+  9: 5000,
+  10: 5900,
+  11: 7200,
+  12: 8400,
+  13: 10000,
+  14: 11500,
+  15: 13000,
+  16: 15000,
+  17: 18000,
+  18: 20000,
+  19: 22000,
+  20: 25000,
+  21: 33000,
+  22: 41000,
+  23: 50000,
+  24: 62000,
+  30: 155000,
+};
+
+/**
+ * Returns the monster's XP value, falling back to standard D&D 5e CR conversion if needed.
+ */
+export function getMonsterXp(monster?: { xp?: number; challengeRating?: number }): number {
+  if (!monster) return 10;
+  if (monster.xp !== undefined && monster.xp > 0) return monster.xp;
+  if (monster.challengeRating !== undefined) {
+    const cr = monster.challengeRating;
+    if (CR_TO_XP_TABLE[cr] !== undefined) return CR_TO_XP_TABLE[cr];
+    const crKeys = Object.keys(CR_TO_XP_TABLE)
+      .map(Number)
+      .sort((a, b) => a - b);
+    let matched = 10;
+    for (const key of crKeys) {
+      if (cr >= key) matched = CR_TO_XP_TABLE[key];
+    }
+    return matched;
+  }
+  return 10;
+}

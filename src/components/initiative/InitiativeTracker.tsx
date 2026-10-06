@@ -1,6 +1,7 @@
 'use client';
 
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Skull } from 'lucide-react';
+import type React from 'react';
 import { useState } from 'react';
 import type { MonsterData } from '@/lib/monsters';
 import { AddCombatantsPanel } from './AddCombatantsPanel';
@@ -11,10 +12,18 @@ import type { Combatant } from './types';
 
 interface InitiativeTrackerProps {
   monsters: MonsterData[];
+  onOpenEncounterBuilder?: () => void;
+  combatants?: Combatant[];
+  onCombatantsChange?: React.Dispatch<React.SetStateAction<Combatant[]>>;
 }
 
-export function InitiativeTracker({ monsters }: InitiativeTrackerProps) {
-  const [combatants, setCombatants] = useState<Combatant[]>([
+export function InitiativeTracker({
+  monsters,
+  onOpenEncounterBuilder,
+  combatants: externalCombatants,
+  onCombatantsChange,
+}: InitiativeTrackerProps) {
+  const [internalCombatants, setInternalCombatants] = useState<Combatant[]>([
     {
       id: 'pc-1',
       name: 'Valerius (Paladyn)',
@@ -58,6 +67,9 @@ export function InitiativeTracker({ monsters }: InitiativeTrackerProps) {
       conditions: [],
     },
   ]);
+
+  const combatants = externalCombatants ?? internalCombatants;
+  const setCombatants = onCombatantsChange ?? setInternalCombatants;
 
   const [currentTurnIndex, setCurrentTurnIndex] = useState(0);
   const [round, setRound] = useState(1);
@@ -135,12 +147,27 @@ export function InitiativeTracker({ monsters }: InitiativeTrackerProps) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Combatant List */}
         <div className="lg:col-span-2 space-y-4">
-          <h3 className="text-lg font-bold text-slate-200 flex items-center justify-between">
-            <span>Kolejność Inicjatywy ({combatants.length})</span>
-            <span className="text-xs text-slate-400 font-normal">
-              Posortowane według inicjatywy (D20)
-            </span>
-          </h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <h3 className="text-lg font-bold text-slate-200">
+                Kolejność Inicjatywy ({combatants.length})
+              </h3>
+              <p className="text-xs text-slate-400 font-normal">
+                Posortowane według inicjatywy (D20)
+              </p>
+            </div>
+            {onOpenEncounterBuilder && (
+              <button
+                type="button"
+                data-testid="open-encounter-builder-btn"
+                onClick={onOpenEncounterBuilder}
+                className="px-3 py-1.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 hover:bg-indigo-500/20 text-indigo-400 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer self-start sm:self-auto"
+              >
+                <Skull className="w-3.5 h-3.5" />
+                <span>Zestawy Potyczek</span>
+              </button>
+            )}
+          </div>
 
           {combatants.length === 0 ? (
             <div className="glass-card rounded-2xl p-8 text-center text-slate-400">

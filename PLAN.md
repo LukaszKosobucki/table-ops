@@ -194,14 +194,19 @@ flowchart TD
   * [`src/app/api/encounters/encounters-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/encounters/encounters-api.test.ts): 10 testów integracyjnych endpointów REST.
   * Wszystkie 176 testów jednostkowych Vitest, 0 błędów Biome linter, czysty build Next.js/Turbopack oraz 9/9 testów E2E Playwright zielone.
 
-### Chunk 4.2: Frontend – Kreator Potyczek (Encounter Builder UI)
+### Chunk 4.2: Frontend – Kreator Potyczek (Encounter Builder UI) (✅ Zakończone)
 * **Frontend:**
-  * Widok w Środkowej Kolumnie:
-    * Przegląd gotowych zestawów potyczek z przyciskiem szybkiego startu ("Załaduj do Inicjatywy").
-    * Wyszukiwarka potworów zintegrowana z Bestiariuszem (dodawanie wielu kopii tego samego potwora np. "Goblin x4" z automatycznym numerowaniem "Goblin 1, Goblin 2...").
-    * Kalkulator trudności potyczki (Easy / Medium / Hard / Deadly) bazujący na łącznym XP i budżecie potyczki dla aktywnego poziomu drużyny graczy.
+  * Komponent [`src/components/encounters/EncounterBuilder.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/encounters/EncounterBuilder.tsx) zintegrowany ze Środkową Kolumną [`src/components/dashboard/GmDashboard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/GmDashboard.tsx):
+    * **Lista Zapisanych Zestawów:** przegląd zestawów potyczek dla sesji z podglądem składu grupy, łącznego bazowego XP, mnożnika oraz dynamicznego odznaczenia trudności (`DifficultyBadge`).
+    * **Szybki Start Walki:** przycisk *"Załaduj do Inicjatywy"*, który automatycznie przekształca potwory z grupy w ponumerowanych uczestników walki (np. *Goblin #1*, *Goblin #2*), losuje dla nich rzuty na inicjatywę z modyfikatorem Zręczności (D20 + DEX mod), dopisuje do kolejki i przełącza widok do walki.
+    * **Edytor i Wyszukiwarka Bestiariusza:** tworzenie i edycja zestawów, filtrowanie potworów po nazwie oraz klasie pancerza / CR (wszystkie, 0–1, 2–4, 5+), stepper liczebności potworów.
+    * **Kalkulator Trudności DMG na Żywo:** interaktywny licznik trudności potyczki (*Trywialna*, *Łatwa*, *Średnia*, *Trudna*, *Śmiertelna*) obliczany na żywo na podstawie sumy XP przeciwników, mnożnika liczebności potworów i progów doświadczenia aktywnej drużyny graczy.
+    * Zapis asynchroniczny (`POST /api/sessions/[id]/encounters` i `PUT /api/encounters/[id]`) oraz opcja natychmiastowego zapisu i przejścia do walki (*"Zapisz i Załaduj do Walki"*).
 * **Testowanie:**
-  * Test jednostkowy funkcji kalkulacji progu trudności spotkania wg reguł DMG (Dungeon Master's Guide).
+  * [`src/components/encounters/EncounterBuilder.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/encounters/EncounterBuilder.test.tsx): testy RTL renderowania podsumowania drużyny, ładowania zapisanych potyczek, kalkulacji trudności na żywo i zapisu potyczki.
+  * [`src/components/dashboard/GmDashboard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/GmDashboard.test.tsx): test przełączania widoku środkowej kolumny do Encounter Buildera i powrotu do trackera walki.
+  * [`e2e/initiative.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/initiative.spec.ts): test E2E Playwright weryfikujący nawigację do kreatora potyczek i powrót na żywej aplikacji.
+  * Wszystkie 183 testy jednostkowe Vitest (100% zielone), 0 błędów Biome, build Turbopack oraz 10/10 testów Playwright E2E zielone.
 
 ---
 

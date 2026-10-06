@@ -13,6 +13,7 @@ import {
   getAbilityModifier,
   getClassHitDie,
   getEncounterMultiplier,
+  getMonsterXp,
   modifySpellSlot,
   roll4d6DropLowest,
 } from './dnd-rules';
@@ -405,5 +406,28 @@ describe('dnd-rules - calculateEncounterDifficulty', () => {
     // Deadly: 450 adjusted XP
     const deadlyResult = calculateEncounterDifficulty([450], [1, 1, 1, 1]);
     expect(deadlyResult.difficulty).toBe('deadly');
+  });
+});
+
+describe('dnd-rules - getMonsterXp', () => {
+  it('returns explicit xp when provided and positive', () => {
+    expect(getMonsterXp({ xp: 450, challengeRating: 2 })).toBe(450);
+    expect(getMonsterXp({ xp: 50 })).toBe(50);
+  });
+
+  it('derives XP from CR when explicit xp is missing or zero', () => {
+    expect(getMonsterXp({ challengeRating: 0 })).toBe(10);
+    expect(getMonsterXp({ challengeRating: 0.125 })).toBe(25);
+    expect(getMonsterXp({ challengeRating: 0.25 })).toBe(50);
+    expect(getMonsterXp({ challengeRating: 0.5 })).toBe(100);
+    expect(getMonsterXp({ challengeRating: 1 })).toBe(200);
+    expect(getMonsterXp({ challengeRating: 2 })).toBe(450);
+    expect(getMonsterXp({ challengeRating: 3 })).toBe(700);
+    expect(getMonsterXp({ challengeRating: 5 })).toBe(1800);
+  });
+
+  it('handles empty or undefined monster input gracefully', () => {
+    expect(getMonsterXp(undefined)).toBe(10);
+    expect(getMonsterXp({})).toBe(10);
   });
 });

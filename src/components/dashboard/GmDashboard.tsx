@@ -1,8 +1,10 @@
 'use client';
 
-import { History, Sparkles, Swords, Users } from 'lucide-react';
+import { History, Skull, Sparkles, Swords, Users } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { EncounterBuilder } from '@/components/encounters/EncounterBuilder';
 import { InitiativeTracker } from '@/components/initiative/InitiativeTracker';
+import type { Combatant } from '@/components/initiative/types';
 import type { MonsterData } from '@/lib/monsters';
 import { CharacterInspectionCard } from './CharacterInspectionCard';
 import { LogInspectionCard } from './LogInspectionCard';
@@ -107,6 +109,59 @@ export function GmDashboard({
   const [gmNotes, setGmNotes] = useState(
     'Notatki GM-a: Gobliny czają się na lewej flance. Zwróć uwagę na pułapkę pod mostem.'
   );
+
+  const [combatants, setCombatants] = useState<Combatant[]>([
+    {
+      id: 'pc-1',
+      name: 'Valerius (Paladyn)',
+      initiative: 18,
+      currentHp: 28,
+      maxHp: 28,
+      ac: 18,
+      isMonster: false,
+      conditions: [],
+    },
+    {
+      id: 'pc-2',
+      name: 'Eldrin (Czarodziej)',
+      initiative: 14,
+      currentHp: 16,
+      maxHp: 16,
+      ac: 12,
+      isMonster: false,
+      conditions: [],
+    },
+    {
+      id: 'm-1',
+      name: 'Goblin Łucznik A',
+      initiative: 12,
+      currentHp: 7,
+      maxHp: 7,
+      ac: 15,
+      isMonster: true,
+      type: 'Goblin',
+      conditions: [],
+    },
+    {
+      id: 'm-2',
+      name: 'Goblin Wojownik B',
+      initiative: 9,
+      currentHp: 7,
+      maxHp: 7,
+      ac: 15,
+      isMonster: true,
+      type: 'Goblin',
+      conditions: [],
+    },
+  ]);
+
+  const handleLoadCombatants = (newCombatants: Combatant[]) => {
+    setCombatants((prev) => {
+      const combined = [...prev, ...newCombatants];
+      return combined.sort((a, b) => b.initiative - a.initiative);
+    });
+    setWorkspaceView('combat');
+  };
 
   const onCharactersLoadedRef = useRef(onCharactersLoaded);
   useEffect(() => {
@@ -271,8 +326,47 @@ export function GmDashboard({
             />
           ) : workspaceView === 'log-inspect' && selectedLog ? (
             <LogInspectionCard log={selectedLog} onBackToCombat={handleBackToCombat} />
+          ) : workspaceView === 'encounter-builder' ? (
+            <EncounterBuilder
+              sessionId={sessionId}
+              monsters={initialMonsters}
+              characters={characters}
+              onBackToCombat={handleBackToCombat}
+              onLoadCombatants={handleLoadCombatants}
+            />
           ) : (
-            <InitiativeTracker monsters={initialMonsters} />
+            <div className="space-y-4">
+              {/* Workspace Sub-tabs: Scena Walki | Kreator Potyczek */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 p-1 rounded-xl bg-slate-900 border border-slate-800">
+                  <button
+                    type="button"
+                    data-testid="tab-combat"
+                    onClick={() => setWorkspaceView('combat')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-indigo-600 text-white shadow-md shadow-indigo-600/30 cursor-pointer"
+                  >
+                    <Swords className="w-3.5 h-3.5" />
+                    <span>Scena Walki</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="tab-encounter-builder"
+                    onClick={() => setWorkspaceView('encounter-builder')}
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 text-slate-400 hover:text-slate-200 transition cursor-pointer"
+                  >
+                    <Skull className="w-3.5 h-3.5 text-amber-500" />
+                    <span>Kreator Potyczek</span>
+                  </button>
+                </div>
+              </div>
+
+              <InitiativeTracker
+                monsters={initialMonsters}
+                onOpenEncounterBuilder={() => setWorkspaceView('encounter-builder')}
+                combatants={combatants}
+                onCombatantsChange={setCombatants}
+              />
+            </div>
           )}
         </div>
 

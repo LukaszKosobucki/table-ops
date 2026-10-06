@@ -41,4 +41,23 @@ test.describe('Initiative Tracker Module', () => {
     // Verify new combatant appears in the list
     await expect(page.locator('text=Bohater Testowy')).toBeVisible();
   });
+
+  test('opens encounter builder and returns to combat scene', async ({ page }) => {
+    // Click "Kreator Potyczek" tab
+    const encounterBuilderTab = page.locator('button[data-testid="tab-encounter-builder"]');
+    await expect(encounterBuilderTab).toBeVisible();
+    await encounterBuilderTab.click();
+
+    // Verify encounter builder header is visible
+    await expect(page.locator('text=Kreator Potyczek (Encounter Builder)')).toBeVisible();
+    await expect(page.locator('text=Planowanie walki, kalkulator trudności DMG')).toBeVisible();
+
+    // Click back button
+    const backBtn = page.locator('button[title="Powrót do walki"]');
+    await backBtn.click();
+
+    // Verify returned to combat initiative tracker
+    await expect(page.locator('text=Runda 1')).toBeVisible();
+    await expect(page.locator('text=Kolejność Inicjatywy')).toBeVisible();
+  });
 });
