@@ -3,7 +3,6 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useState } from 'react';
 import type { MonsterData } from '@/lib/monsters';
-import { InitiativeTracker } from './initiative/InitiativeTracker';
 import { Footer } from './layout/Footer';
 import { Navbar } from './layout/Navbar';
 import type { SessionItem } from './sessions/types';
@@ -13,6 +12,13 @@ const SessionSelection = dynamic(
   () => import('./sessions/SessionSelection').then((mod) => mod.SessionSelection),
   {
     loading: () => <TabLoadingSkeleton title="Wybór Sesji" />,
+  }
+);
+
+const GmDashboard = dynamic(
+  () => import('./dashboard/GmDashboard').then((mod) => mod.GmDashboard),
+  {
+    loading: () => <TabLoadingSkeleton title="Główny Panel Sesji (Kokpit GM)" />,
   }
 );
 
@@ -281,7 +287,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto p-4 sm:p-6 lg:p-8">
         {/* Routing & Access Guard:
             Without an active session, ONLY the SessionSelection module is rendered.
             All other features (Combat Dashboard, Bestiary, Character Creator, Dice)
@@ -297,7 +303,13 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
           />
         ) : (
           <>
-            {activeTab === 'dashboard' && <InitiativeTracker monsters={initialMonsters} />}
+            {activeTab === 'dashboard' && (
+              <GmDashboard
+                sessionId={activeSession.id}
+                sessionName={activeSession.name}
+                initialMonsters={initialMonsters}
+              />
+            )}
             {activeTab === 'bestiary' && <Bestiary initialMonsters={initialMonsters} />}
             {activeTab === 'characters' && <CharacterWizard />}
             {activeTab === 'dice' && <DiceRoller />}

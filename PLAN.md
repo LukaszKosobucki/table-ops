@@ -119,15 +119,16 @@ flowchart TD
   * Testy integracyjne endpointu HTTP w [`src/app/api/sessions/[id]/full-state/full-state-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/[id]/full-state/full-state-api.test.ts).
   * Test wydajnościowy zapytania w pamięci (< 100ms) oraz pomyślna weryfikacja bezpośredniego odpytania bazy PostgreSQL Supabase.
 
-### Chunk 2.2: Frontend – Implementacja Układu 3-Kolumnowego
+### Chunk 2.2: Frontend – Implementacja Układu 3-Kolumnowego (✅ Zakończone)
 * **Frontend:**
-  * Refaktoryzacja [`src/components/MainDashboard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/MainDashboard.tsx) na układ gridowy:
-    * **Lewa Kolumna (Drużyna & NPC):** stała szerokość (~300px), kompaktowe karty postaci (Avatar/Inicjał, Pasek HP z kolorem wg stanu, AC, Pasywna Percepcja).
-    * **Środkowa Kolumna (Obszar Roboczy / Scena):** elastyczny kontener przełączany w zależności od kontekstu (Karta aktywnej postaci, Kreator postaci, Kreator potyczki, Aktywny Combat Tracker, Bestiariusz/Kompendium).
-    * **Prawa Kolumna (Oś Czasu & Notatki & Szybkie Rzuty):** skrót logów sesji, szybki dostęp do podręcznych rzutów kośćmi, notatki GM-a.
-  * Zapewnienie responsywności (na tabletach i mniejszych ekranach: składanie kolumn do bocznych drawerów lub zakładek).
+  * Refaktoryzacja [`src/components/MainDashboard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/MainDashboard.tsx) i implementacja orkiestratora [`src/components/dashboard/GmDashboard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/GmDashboard.tsx) z układem 3-kolumnowym (siatka 12-kolumnowa Tailwind):
+    * **Lewa Kolumna ([`src/components/dashboard/PartySidebar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/PartySidebar.tsx)):** stała szerokość (~300px), kompaktowe karty postaci (Avatar/Inicjał, Pasek HP z dynamicznym kolorem, wskaźniki witalności: Healthy, Bloodied, Critical z pulsem, Dead z czaszką 0 HP, AC z tarczą, Pasywna Percepcja z okiem). Kliknięcie karty otwiera podgląd postaci w centrum.
+    * **Środkowa Kolumna (Obszar Roboczy / Scena):** elastyczny kontener przełączany kontekstowo ([`src/components/dashboard/CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx) do LARPowania i cech postaci, [`src/components/dashboard/LogInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/LogInspectionCard.tsx) do szczegółów wpisów, oraz domyślny Tracker Inicjatywy [`src/components/initiative/InitiativeTracker.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/InitiativeTracker.tsx)).
+    * **Prawa Kolumna ([`src/components/dashboard/TimelineSidebar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/TimelineSidebar.tsx)):** chronologiczna oś czasu sesji z odznaczeniami typów zdarzeń, podręczny moduł rzutów kośćmi (d4, d6, d8, d10, d12, d20, d100) z natychmiastowym wynikiem oraz podręczne notatki GM-a.
+  * Zapewnienie pełnej responsywności: na ekranach mobilnych i tabletach (< lg) kolumny są składane do przełącznika zakładek (`[Drużyna]`, `[Scena Walki]`, `[Oś Czasu]`).
 * **Testowanie:**
-  * Test E2E Playwright: weryfikacja renderowania 3 kolumn na rozdzielczości Desktop (1920x1080) oraz poprawnego przełączania zakładek na widoku mobilnym (375x667).
+  * Testy jednostkowe w React Testing Library dla [`src/components/dashboard/PartySidebar.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/PartySidebar.test.tsx) oraz [`src/components/dashboard/GmDashboard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/GmDashboard.test.tsx) (84/84 testy zielone).
+  * Testy E2E Playwright ([`e2e/dashboard-3col.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/dashboard-3col.spec.ts)): weryfikacja renderowania 3 kolumn na rozdzielczości Desktop (1920x1080), interaktywnej inspekcji oraz poprawnego działania przełącznika mobilnego na widoku (375x667). Wszystkie 9 testów E2E zielone.
 
 ---
 
@@ -135,16 +136,20 @@ flowchart TD
 *User Stories:* [`user-stories-and-spec/user_stories_kreator_i_karty_postaci.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_kreator_i_karty_postaci.md)  
 *API Spec:* [`user-stories-and-spec/wymagania_crud_api.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/wymagania_crud_api.md) (Sekcja 2)
 
-### Chunk 3.1: Backend – Obsługa Postaci i Reguł SRD
+### Chunk 3.1: Backend – Obsługa Postaci i Reguł SRD ✅
+* **Status:** Zrealizowany i przetestowany.
 * **Backend:**
-  * `POST /api/characters`: walidacja i tworzenie postaci przypisanej do `sessionId`.
-  * `PUT /api/characters/[id]`: pełna edycja (zmiana poziomu, modyfikacja HP, slotów, ekwipunku).
-  * `PATCH /api/characters/[id]/hp`: błyskawiczna zmiana punktów życia (wsparcie dla obrażeń, leczenia i punktów tymczasowych `tempHp`).
-  * `PATCH /api/characters/[id]/slots`: zużycie / odnowienie komórki czaru.
-  * `DELETE /api/characters/[id]`: usunięcie postaci.
-  * Reguły D&D 5e w logice backendowej: automatyczne wyliczanie liczby slotów czarów wg tabeli klasowej (Czarodziej, Kleryk, Paladyn itp.) oraz kalkulacja modyfikatorów ze statystyk `(atrybut - 10) / 2`.
+  * Domena [`src/lib/characters.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/characters.ts): walidacja, kalkulacje D&D 5e, CRUD i mutacje HP/slotów.
+  * Reguły D&D 5e [`src/lib/dnd-rules.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.ts): kalkulator kości życia `getClassHitDie` (d12, d10, d8, d6), pełna macierz slotów czarów 1-20 `calculateSpellSlots` (Full Caster, Half Caster, Warlock Pact Magic), mechanika absorpcji obrażeń przez punkty tymczasowe `applyDamage`, leczenie `applyHealing`, reguła niestakowania `tempHp` `applyTempHp` oraz zarządzanie komórkami czarów `modifySpellSlot`.
+  * `POST /api/characters`: tworzenie i walidacja postaci przypisanej do sesji.
+  * `GET /api/characters/[id]`, `PUT /api/characters/[id]`, `DELETE /api/characters/[id]`: pełny CRUD pojedynczej postaci.
+  * `PATCH /api/characters/[id]/hp`: szybka mutacja HP (obrażenia, leczenie, punkty tymczasowe, format delta).
+  * `PATCH /api/characters/[id]/slots`: używanie, odzyskiwanie i ustawianie slotów czarów.
+  * `GET /api/sessions/[id]/characters`, `POST /api/sessions/[id]/characters`: operacje na postaciach w kontekście sesji.
 * **Testowanie:**
-  * Testy jednostkowe funkcji obliczających modyfikatory i sloty czarów dla poziomów 1-20.
+  * [`src/lib/dnd-rules.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.test.ts) (19 testów jednostkowych reguł SRD).
+  * [`src/lib/characters.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/characters.test.ts) (21 testów jednostkowych serwisu postaci).
+  * [`src/app/api/characters/characters-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/characters/characters-api.test.ts) (15 testów integracyjnych endpointów REST).
 
 ### Chunk 3.2: Frontend – Kreator Postaci (Krok po Kroku) & Szybka Karta
 * **Frontend ([`src/components/characters/`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/)):**
