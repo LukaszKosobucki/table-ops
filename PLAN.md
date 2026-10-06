@@ -175,14 +175,24 @@ flowchart TD
 *User Stories:* [`user-stories-and-spec/user_stories_zarzadzanie_potyczkami.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_zarzadzanie_potyczkami.md)  
 *API Spec:* [`user-stories-and-spec/wymagania_crud_api.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/wymagania_crud_api.md) (Sekcja 3)
 
-### Chunk 4.1: Backend – Modelowanie i Zapis Grup Potyczkowych
+### Chunk 4.1: Backend – Modelowanie i Zapis Grup Potyczkowych (✅ Zakończone)
 * **Backend:**
-  * Endpoint `GET /api/sessions/[id]/encounters`: lista zdefiniowanych grup dla sesji.
-  * Endpoint `POST /api/sessions/[id]/encounters`: tworzenie grupy (np. "Zasadzka Goblinów w lesie") zawierającej przypisanych bohaterów oraz listę potworów z Bestiariusza wraz z ich liczebnością.
-  * Endpoint `PUT /api/encounters/[id]`: edycja składu grupy.
-  * Endpoint `DELETE /api/encounters/[id]`: usunięcie grupy.
+  * Domena [`src/lib/encounters.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/encounters.ts): walidacja danych wejściowych `validateEncounterInput`, operacje pobierania `getEncountersBySession` i `getEncounterById`, tworzenie grup potyczkowych `createEncounter`, atomowa wymiana członków grupy w transakcji `updateEncounter` oraz usuwanie `deleteEncounter`.
+  * Reguły D&D 5e w [`src/lib/dnd-rules.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.ts):
+    * Progi doświadczenia drużyny DMG `calculatePartyXpThresholds` (Easy, Medium, Hard, Deadly dla poziomów 1-20).
+    * Mnożnik spotkania DMG `getEncounterMultiplier` uwzględniający liczbę potworów oraz korektę na wielkość drużyny (< 3 bohaterów lub >= 6 bohaterów).
+    * Kompleksowy ewaluator trudności `calculateEncounterDifficulty` zwracający sumaryczne XP, skorygowane XP, mnożnik, progi punktowe i wyliczony poziom trudności (`trivial`, `easy`, `medium`, `hard`, `deadly`).
+  * Endpoint `GET /api/sessions/[id]/encounters`: lista grup potyczkowych dla danej sesji ze złączonymi relacjami potworów i bohaterów.
+  * Endpoint `POST /api/sessions/[id]/encounters`: tworzenie nowej grupy potyczkowej w kontekście sesji.
+  * Endpoint `POST /api/encounters`: top-level endpoint tworzenia grupy potyczkowej.
+  * Endpoint `GET /api/encounters/[id]`: szczegóły pojedynczej grupy potyczkowej wraz z członkami.
+  * Endpoint `PUT /api/encounters/[id]`: atomowa aktualizacja nazwy oraz wymiana członków potyczki w transakcji `$transaction`.
+  * Endpoint `DELETE /api/encounters/[id]`: usunięcie grupy potyczkowej (kaskadowe usunięcie członków w Prisma).
 * **Testowanie:**
-  * Testy integracyjne Prisma: weryfikacja kaskadowego zapisu `EncounterMember` powiązanych z `EncounterGroup`.
+  * [`src/lib/dnd-rules.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.test.ts): 31 testów reguł D&D (w tym testy progów XP i kalkulatora trudności potyczek).
+  * [`src/lib/encounters.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/encounters.test.ts): 14 testów jednostkowych logiki domenowej, walidacji i atomowych transakcji.
+  * [`src/app/api/encounters/encounters-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/encounters/encounters-api.test.ts): 10 testów integracyjnych endpointów REST.
+  * Wszystkie 176 testów jednostkowych Vitest, 0 błędów Biome linter, czysty build Next.js/Turbopack oraz 9/9 testów E2E Playwright zielone.
 
 ### Chunk 4.2: Frontend – Kreator Potyczek (Encounter Builder UI)
 * **Frontend:**

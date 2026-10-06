@@ -3,13 +3,16 @@ import {
   applyDamage,
   applyHealing,
   applyTempHp,
+  calculateEncounterDifficulty,
   calculateMaxHp,
+  calculatePartyXpThresholds,
   calculatePassivePerception,
   calculateSpellSlots,
   calculateUnarmoredAc,
   formatModifier,
   getAbilityModifier,
   getClassHitDie,
+  getEncounterMultiplier,
   modifySpellSlot,
   roll4d6DropLowest,
 } from './dnd-rules';
@@ -286,5 +289,121 @@ describe('dnd-rules - modifySpellSlot', () => {
     // Explicit set
     const explicit = modifySpellSlot(initialSlots, 1, 'set', 3);
     expect(explicit[1].used).toBe(3);
+  });
+});
+
+describe('dnd-rules - calculatePartyXpThresholds', () => {
+  it('returns zeroes for empty party', () => {
+    expect(calculatePartyXpThresholds([])).toEqual({
+      easy: 0,
+      medium: 0,
+      hard: 0,
+      deadly: 0,
+    });
+  });
+
+  it('calculates thresholds for a single character (level 1)', () => {
+    // Level 1 DMG p. 82: Easy 25, Medium 50, Hard 75, Deadly 100
+    expect(calculatePartyXpThresholds([1])).toEqual({
+      easy: 25,
+      medium: 50,
+      hard: 75,
+      deadly: 100,
+    });
+  });
+
+  it('aggregates thresholds for a standard 4-person party of level 3 adventurers', () => {
+    // Level 3 per character: Easy 75, Medium 150, Hard 225, Deadly 400
+    // Party of 4: 300, 600, 900, 1600
+    expect(calculatePartyXpThresholds([3, 3, 3, 3])).toEqual({
+      easy: 300,
+      medium: 600,
+      hard: 900,
+      deadly: 1600,
+    });
+  });
+
+  it('correctly aggregates mixed level party', () => {
+    // L1 (25, 50, 75, 100) + L5 (250, 500, 750, 1100) = 275, 550, 825, 1200
+    expect(calculatePartyXpThresholds([1, 5])).toEqual({
+      easy: 275,
+      medium: 550,
+      hard: 825,
+      deadly: 1200,
+    });
+  });
+});
+
+describe('dnd-rules - getEncounterMultiplier', () => {
+  it('returns standard DMG multipliers for 3-5 person party', () => {
+    expect(getEncounterMultiplier(1, 4)).toBe(1);
+    expect(getEncounterMultiplier(2, 4)).toBe(1.5);
+    expect(getEncounterMultiplier(3, 4)).toBe(2);
+    expect(getEncounterMultiplier(6, 4)).toBe(2);
+    expect(getEncounterMultiplier(7, 4)).toBe(2.5);
+    expect(getEncounterMultiplier(10, 4)).toBe(2.5);
+    expect(getEncounterMultiplier(11, 4)).toBe(3);
+    expect(getEncounterMultiplier(14, 4)).toBe(3);
+    expect(getEncounterMultiplier(15, 4)).toBe(4);
+  });
+
+  it('adjusts multiplier up for small parties (< 3 characters)', () => {
+    // 1 monster normally 1x -> becomes 1.5x
+    expect(getEncounterMultiplier(1, 2)).toBe(1.5);
+    // 2 monsters normally 1.5x -> becomes 2x
+    expect(getEncounterMultiplier(2, 2)).toBe(2);
+  });
+
+  it('adjusts multiplier down for large parties (>= 6 characters)', () => {
+    // 2 monsters normally 1.5x -> becomes 1x
+    expect(getEncounterMultiplier(2, 6)).toBe(1);
+    // 1 monster normally 1x -> becomes 0.5x
+    expect(getEncounterMultiplier(1, 6)).toBe(0.5);
+  });
+
+  it('handles 0 monsters gracefully', () => {
+    expect(getEncounterMultiplier(0, 4)).toBe(1);
+  });
+});
+
+describe('dnd-rules - calculateEncounterDifficulty', () => {
+  it('identifies trivial encounter when adjusted XP is below easy threshold', () => {
+    // Party: 4x lvl 1 (easy=100, medium=200, hard=300, deadly=400)
+    // Monster: 1x 50 XP (adjusted XP = 50)
+    const result = calculateEncounterDifficulty([50], [1, 1, 1, 1]);
+    expect(result.difficulty).toBe('trivial');
+    expect(result.totalXp).toBe(50);
+    expect(result.adjustedXp).toBe(50);
+    expect(result.multiplier).toBe(1);
+  });
+
+  it('identifies easy encounter when adjusted XP is between easy and medium', () => {
+    // Party: 4x lvl 1 (easy=100, medium=200)
+    // Monster: 1x 100 XP (adjusted XP = 100)
+    const result = calculateEncounterDifficulty([100], [1, 1, 1, 1]);
+    expect(result.difficulty).toBe('easy');
+    expect(result.adjustedXp).toBe(100);
+  });
+
+  it('identifies medium encounter with multiple monsters applying multiplier', () => {
+    // Party: 4x lvl 1 (easy=100, med=200, hard=300, deadly=400)
+    // Monsters: 2x 75 XP = 150 base XP. Multiplier for 2 monsters = 1.5 => 225 adjusted XP
+    // 225 is >= medium (200) and < hard (300)
+    const result = calculateEncounterDifficulty([75, 75], [1, 1, 1, 1]);
+    expect(result.totalXp).toBe(150);
+    expect(result.multiplier).toBe(1.5);
+    expect(result.adjustedXp).toBe(225);
+    expect(result.difficulty).toBe('medium');
+  });
+
+  it('identifies hard and deadly encounters accurately', () => {
+    // Party: 4x lvl 1 (hard=300, deadly=400)
+    // Hard: 350 adjusted XP
+    const hardResult = calculateEncounterDifficulty([350], [1, 1, 1, 1]);
+    expect(hardResult.difficulty).toBe('hard');
+
+    // Deadly: 450 adjusted XP
+    const deadlyResult = calculateEncounterDifficulty([450], [1, 1, 1, 1]);
+    expect(deadlyResult.difficulty).toBe('deadly');
   });
 });
