@@ -214,18 +214,28 @@ flowchart TD
 *User Stories:* [`user-stories-and-spec/user_stories_aktywna_walka_i_tracker_tur.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_aktywna_walka_i_tracker_tur.md)  
 *API Spec:* [`user-stories-and-spec/wymagania_crud_api.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/wymagania_crud_api.md) (Sekcja 4)
 
-### Chunk 5.1: Backend – Maszyna Stanu Walki i Endpointy Akcji
+### Chunk 5.1: Backend – Maszyna Stanu Walki i Endpointy Akcji (✅ Zakończone)
 * **Backend:**
-  * `POST /api/combat/start`: utworzenie aktywnej walki, przypisanie combatantów, posortowanie wg rzutów na inicjatywę (`initiative DESC`, tie-breaker: DEX mod).
-  * `POST /api/combat/[id]/next-turn`: przejście do kolejnego uczestnika:
-    * Zwiększenie `currentTurnIndex`.
-    * Przy przejściu pełnego cyklu: zwiększenie `currentRound` o 1.
-    * Automatyczne dekrementowanie czasu trwania aktywnych statusów (`durationTurns - 1`) i usuwanie wygasłych.
-  * `POST /api/combat/[id]/combatants`: dynamiczne dodanie uczestnika w trakcie trwania walki (np. posiłki).
-  * `PATCH /api/combat/[id]/combatants/[combatant_id]/status`: nałożenie statusu (np. "Otruty" na 2 rundy).
-  * `POST /api/combat/[id]/end`: zakończenie walki, automatyczna synchronizacja odniesionych obrażeń bohaterów do głównej tabeli `characters`, utworzenie wpisu w historii sesji (`sessionLogs`).
+  * Domena [`src/lib/combat.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/combat.ts):
+    * `startCombat`: utworzenie instancji walki, walidacja sesji, posortowanie uczestników wg inicjatywy (`initiative DESC`), przypisanie kolejności (`order: 0, 1, 2...`) i utworzenie wpisu w logach sesji.
+    * `nextTurn`: maszyna cyklu tur – inkrementacja `currentTurnIndex`, przejście do nowej rundy (`currentRound + 1`) przy końcu kolejki, automatyczne dekrementowanie czasu trwania aktywnych statusów (`durationTurns - 1`) i usuwanie wygasłych (`durationTurns <= 0`), generowanie wpisu w historii sesji (`COMBAT_ACTION`).
+    * `addCombatantToCombat`: dynamiczne dodanie uczestnika w trakcie walki (posiłki).
+    * `applyStatusToCombatant` i `removeStatusFromCombatant`: nakładanie statusów czasowych z czasem trwania w turach oraz ich usuwanie.
+    * `updateCombatantHp`: modyfikacja HP uczestnika z ograniczeniem do przedziału `0` do `maxHp`.
+    * `endCombat`: zakończenie walki (`status: FINISHED`, `endedAt`), automatyczna synchronizacja odniesionych obrażeń bohaterów graczy do głównej tabeli `characters` i utworzenie wpisu `COMBAT_END`.
+  * REST Route Handlers:
+    * `POST /api/combat/start`: rozpoczęcie nowej walki.
+    * `GET /api/combat/[id]`: pobranie stanu walki ze złączonymi uczestnikami, statusami, potworami i postaciami.
+    * `POST /api/combat/[id]/next-turn`: przejście do kolejnej tury.
+    * `POST /api/combat/[id]/combatants`: dodanie uczestnika do walki.
+    * `PATCH /api/combat/[id]/combatants/[combatantId]`: aktualizacja HP uczestnika.
+    * `POST /api/combat/[id]/combatants/[combatantId]/status`: nałożenie statusu.
+    * `DELETE /api/combat/[id]/combatants/[combatantId]/status/[statusId]`: usunięcie statusu.
+    * `POST /api/combat/[id]/end`: zakończenie walki i synchronizacja postaci.
 * **Testowanie:**
-  * Testy logiki kolejki tur: weryfikacja zachowania licznika rund, wygasania statusów i synchronizacji HP po zakończeniu walki.
+  * [`src/lib/combat.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/combat.test.ts): 11 testów jednostkowych maszyny stanu walki, cyklu tur, wygasania statusów, dynamicznych posiłków i synchronizacji HP.
+  * [`src/app/api/combat/combat-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/combat/combat-api.test.ts): 10 testów integracyjnych endpointów REST.
+  * Wszystkie 204 testy jednostkowe Vitest (100% zielone), 0 błędów Biome, czysty build Turbopack oraz 10/10 testów Playwright E2E zielone.
 
 ### Chunk 5.2: Frontend – Interfejs Śledzenia Walki (Combat View)
 * **Frontend ([`src/components/initiative/`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/)):**
