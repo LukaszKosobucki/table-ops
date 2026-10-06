@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createSession,
   deleteSession,
+  getSessionFullState,
   getSessions,
   type SessionPrismaClient,
   updateSession,
@@ -210,6 +211,223 @@ describe('Sessions Service (Chunk 1.1)', () => {
 
       expect(result).toBeNull();
       expect(mockPrisma.session.delete).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getSessionFullState (Chunk 2.1)', () => {
+    it('returns null if session is not found', async () => {
+      const mockPrisma = {
+        session: {
+          findUnique: vi.fn().mockResolvedValue(null),
+        },
+      };
+
+      const result = await getSessionFullState(
+        'missing-session',
+        mockPrisma as unknown as SessionPrismaClient
+      );
+
+      expect(result).toBeNull();
+      expect(mockPrisma.session.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'missing-session' },
+        })
+      );
+    });
+
+    it('returns aggregated state with active combat and sorted items', async () => {
+      const mockDbSession = {
+        id: 'ses-1',
+        name: 'Kampania Ravenloft',
+        createdAt: new Date('2026-03-01T12:00:00Z'),
+        updatedAt: new Date('2026-03-01T14:00:00Z'),
+        characters: [
+          {
+            id: 'char-1',
+            sessionId: 'ses-1',
+            name: 'Gimli',
+            type: 'HERO',
+            currentHp: 24,
+            maxHp: 24,
+            ac: 16,
+            passivePerception: 12,
+          },
+        ],
+        encounterGroups: [
+          {
+            id: 'grp-1',
+            sessionId: 'ses-1',
+            name: 'Wilcza Wataha',
+            members: [
+              {
+                id: 'mem-1',
+                groupId: 'grp-1',
+                monsterId: 'mon-1',
+                count: 3,
+                monster: { id: 'mon-1', name: 'Wolf', hitPoints: 11 },
+                character: null,
+              },
+            ],
+          },
+        ],
+        combats: [
+          {
+            id: 'comb-1',
+            sessionId: 'ses-1',
+            status: 'ACTIVE',
+            currentRound: 2,
+            currentTurnIndex: 1,
+            combatants: [
+              {
+                id: 'cbt-1',
+                combatId: 'comb-1',
+                nameOverride: null,
+                initiative: 18,
+                currentHp: 24,
+                maxHp: 24,
+                ac: 16,
+                order: 0,
+                statuses: [
+                  {
+                    id: 'st-1',
+                    combatantId: 'cbt-1',
+                    statusName: 'Blessed',
+                    durationTurns: 5,
+                  },
+                ],
+                monster: null,
+                character: { id: 'char-1', name: 'Gimli' },
+              },
+            ],
+          },
+        ],
+        sessionLogs: [
+          {
+            id: 'log-1',
+            sessionId: 'ses-1',
+            logType: 'COMBAT_ACTION',
+            description: 'Gimli zaatakował Wilka toporem.',
+            createdAt: new Date('2026-03-01T13:45:00Z'),
+          },
+        ],
+      };
+
+      const mockPrisma = {
+        session: {
+          findUnique: vi.fn().mockResolvedValue(mockDbSession),
+        },
+      };
+
+      const result = await getSessionFullState(
+        'ses-1',
+        mockPrisma as unknown as SessionPrismaClient
+      );
+
+      expect(result).not.toBeNull();
+      expect(result).toEqual({
+        session: {
+          id: 'ses-1',
+          name: 'Kampania Ravenloft',
+          createdAt: mockDbSession.createdAt,
+          updatedAt: mockDbSession.updatedAt,
+        },
+        characters: mockDbSession.characters,
+        encounterGroups: mockDbSession.encounterGroups,
+        activeCombat: mockDbSession.combats[0],
+        sessionLogs: mockDbSession.sessionLogs,
+      });
+
+      expect(mockPrisma.session.findUnique).toHaveBeenCalledWith({
+        where: { id: 'ses-1' },
+        include: {
+          characters: {
+            orderBy: { createdAt: 'asc' },
+          },
+          encounterGroups: {
+            orderBy: { createdAt: 'asc' },
+            include: {
+              members: {
+                include: {
+                  monster: true,
+                  character: true,
+                },
+              },
+            },
+          },
+          combats: {
+            where: {
+              status: { in: ['PREPARING', 'ACTIVE'] },
+            },
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            include: {
+              combatants: {
+                orderBy: { order: 'asc' },
+                include: {
+                  statuses: true,
+                  monster: true,
+                  character: true,
+                },
+              },
+            },
+          },
+          sessionLogs: {
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+          },
+        },
+      });
+    });
+
+    it('sets activeCombat to null if no combat is active or preparing', async () => {
+      const mockDbSession = {
+        id: 'ses-1',
+        name: 'Spokojna Sesja',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        characters: [],
+        encounterGroups: [],
+        combats: [],
+        sessionLogs: [],
+      };
+
+      const mockPrisma = {
+        session: {
+          findUnique: vi.fn().mockResolvedValue(mockDbSession),
+        },
+      };
+
+      const result = await getSessionFullState(
+        'ses-1',
+        mockPrisma as unknown as SessionPrismaClient
+      );
+
+      expect(result?.activeCombat).toBeNull();
+    });
+
+    it('executes in under 100ms when querying full state structure', async () => {
+      const mockDbSession = {
+        id: 'ses-1',
+        name: 'Szybka Sesja',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        characters: [],
+        encounterGroups: [],
+        combats: [],
+        sessionLogs: [],
+      };
+
+      const mockPrisma = {
+        session: {
+          findUnique: vi.fn().mockResolvedValue(mockDbSession),
+        },
+      };
+
+      const startTime = performance.now();
+      await getSessionFullState('ses-1', mockPrisma as unknown as SessionPrismaClient);
+      const executionDuration = performance.now() - startTime;
+
+      expect(executionDuration).toBeLessThan(100);
     });
   });
 });

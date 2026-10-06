@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { ensureSessionSelected } from './helpers';
 
 test.describe('Bestiary Module', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await ensureSessionSelected(page);
     await page.click('button:has-text("Bestiariusz")');
     await expect(page.locator('text=Kompendium Bestiariusza')).toBeVisible();
   });

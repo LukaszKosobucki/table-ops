@@ -1,5 +1,14 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
+
+if (!process.env.DATABASE_URL && typeof process.loadEnvFile === 'function') {
+  const envLocalPath = resolve(process.cwd(), '.env.local');
+  if (existsSync(envLocalPath)) {
+    process.loadEnvFile(envLocalPath);
+  }
+}
 
 const connectionString =
   process.env.DATABASE_URL ||

@@ -3,8 +3,14 @@ import path from 'node:path';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '@prisma/client';
 
+const envLocalPath = path.resolve(process.cwd(), '.env.local');
+if (fs.existsSync(envLocalPath) && typeof process.loadEnvFile === 'function') {
+  process.loadEnvFile(envLocalPath);
+}
+
 const connectionString =
   process.env.DATABASE_URL ||
+  process.env.DIRECT_URL ||
   'postgresql://postgres:postgres@localhost:5432/tableops?schema=public';
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });

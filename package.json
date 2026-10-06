@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "prisma generate && prisma migrate deploy && next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
@@ -17,6 +17,7 @@
     "test:e2e:ui": "playwright test --ui",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
+    "db:migrate": "prisma migrate deploy",
     "seed:dnd": "tsx scripts/seed-dnd.ts",
     "postinstall": "prisma generate"
   },

@@ -104,16 +104,20 @@ flowchart TD
 *User Stories:* [`user-stories-and-spec/user_stories_3_kolumnowy_kokpit_gm.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_3_kolumnowy_kokpit_gm.md)  
 *API Spec:* [`user-stories-and-spec/wymagania_crud_api.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/wymagania_crud_api.md) (Sekcja 7)
 
-### Chunk 2.1: Backend – Full State Aggregator API
+### Chunk 2.1: Backend – Full State Aggregator API (✅ Zakończone)
 * **Backend:**
   * Endpoint `GET /api/sessions/[id]/full-state` zwracający w jednym zapytaniu:
-    * Dane sesji.
-    * Listę bohaterów i NPC (`characters`).
-    * Zdefiniowane grupy potyczkowe (`encounterGroups`).
-    * Aktywną walkę (jeśli istnieje) wraz z uczestnikami (`combatants`) i ich statusami.
-    * Ostatnie 20 wpisów z osi czasu sesji (`sessionLogs`).
+    * Dane sesji (`session`).
+    * Listę bohaterów i NPC (`characters`, posortowane po `createdAt ASC`).
+    * Zdefiniowane grupy potyczkowe (`encounterGroups`) wraz z członkami (`members`) oraz powiązanymi danymi bestiariusza (`monster`) i bohaterów (`character`).
+    * Aktywną walkę (`activeCombat`) ze statusem `PREPARING` lub `ACTIVE` wraz z uczestnikami (`combatants`, posortowane po `order ASC`) i ich statusami (`statuses`).
+    * Ostatnie 20 wpisów z osi czasu sesji (`sessionLogs`, posortowane po `createdAt DESC`).
+  * Funkcja domenowa `getSessionFullState` w [`src/lib/sessions.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/sessions.ts) z pojedynczym zapytaniem `prisma.session.findUnique({ include: { ... } })`.
+  * Endpoint `GET /api/sessions/[id]/full-state` w [`src/app/api/sessions/[id]/full-state/route.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/[id]/full-state/route.ts) z obsługą kodów 200, 400, 404 i 500.
 * **Testowanie:**
-  * Test wydajnościowy: weryfikacja czy zapytanie agregujące wykonuje się < 100ms przy użyciu `prisma.session.findUnique({ include: { ... } })`.
+  * Testy jednostkowe funkcji domenowej i struktury zapytań w [`src/lib/sessions.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/sessions.test.ts).
+  * Testy integracyjne endpointu HTTP w [`src/app/api/sessions/[id]/full-state/full-state-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/[id]/full-state/full-state-api.test.ts).
+  * Test wydajnościowy zapytania w pamięci (< 100ms) oraz pomyślna weryfikacja bezpośredniego odpytania bazy PostgreSQL Supabase.
 
 ### Chunk 2.2: Frontend – Implementacja Układu 3-Kolumnowego
 * **Frontend:**

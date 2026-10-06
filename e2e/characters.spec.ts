@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { ensureSessionSelected } from './helpers';
 
 test.describe('Character Wizard Module', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await ensureSessionSelected(page);
     await page.click('button:has-text("Kreator i Karty Postaci")');
     await expect(page.locator('text=Karty Postaci Graczy')).toBeVisible();
   });

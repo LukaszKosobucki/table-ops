@@ -129,3 +129,68 @@ export async function deleteSession(id: string, client: SessionPrismaClient = de
     where: { id },
   });
 }
+
+/**
+ * Returns full state of a session for dashboard initialization:
+ * - Session details
+ * - Characters and NPCs
+ * - Encounter groups with member details
+ * - Active combat (PREPARING or ACTIVE) with combatants and statuses
+ * - Recent 20 session logs
+ */
+export async function getSessionFullState(id: string, client: SessionPrismaClient = defaultPrisma) {
+  const session = await client.session.findUnique({
+    where: { id },
+    include: {
+      characters: {
+        orderBy: { createdAt: 'asc' },
+      },
+      encounterGroups: {
+        orderBy: { createdAt: 'asc' },
+        include: {
+          members: {
+            include: {
+              monster: true,
+              character: true,
+            },
+          },
+        },
+      },
+      combats: {
+        where: {
+          status: { in: ['PREPARING', 'ACTIVE'] },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: 1,
+        include: {
+          combatants: {
+            orderBy: { order: 'asc' },
+            include: {
+              statuses: true,
+              monster: true,
+              character: true,
+            },
+          },
+        },
+      },
+      sessionLogs: {
+        orderBy: { createdAt: 'desc' },
+        take: 20,
+      },
+    },
+  });
+
+  if (!session) {
+    return null;
+  }
+
+  const { combats, characters, encounterGroups, sessionLogs, ...sessionMeta } = session;
+
+  return {
+    session: sessionMeta,
+    characters,
+    encounterGroups,
+    activeCombat: combats[0] ?? null,
+    sessionLogs,
+  };
+}

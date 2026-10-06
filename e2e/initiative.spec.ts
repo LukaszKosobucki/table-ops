@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
+import { ensureSessionSelected } from './helpers';
 
 test.describe('Initiative Tracker Module', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await ensureSessionSelected(page);
+    await page.click('button:has-text("Ekran Prowadzenia (GM)")');
   });
 
   test('displays combatants and allows advancing turns', async ({ page }) => {

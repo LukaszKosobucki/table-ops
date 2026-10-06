@@ -1,8 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { ensureSessionSelected } from './helpers';
 
 test.describe('Dice Roller Module', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await ensureSessionSelected(page);
     await page.click('button:has-text("Kości i Real-time")');
     await expect(page.locator('text=Wirtualny Symulator Rzutów Kośćmi')).toBeVisible();
   });
