@@ -151,16 +151,23 @@ flowchart TD
   * [`src/lib/characters.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/characters.test.ts) (21 testów jednostkowych serwisu postaci).
   * [`src/app/api/characters/characters-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/characters/characters-api.test.ts) (15 testów integracyjnych endpointów REST).
 
-### Chunk 3.2: Frontend – Kreator Postaci (Krok po Kroku) & Szybka Karta
+### Chunk 3.2: Frontend – Kreator Postaci (Krok po Kroku) & Szybka Karta (✅ Zakończone)
 * **Frontend ([`src/components/characters/`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/)):**
-  * Wielokrokowy wizard tworzenia bohatera:
-    * Krok 1: Tożsamość (Imię, Rasa, Klasa, Poziom, Typ: Bohater/NPC).
-    * Krok 2: Statystyki (Standard Array: 15, 14, 13, 12, 10, 8 lub rzut kośćmi 4d6 drop lowest).
-    * Krok 3: Pancerz i Życie (Kalkulacja bazowego HP wg kości k10/k8/k6/k12 + MOD Kondycji).
-    * Krok 4: Magia (Wybór przygotowanych czarów wg poziomu postaci).
-  * Rozbudowana Karta Postaci w Środkowej Kolumnie: interaktywne paski życia z animacją, klikalne sloty czarów (zaznaczanie zużycia kropkami), rzuty na atrybuty i rzuty obronne.
+  * Wielokrokowy wizard tworzenia bohatera i NPC:
+    * Krok 1: Tożsamość (Imię, Rasa, Klasa, Poziom, Typ: Bohater/NPC, wskazówki odgrywania LARP dla MG).
+    * Krok 2: Statystyki (Standard Array: 15, 14, 13, 12, 10, 8 lub rzut kośćmi 4d6 drop lowest via `roll4d6DropLowest`).
+    * Krok 3: Pancerz i Życie (automatyczna kalkulacja bazowego HP wg kości k6/k8/k10/k12 + MOD Kondycji, pasywna percepcja 10 + WIS mod, unarmored AC).
+    * Krok 4: Podsumowanie & Magia (podgląd slotów czarów wg tabeli czarowników D&D 5e dla klas rzucających czary, zapis asynchroniczny `POST /api/characters`).
+  * Rozbudowana Karta Postaci w Środkowej Kolumnie ([`src/components/dashboard/CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx)):
+    * Interaktywne zarządzanie HP (szybkie przyciski `-1`, `-5`, `-10`, `+1`, `+5`, `+10`, absorpcja przez punkty tymczasowe `tempHp`, dedykowany modal z akcjami obrażeń/leczenia/punktów tymczasowych, mutacje `PATCH /api/characters/[id]/hp`).
+    * Klikalne sloty czarów z podglądem zużycia (kropki `●` wolny / `○` zużyty) z bezpośrednią synchronizacją przez `PATCH /api/characters/[id]/slots`.
+    * Interaktywne testy atrybutów i rzuty obronne d20 + modyfikator z animowanym bannerem wyników rzutu.
+    * Dwukierunkowa synchronizacja stanu z `GmDashboard.tsx` (`onCharacterUpdate`).
 * **Testowanie:**
-  * Vitest / Testing Library: symulacja przejścia kreatora postaci i weryfikacja automatycznego przeliczenia statystyk.
+  * Testy komponentów w Vitest / React Testing Library:
+    * [`src/components/characters/CharacterWizard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/CharacterWizard.test.tsx) – test nawigacji krok po kroku kreatora, generowania Standard Array, przeliczeń D&D, podglądu slotów magii oraz zapisu przez API.
+    * [`src/components/dashboard/CharacterInspectionCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.test.tsx) – test interaktywnego zarządzania HP, klikania slotów czarów, rzutów d20 na atrybuty i rzuty obronne.
+  * Wszystkie testy jednostkowe (139/139), lint Biome (107 plików, 0 błędów), build Turbopack oraz E2E Playwright (9/9) zakończone sukcesem.
 
 ---
 
@@ -228,11 +235,36 @@ flowchart TD
 
 ---
 
-## FAZA 6: Oś Czasu, Historia i System Odpoczynków
+## FAZA 6: Autentykacja i Konta Użytkowników (Supabase Auth & Multi-Tenancy)
+*User Stories:* [`user-stories-and-spec/user_stories_autentykacja_i_konta.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_autentykacja_i_konta.md)  
+*API Spec:* Supabase Auth / Next.js Server Actions & Route Handlers
+
+### Chunk 6.1: Backend & Schema – Integracja Supabase Auth i Izolacja Danych Sesji
+* **Backend & Baza Danych:**
+  * Rozszerzenie modelu Prisma `Session` o pole `userId String? @map("user_id")` z indeksem.
+  * Helpery / middleware autoryzacyjny z użyciem `@supabase/ssr` weryfikujące token JWT użytkownika w żądaniach API.
+  * Ograniczenie zapytań `getSessions()` oraz mutacji wyłącznie do aktywnego `userId` (izolacja sesji per konto).
+  * Zapewnienie kompatybilności dla sesji `test` / trybu developerskiego i gościa.
+* **Testowanie:**
+  * Testy integracyjne izolacji: weryfikacja, że użytkownik A nie widzi ani nie może edytować sesji użytkownika B.
+
+### Chunk 6.2: Frontend – Logowanie, Rejestracja i Google OAuth
+* **Frontend ([`src/components/auth/`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/auth/)):**
+  * Estetyczny ekran logowania i rejestracji zgodny z dark fantasy design tokens.
+  * Formularz rejestracji oraz logowania loginem (e-mail) i hasłem z walidacją i komunikatami błędów.
+  * Przycisk **"Zaloguj przez Google"** (Google OAuth przez Supabase Auth provider).
+  * Pasek nawigacyjny: wskaźnik profilu (avatar / e-mail) oraz przycisk wylogowania.
+  * Przekierowanie po pomyślnym logowaniu do widoku własnych sesji.
+* **Testowanie:**
+  * Testy jednostkowe widoków autoryzacji: weryfikacja obsługi błędów niepoprawnych danych logowania oraz przekierowania po sukcesie.
+
+---
+
+## FAZA 7: Oś Czasu, Historia i System Odpoczynków
 *User Stories:* [`user-stories-and-spec/user_stories_modu_historii.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_modu_historii.md)  
 *API Spec:* [`user-stories-and-spec/wymagania_crud_api.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/wymagania_crud_api.md) (Sekcja 5)
 
-### Chunk 6.1: Backend – Obsługa Logów i Automatyka Odpoczynków
+### Chunk 7.1: Backend – Obsługa Logów i Automatyka Odpoczynków
 * **Backend:**
   * `GET /api/sessions/[id]/logs` – pobieranie chronologicznej listy zdarzeń sesji.
   * `POST /api/sessions/[id]/logs` – dodanie zdarzenia:
@@ -243,7 +275,7 @@ flowchart TD
 * **Testowanie:**
   * Wywołanie `POST /api/sessions/[id]/logs` z typem `REST_LONG` dla postaci z 5/20 HP – sprawdzenie, czy w bazie postać ma natychmiast 20/20 HP oraz odnowione sloty.
 
-### Chunk 6.2: Frontend – Interaktywna Oś Czasu i Modale Odpoczynków
+### Chunk 7.2: Frontend – Interaktywna Oś Czasu i Modale Odpoczynków
 * **Frontend:**
   * Rozbudowa Prawej Kolumny Dashboardu:
     * Wizualny timeline ze wskaźnikami godzinowymi (`18:42`, `19:15`).
@@ -257,11 +289,11 @@ flowchart TD
 
 ---
 
-## FAZA 7: Rozbudowa Kompendium (Zaklęcia, Przedmioty i Integracja)
+## FAZA 8: Rozbudowa Kompendium (Zaklęcia, Przedmioty i Integracja)
 *Specyfikacja:* [`user-stories-and-spec/specyfikacja_aplikacji_rpg_tracker.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/specyfikacja_aplikacji_rpg_tracker.md) (Sekcja 1)  
 *API Spec:* [`user-stories-and-spec/wymagania_crud_api.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/wymagania_crud_api.md) (Sekcja 6)
 
-### Chunk 7.1: Backend – Seed i API Zaklęć oraz Przedmiotów
+### Chunk 8.1: Backend – Seed i API Zaklęć oraz Przedmiotów
 * **Backend:**
   * Skrypt seedujący / wrapper dla D&D 5e SRD API (podobnie jak dla potworów):
     * `GET /api/compendium/spells?search=...&level=...&school=...`
@@ -271,7 +303,7 @@ flowchart TD
 * **Testowanie:**
   * Weryfikacja endpointów kompendium, poprawności filtrów i czasów odpowiedzi poniżej 50ms w trybie offline/cache.
 
-### Chunk 7.2: Frontend – Przeglądarka Kompendium i Dodawanie do Karty
+### Chunk 8.2: Frontend – Przeglądarka Kompendium i Dodawanie do Karty
 * **Frontend ([`src/components/bestiary/`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/bestiary/)):**
   * Rozszerzenie modułu kompendium w pełne narzędzie D&D 5e:
     * Zakładki: Bestiariusz, Zaklęcia (Spells), Ekwipunek (Items).
@@ -282,9 +314,9 @@ flowchart TD
 
 ---
 
-## FAZA 8: Integracja Real-time (Kości), Testy E2E, Narzędzia Jakości i CI
+## FAZA 9: Integracja Real-time (Kości), Testy E2E, Narzędzia Jakości i CI
 
-### Chunk 8.1: Narzędzia Rzutów Kośćmi w Kokpicie GM-a
+### Chunk 9.1: Narzędzia Rzutów Kośćmi w Kokpicie GM-a
 * **Frontend ([`src/components/dice/`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dice/)):**
   * Integracja symulatora kości z akcjami w Dashboardzie:
     * Kliknięcie atrybutu postaci (np. `STR 16 (+3)`) w karcie środkowej kolumny wykonuje rzut D20 + modyfikator w podręcznym rollerze.
@@ -292,7 +324,7 @@ flowchart TD
 * **Testowanie:**
   * Wykonanie rzutu z poziomu karty postaci – weryfikacja poprawności obliczenia modyfikatora i dodania wpisu do historii.
 
-### Chunk 8.2: Zestaw Testów E2E & Unit Testów (Playwright & Vitest)
+### Chunk 9.2: Zestaw Testów E2E & Unit Testów (Playwright & Vitest)
 * **Zestaw Testów:**
   * **Testy jednostkowe (Vitest):** reguły D&D, logika rzutów kośćmi, wyliczanie inicjatywy, formatowanie modyfikatorów i komponenty UI.
   * **Testy E2E (Playwright):**
@@ -302,7 +334,7 @@ flowchart TD
     4. Tracker inicjatywy (zarządzanie kolejką, kontrola rund i tur).
     5. Symulator kości (zmiana modyfikatorów, rzuty i historia).
 
-### Chunk 8.3: Narzędzia Jakości Kodu (Biome.js) & Pipeline CI ([`.github/workflows/ci.yml`](file:///Users/lukaszkosobucki/Documents/table-ops/.github/workflows/ci.yml))
+### Chunk 9.3: Narzędzia Jakości Kodu (Biome.js) & Pipeline CI ([`.github/workflows/ci.yml`](file:///Users/lukaszkosobucki/Documents/table-ops/.github/workflows/ci.yml))
 * **Biome.js (`@biomejs/biome`):**
   * Zunifikowany linter i formatter zastępujący ESLint i Prettier.
   * 0 podatności bezpieczeństwa w `npm audit`.
@@ -324,6 +356,7 @@ flowchart TD
 | **Faza 3** | CRUD Postaci + Kreator z automatyką slotów czarów | Faza 2 | 2 chunki |
 | **Faza 4** | Grupy Potyczkowe (Encounter Builder) | Faza 3 | 2 chunki |
 | **Faza 5** | Combat Tracker (Maszyna stanów, tury, statusy, HP) | Faza 4 | 2 chunki |
-| **Faza 6** | Oś Czasu, Historia i System Odpoczynków | Faza 5 | 2 chunki |
-| **Faza 7** | Kompendium (Zaklęcia, Przedmioty, seed offline) | Faza 3 | 2 chunki |
-| **Faza 8** | Integracja rzutów kośćmi, weryfikacja E2E & CI | Faza 1-7 | 3 chunki |
+| **Faza 6** | Autentykacja (Login/Hasło + Google OAuth) i Izolacja Sesji | Faza 5 | 2 chunki |
+| **Faza 7** | Oś Czasu, Historia i System Odpoczynków | Faza 6 | 2 chunki |
+| **Faza 8** | Kompendium (Zaklęcia, Przedmioty, seed offline) | Faza 3 | 2 chunki |
+| **Faza 9** | Integracja rzutów kośćmi, weryfikacja E2E & CI | Faza 1-8 | 3 chunki |

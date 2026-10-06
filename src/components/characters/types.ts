@@ -5,19 +5,32 @@ export interface CharacterStats {
   int: number;
   wis: number;
   cha: number;
+  tempHp?: number;
+}
+
+export interface CharacterSpells {
+  slots?: Record<number, { max: number; used: number }>;
+  known?: string[];
+  prepared?: string[];
 }
 
 export interface Character {
   id: string;
+  sessionId?: string;
   name: string;
+  type?: 'HERO' | 'NPC';
   race: string;
   class: string;
   level: number;
   hp: number;
   maxHp: number;
+  currentHp?: number;
   ac: number;
   passivePerception: number;
   stats: CharacterStats;
+  traits?: string[];
+  inventory?: string[];
+  spells?: CharacterSpells | null;
 }
 
 export interface RaceOption {
@@ -32,6 +45,8 @@ export interface ClassOption {
   primary: string;
   desc: string;
 }
+
+export const STANDARD_ARRAY: number[] = [15, 14, 13, 12, 10, 8];
 
 export const RACES: RaceOption[] = [
   {

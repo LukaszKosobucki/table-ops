@@ -7,6 +7,7 @@ interface PartySidebarProps {
   characters: DashboardCharacter[];
   selectedCharacterId: string | null;
   onSelectCharacter: (character: DashboardCharacter) => void;
+  isLoading?: boolean;
 }
 
 export function getHealthStatus(currentHp: number, maxHp: number): HealthStatus {
@@ -21,6 +22,7 @@ export function PartySidebar({
   characters,
   selectedCharacterId,
   onSelectCharacter,
+  isLoading = false,
 }: PartySidebarProps) {
   const heroes = characters.filter((c) => c.type === 'HERO');
   const npcs = characters.filter((c) => c.type === 'NPC');
@@ -39,13 +41,33 @@ export function PartySidebar({
           <div>
             <h2 className="text-sm font-bold text-slate-100 tracking-tight">Drużyna & NPC</h2>
             <p className="text-[11px] text-slate-400">
-              {heroes.length} bohaterów • {npcs.length} NPC
+              {isLoading
+                ? 'Ładowanie drużyny...'
+                : `${heroes.length} bohaterów • ${npcs.length} NPC`}
             </p>
           </div>
         </div>
       </div>
 
-      {characters.length === 0 ? (
+      {isLoading ? (
+        <div className="space-y-3 animate-pulse">
+          {[1, 2].map((i) => (
+            <div
+              key={`party-skel-${i}`}
+              className="glass-card p-3.5 rounded-xl border border-slate-800 space-y-2.5"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-slate-800/80" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3.5 bg-slate-800 rounded w-28" />
+                  <div className="h-2.5 bg-slate-900 rounded w-16" />
+                </div>
+              </div>
+              <div className="h-2 bg-slate-800/60 rounded w-full" />
+            </div>
+          ))}
+        </div>
+      ) : characters.length === 0 ? (
         <div className="glass-card rounded-xl p-6 text-center text-slate-400 space-y-2">
           <User className="w-8 h-8 mx-auto text-slate-600" />
           <p className="text-xs">Brak postaci w tej sesji.</p>

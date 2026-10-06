@@ -11,9 +11,8 @@ test.describe('Character Wizard Module', () => {
   test('displays existing party members and creates a new character through wizard', async ({
     page,
   }) => {
-    // 1. Verify default characters
-    await expect(page.locator('text=Valerius z Ostrej Bieli')).toBeVisible();
-    await expect(page.locator('text=Eldrin Srebrny Liść')).toBeVisible();
+    // 1. Verify GM view section is present
+    await expect(page.locator('text=Karty Postaci Graczy (GM View)')).toBeVisible();
 
     // 2. Step 1: Select Race and Class, proceed
     await page.locator('div:has-text("Krasnolud (Dwarf)")').last().click();

@@ -60,9 +60,20 @@ export function roll4d6DropLowest(): { total: number; rolls: number[]; dropped: 
  * Returns standard hit die size (e.g. 6, 8, 10, 12) for a given class.
  * Supports both English and Polish names, case-insensitive.
  */
+function normalizeClassName(className?: string): string {
+  if (!className) return '';
+  // Strip parentheses content like 'Czarodziej (Wizard)' -> 'czarodziej'
+  const stripped = className
+    .replace(/\(.*?\)/g, '')
+    .trim()
+    .toLowerCase();
+  if (stripped) return stripped;
+  return className.trim().toLowerCase();
+}
+
 export function getClassHitDie(className?: string): number {
   if (!className) return 8;
-  const normalized = className.trim().toLowerCase();
+  const normalized = normalizeClassName(className);
 
   switch (normalized) {
     case 'barbarian':
@@ -146,7 +157,7 @@ const HALF_CASTER_TABLE: number[][] = [
  */
 export function calculateSpellSlots(className?: string, level: number = 1): CharacterSpellSlots {
   if (!className) return {};
-  const normalized = className.trim().toLowerCase();
+  const normalized = normalizeClassName(className);
   const clampedLevel = Math.max(1, Math.min(20, Math.floor(level)));
 
   // Full Casters

@@ -18,9 +18,15 @@ export async function ensureSessionSelected(page: Page) {
     return;
   }
 
+  // Wait for session list to load if currently loading
+  const loadingIndicator = page.locator('text=Ładowanie Twoich sesji RPG...');
+  if (await loadingIndicator.isVisible().catch(() => false)) {
+    await expect(loadingIndicator).not.toBeVisible({ timeout: 10000 });
+  }
+
   // If an existing session tile is available, enter it
   const enterBtn = page.locator('button:has-text("Wejdź do sesji")').first();
-  const hasEnterBtn = await enterBtn.isVisible({ timeout: 2000 }).catch(() => false);
+  const hasEnterBtn = await enterBtn.isVisible({ timeout: 5000 }).catch(() => false);
 
   if (hasEnterBtn) {
     await enterBtn.click();

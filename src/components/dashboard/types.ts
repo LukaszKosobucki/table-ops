@@ -2,6 +2,7 @@ export type HealthStatus = 'healthy' | 'bloodied' | 'critical' | 'dead';
 
 export interface DashboardCharacter {
   id: string;
+  sessionId?: string | null;
   name: string;
   type: 'HERO' | 'NPC';
   race?: string | null;
@@ -18,9 +19,15 @@ export interface DashboardCharacter {
     int?: number;
     wis?: number;
     cha?: number;
+    tempHp?: number;
   } | null;
   traits?: string[] | null;
   inventory?: string[] | null;
+  spells?: {
+    slots?: Record<number, { max: number; used: number }>;
+    known?: string[];
+    prepared?: string[];
+  } | null;
 }
 
 export type SessionLogType =

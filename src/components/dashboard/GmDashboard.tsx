@@ -1,7 +1,7 @@
 'use client';
 
 import { History, Sparkles, Swords, Users } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { InitiativeTracker } from '@/components/initiative/InitiativeTracker';
 import type { MonsterData } from '@/lib/monsters';
 import { CharacterInspectionCard } from './CharacterInspectionCard';
@@ -19,9 +19,11 @@ interface GmDashboardProps {
   sessionId: string;
   sessionName: string;
   initialMonsters: MonsterData[];
+  initialCharacters?: DashboardCharacter[];
+  onCharactersLoaded?: (characters: DashboardCharacter[]) => void;
 }
 
-const DEFAULT_PARTY: DashboardCharacter[] = [
+export const DEFAULT_PARTY: DashboardCharacter[] = [
   {
     id: 'char-default-1',
     name: 'Valerius z Ostrej Bieli',
@@ -87,8 +89,15 @@ const DEFAULT_LOGS: DashboardLog[] = [
   },
 ];
 
-export function GmDashboard({ sessionId, sessionName, initialMonsters }: GmDashboardProps) {
-  const [characters, setCharacters] = useState<DashboardCharacter[]>(DEFAULT_PARTY);
+export function GmDashboard({
+  sessionId,
+  sessionName,
+  initialMonsters,
+  initialCharacters,
+  onCharactersLoaded,
+}: GmDashboardProps) {
+  const [characters, setCharacters] = useState<DashboardCharacter[]>(initialCharacters || []);
+  const [isLoading, setIsLoading] = useState<boolean>(!initialCharacters && Boolean(sessionId));
   const [logs, setLogs] = useState<DashboardLog[]>(DEFAULT_LOGS);
 
   const [selectedCharacter, setSelectedCharacter] = useState<DashboardCharacter | null>(null);
@@ -99,34 +108,48 @@ export function GmDashboard({ sessionId, sessionName, initialMonsters }: GmDashb
     'Notatki GM-a: Gobliny czają się na lewej flance. Zwróć uwagę na pułapkę pod mostem.'
   );
 
+  const onCharactersLoadedRef = useRef(onCharactersLoaded);
+  useEffect(() => {
+    onCharactersLoadedRef.current = onCharactersLoaded;
+  }, [onCharactersLoaded]);
+
+  const lastFetchedSessionIdRef = useRef<string | null>(null);
+
   const fetchFullState = useCallback(async () => {
     try {
       const res = await fetch(`/api/sessions/${sessionId}/full-state`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
-          if (Array.isArray(data.characters) && data.characters.length > 0) {
+          if (Array.isArray(data.characters)) {
             setCharacters(data.characters);
-          } else {
-            // Use defaults if session has no characters created yet
-            setCharacters(DEFAULT_PARTY);
+            onCharactersLoadedRef.current?.(data.characters);
           }
 
           if (Array.isArray(data.sessionLogs) && data.sessionLogs.length > 0) {
             setLogs(data.sessionLogs);
-          } else {
-            setLogs(DEFAULT_LOGS);
           }
         }
       }
     } catch (err) {
-      console.warn('Could not load full session state from API, using defaults:', err);
+      console.warn('Could not load full session state from API:', err);
+    } finally {
+      setIsLoading(false);
     }
   }, [sessionId]);
 
   useEffect(() => {
+    if (initialCharacters) {
+      setCharacters(initialCharacters);
+      setIsLoading(false);
+    }
+  }, [initialCharacters]);
+
+  useEffect(() => {
+    if (lastFetchedSessionIdRef.current === sessionId) return;
+    lastFetchedSessionIdRef.current = sessionId;
     fetchFullState();
-  }, [fetchFullState]);
+  }, [sessionId, fetchFullState]);
 
   const handleSelectCharacter = (character: DashboardCharacter) => {
     setSelectedCharacter(character);
@@ -182,7 +205,7 @@ export function GmDashboard({ sessionId, sessionName, initialMonsters }: GmDashb
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>Drużyna ({characters.length})</span>
+            <span>Drużyna {isLoading ? '' : `(${characters.length})`}</span>
           </button>
           <button
             type="button"
@@ -226,6 +249,7 @@ export function GmDashboard({ sessionId, sessionName, initialMonsters }: GmDashb
             characters={characters}
             selectedCharacterId={selectedCharacter?.id ?? null}
             onSelectCharacter={handleSelectCharacter}
+            isLoading={isLoading}
           />
         </div>
 
@@ -240,6 +264,10 @@ export function GmDashboard({ sessionId, sessionName, initialMonsters }: GmDashb
             <CharacterInspectionCard
               character={selectedCharacter}
               onBackToCombat={handleBackToCombat}
+              onCharacterUpdate={(updated) => {
+                setSelectedCharacter(updated);
+                setCharacters((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+              }}
             />
           ) : workspaceView === 'log-inspect' && selectedLog ? (
             <LogInspectionCard log={selectedLog} onBackToCombat={handleBackToCombat} />

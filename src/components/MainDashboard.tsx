@@ -1,8 +1,10 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { MonsterData } from '@/lib/monsters';
+import type { Character } from './characters/types';
+import type { DashboardCharacter } from './dashboard/types';
 import { Footer } from './layout/Footer';
 import { Navbar } from './layout/Navbar';
 import type { SessionItem } from './sessions/types';
@@ -74,6 +76,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
   const [activeTab, setActiveTab] = useState('sessions');
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [activeSession, setActiveSession] = useState<SessionItem | null>(null);
+  const [sessionCharacters, setSessionCharacters] = useState<DashboardCharacter[] | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
 
   // Fetch sessions on mount and resolve active session
@@ -183,6 +186,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
 
   const handleSelectSession = (session: SessionItem) => {
     setActiveSession(session);
+    setSessionCharacters(null);
     if (typeof window !== 'undefined') {
       localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, session.id);
     }
@@ -266,6 +270,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
     setSessions((prev) => prev.filter((s) => s.id !== id));
     if (activeSession?.id === id) {
       setActiveSession(null);
+      setSessionCharacters(null);
       if (typeof window !== 'undefined') {
         localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
       }
@@ -274,6 +279,103 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
     }
     return true;
   };
+
+  const wizardInitialCharacters = useMemo(() => {
+    if (!sessionCharacters) return undefined;
+    return sessionCharacters.map((c) => ({
+      id: c.id,
+      sessionId: c.sessionId || activeSession?.id,
+      name: c.name,
+      type: (c.type || 'HERO') as 'HERO' | 'NPC',
+      race: c.race || 'Nieznana rasa',
+      class: c.class || 'Klasa nieznana',
+      level: c.level || 1,
+      hp: c.currentHp,
+      maxHp: c.maxHp,
+      currentHp: c.currentHp,
+      ac: c.ac,
+      passivePerception: c.passivePerception,
+      stats: {
+        str: c.stats?.str ?? 10,
+        dex: c.stats?.dex ?? 10,
+        con: c.stats?.con ?? 10,
+        int: c.stats?.int ?? 10,
+        wis: c.stats?.wis ?? 10,
+        cha: c.stats?.cha ?? 8,
+        tempHp: c.stats?.tempHp ?? 0,
+      },
+      traits: c.traits || [],
+      inventory: c.inventory || [],
+      spells: c.spells || null,
+    }));
+  }, [sessionCharacters, activeSession?.id]);
+
+  const handleCharacterCreated = useCallback((newChar: Character) => {
+    const dashChar: DashboardCharacter = {
+      id: newChar.id,
+      sessionId: newChar.sessionId,
+      name: newChar.name,
+      type: (newChar.type || 'HERO') as 'HERO' | 'NPC',
+      class: newChar.class,
+      race: newChar.race,
+      level: newChar.level,
+      currentHp: newChar.currentHp ?? newChar.hp,
+      maxHp: newChar.maxHp,
+      ac: newChar.ac,
+      passivePerception: newChar.passivePerception,
+      stats: newChar.stats,
+      traits: newChar.traits,
+      inventory: newChar.inventory,
+      spells: newChar.spells,
+    };
+    setSessionCharacters((prev) => [dashChar, ...(prev || [])]);
+  }, []);
+
+  const handleGmCharactersLoaded = useCallback((chars: DashboardCharacter[]) => {
+    setSessionCharacters((prev) => {
+      if (prev && prev.length === chars.length) {
+        const isSame = prev.every(
+          (p, i) =>
+            p.id === chars[i]?.id &&
+            p.currentHp === chars[i]?.currentHp &&
+            p.maxHp === chars[i]?.maxHp
+        );
+        if (isSame) return prev;
+      }
+      return chars;
+    });
+  }, []);
+
+  const handleWizardCharactersLoaded = useCallback((chars: Character[]) => {
+    setSessionCharacters((prev) => {
+      if (prev && prev.length === chars.length) {
+        const isSame = prev.every(
+          (p, i) =>
+            p.id === chars[i]?.id &&
+            p.currentHp === (chars[i]?.currentHp ?? chars[i]?.hp) &&
+            p.maxHp === chars[i]?.maxHp
+        );
+        if (isSame) return prev;
+      }
+      return chars.map((c) => ({
+        id: c.id,
+        sessionId: c.sessionId,
+        name: c.name,
+        type: (c.type || 'HERO') as 'HERO' | 'NPC',
+        class: c.class,
+        race: c.race,
+        level: c.level,
+        currentHp: c.currentHp ?? c.hp,
+        maxHp: c.maxHp,
+        ac: c.ac,
+        passivePerception: c.passivePerception,
+        stats: c.stats,
+        traits: c.traits,
+        inventory: c.inventory,
+        spells: c.spells,
+      }));
+    });
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col selection:bg-amber-500 selection:text-slate-950">
@@ -308,10 +410,19 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
                 sessionId={activeSession.id}
                 sessionName={activeSession.name}
                 initialMonsters={initialMonsters}
+                initialCharacters={sessionCharacters || undefined}
+                onCharactersLoaded={handleGmCharactersLoaded}
               />
             )}
             {activeTab === 'bestiary' && <Bestiary initialMonsters={initialMonsters} />}
-            {activeTab === 'characters' && <CharacterWizard />}
+            {activeTab === 'characters' && (
+              <CharacterWizard
+                sessionId={activeSession.id}
+                initialCharacters={wizardInitialCharacters}
+                onCharacterCreated={handleCharacterCreated}
+                onCharactersLoaded={handleWizardCharactersLoaded}
+              />
+            )}
             {activeTab === 'dice' && <DiceRoller />}
           </>
         )}

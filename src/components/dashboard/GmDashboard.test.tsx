@@ -67,7 +67,7 @@ describe('GmDashboard Component (Chunk 2.2)', () => {
     }
 
     // Inspection card should be visible with attributes and back button
-    expect(screen.getByText('Atrybuty D&D 5e')).toBeInTheDocument();
+    expect(screen.getByText(/Atrybuty D&D 5e/i)).toBeInTheDocument();
     expect(screen.getByText('Powrót do Walki / Tracker Inicjatywy')).toBeInTheDocument();
 
     // Click back button
