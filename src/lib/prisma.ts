@@ -3,6 +3,7 @@ import { PrismaClient } from '@prisma/client';
 
 const connectionString =
   process.env.DATABASE_URL ||
+  process.env.DIRECT_URL ||
   'postgresql://postgres:postgres@localhost:5432/tableops?schema=public';
 
 const adapter = new PrismaPg({ connectionString });

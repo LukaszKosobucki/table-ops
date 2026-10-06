@@ -86,13 +86,17 @@ flowchart TD
   * Testy jednostkowe logiki i walidacji w [`src/lib/sessions.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/sessions.test.ts).
   * Testy integracyjne endpointów w [`src/app/api/sessions/sessions-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/sessions-api.test.ts).
 
-### Chunk 1.2: Frontend – Ekran Wyboru i Tworzenia Sesji
+### Chunk 1.2: Frontend – Ekran Wyboru i Tworzenia Sesji (✅ Zakończone)
 * **Frontend:**
-  * Widok startowy aplikacji prezentujący kafelki istniejących sesji (nazwa, data ostatniej modyfikacji, liczba bohaterów).
-  * Modal szybkiego tworzenia sesji (np. "Wyprawa do Podmroku") z automatycznym przekierowaniem do aktywnego kokpitu.
-  * Możliwość zmiany aktywnej sesji z poziomu górnego paska nawigacyjnego ([`src/components/layout/Navbar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/layout/Navbar.tsx)).
+  * Moduł widoku wyboru sesji [`src/components/sessions/SessionSelection.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/sessions/SessionSelection.tsx) z kafelkami istniejących kampanii, filtrowaniem po nazwie, datą aktualizacji, licznikami bohaterów i wpisów kroniki, akcjami przejścia, edycji oraz usunięcia.
+  * Pusty stan (Empty State) zachęcający do stworzenia pierwszej sesji RPG.
+  * Modal szybkiego tworzenia nowej sesji [`src/components/sessions/CreateSessionModal.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/sessions/CreateSessionModal.tsx) z automatycznym wyborem i przekierowaniem do kokpitu.
+  * Modal edycji nazwy sesji [`src/components/sessions/EditSessionModal.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/sessions/EditSessionModal.tsx).
+  * Przełącznik aktywnej sesji [`src/components/sessions/SessionSwitcher.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/sessions/SessionSwitcher.tsx) wbudowany w górny pasek nawigacji [`src/components/layout/Navbar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/layout/Navbar.tsx).
+  * Dynamiczne ładowanie widoku (`bundle-dynamic-imports`), zarządzanie stanem i obsługa localStorage w [`src/components/MainDashboard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/MainDashboard.tsx).
+  * Blokada dostępu na poziomie routingu (Access Guard): bez aktywnej sesji pozostałe moduły (Kokpit GM, Bestiariusz, Kreator, Kości) są zablokowane i oznaczone kłódkami w Navbarze, a próba wejścia z poziomu URL wymusza powrót do widoku sesji.
 * **Testowanie:**
-  * Test komponentu w React Testing Library (wyświetlanie pustego stanu, otwarcie modala, wywołanie akcji tworzenia).
+  * Testy komponentu w React Testing Library ([`src/components/sessions/SessionSelection.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/sessions/SessionSelection.test.tsx)): weryfikacja pustego stanu, renderowania kafelków, otwarcia modala i akcji tworzenia nowej sesji.
 
 ---
 
