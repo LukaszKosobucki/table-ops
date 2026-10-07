@@ -87,4 +87,61 @@ describe('PartySidebar Component (Chunk 2.2)', () => {
 
     expect(screen.getByText('Brak postaci w tej sesji.')).toBeInTheDocument();
   });
+
+  it('renders "Załaduj Drużynę do Walki" and triggers onAddPartyToCombat when clicked', async () => {
+    const user = userEvent.setup();
+    const handleAddParty = vi.fn();
+
+    render(
+      <PartySidebar
+        characters={mockCharacters}
+        selectedCharacterId={null}
+        onSelectCharacter={vi.fn()}
+        onAddPartyToCombat={handleAddParty}
+        isCharacterInCombat={() => false}
+      />
+    );
+
+    const addPartyBtn = screen.getByTestId('add-party-to-combat-btn');
+    expect(addPartyBtn).toBeInTheDocument();
+    expect(addPartyBtn).toHaveTextContent(/Załaduj Drużynę do Walki/i);
+
+    await user.click(addPartyBtn);
+    expect(handleAddParty).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders "Do walki" on character cards and calls onAddCharacterToCombat', async () => {
+    const user = userEvent.setup();
+    const handleAddChar = vi.fn();
+
+    render(
+      <PartySidebar
+        characters={mockCharacters}
+        selectedCharacterId={null}
+        onSelectCharacter={vi.fn()}
+        onAddCharacterToCombat={handleAddChar}
+        isCharacterInCombat={() => false}
+      />
+    );
+
+    const addBtn = screen.getByTestId('add-to-combat-char-1');
+    expect(addBtn).toBeInTheDocument();
+
+    await user.click(addBtn);
+    expect(handleAddChar).toHaveBeenCalledWith(mockCharacters[0]);
+  });
+
+  it('renders "W walce" badge when character is already in combat', () => {
+    render(
+      <PartySidebar
+        characters={mockCharacters}
+        selectedCharacterId={null}
+        onSelectCharacter={vi.fn()}
+        isCharacterInCombat={(id) => id === 'char-1'}
+      />
+    );
+
+    expect(screen.getByTestId('in-combat-badge-char-1')).toBeInTheDocument();
+    expect(screen.queryByTestId('add-to-combat-char-1')).not.toBeInTheDocument();
+  });
 });

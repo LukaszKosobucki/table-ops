@@ -237,26 +237,44 @@ flowchart TD
   * [`src/app/api/combat/combat-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/combat/combat-api.test.ts): 10 testów integracyjnych endpointów REST.
   * Wszystkie 204 testy jednostkowe Vitest (100% zielone), 0 błędów Biome, czysty build Turbopack oraz 10/10 testów Playwright E2E zielone.
 
-### Chunk 5.2: Frontend – Interfejs Śledzenia Walki (Combat View)
+### Chunk 5.2: Frontend – Interfejs Śledzenia Walki (Combat View) (✅ Zakończone)
 * **Frontend ([`src/components/initiative/`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/)):**
-  * Ewolucja modułu inicjatywy w pełny system walki:
+  * Ewolucja modułu inicjatywy w pełny system walki z maszynami 3 faz:
   * **Krok 1 (Faza PREPARING):**
-    * Wybór grupy potyczkowej lub ręczne dodanie potworów i bohaterów.
-    * Przycisk "Rzuć inicjatywę automatycznie" (d20 + modyfikator ze zręczności) oraz pola do wpisania ręcznego (gdy gracze rzucają fizycznymi kośćmi).
-    * Wyróżniony przycisk **"⚔️ Rozpocznij Walkę"** blokujący edycję kolejności.
+    * Wybór grupy potyczkowej lub ręczne dodanie potworów i bohaterów (`AddCombatantsPanel`).
+    * Przycisk *"Losuj Inicjatywę Potworów"* (D20 + DEX mod) oraz pola do wpisania ręcznego dla każdego uczestnika (gdy gracze rzucają fizycznymi kośćmi przy stole).
+    * Wyróżniony przycisk **"⚔️ Rozpocznij Walkę"** (`data-testid="start-combat-btn"`), który sortuje kolejkę, zamraża edycję i rozpoczyna cykl tur (wraz z opcjonalną synchronizacją `POST /api/combat/start`).
   * **Krok 2 (Faza ACTIVE):**
-    * Wyraźny wskaźnik aktywnej tury (złote obramowanie karty aktywnego uczestnika, informacja "Kto teraz" / "Kto następny").
-    * Przycisk **"Następna Tura ➔"** i licznik rund ("Runda 1").
-    * Szybkie kontrolki HP: przyciski obrażeń (`-1`, `-5`, `-10`, custom input) i leczenia (`+1`, `+5`, custom).
-    * Nakładanie statusów: dropdown stanów D&D 5e z polem "Liczba tur" (np. 1 runda, 3 rundy).
-    * Bąbelki aktywnych statusów z licznikiem pozostałych tur obok paska życia.
-    * Mini-okno "Combat Log" na bieżąco pokazujące ostatnie zdarzenia w walce.
+    * Wyraźny wskaźnik aktywnej tury: złote świecące obramowanie karty, boczny znacznik oraz pulsujący badge `⚔️ TERAZ TURA`, informacja w nagłówku *"Kto teraz"* i *"Kto następny"*.
+    * Przycisk **"Następna Tura ➔"** (`data-testid="next-turn-btn"`) i licznik rund (*"Runda 1"*, *"Runda 2"...*).
+    * Przy przejściu tury automatyczne dekrementowanie czasu trwania aktywnych statusów (`durationTurns - 1`) i usuwanie wygasłych (`durationTurns <= 0`).
+    * Szybkie kontrolki HP: przyciski obrażeń (`-1`, `-5`, `-10`), leczenia (`+1`, `+5`, `+10`) oraz dedykowany input wartości własnych (*Obrażenia* / *Leczenie*).
+    * Zarządzanie statusami: modal/popover nakładania statusów D&D 5e z precyzyjnym czasem trwania (1, 2, 3, 5 tur), bąbelki statusów z licznikiem pozostałych tur obok punktów życia i przyciskiem natychmiastowego zdjęcia.
+    * Widget **"Kronika Walki"** ([`CombatLogWidget.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatLogWidget.tsx)) na bieżąco rejestrujący zdarzenia tur, obrażenia, leczenie i zmiany statusów.
+    * **Ładowanie Drużyny i Postaci do Walki (Hurtowo i Pojedynczo):**
+      * Przycisk *"Załaduj Drużynę do Walki"* w nagłówku panelu postaci ([`PartySidebar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/PartySidebar.tsx)) oraz w pustym stanie trackera walki ([`InitiativeTracker.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/InitiativeTracker.tsx)) z dynamicznym licznikiem liczebności drużyny.
+      * Przyciski *"Do walki"* na pojedynczych kartach bohaterów i NPC w lewej kolumnie oraz *"Dodaj do Walki"* w karcie inspekcji postaci ([`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx)).
+      * Zabezpieczenie przed duplikowaniem uczestników oraz etykiety i odznaki stanu *"W walce"*.
+      * Pełna synchronizacja: postacie zachowują powiązanie `characterId`, a przy aktywnej potyczce są rejestrowane przez API (`POST /api/combat/[id]/combatants`), a po zakończeniu walki (`endCombat`) ich punkty życia są trwale zapisywane w PostgreSQL.
   * **Krok 3 (Faza FINISHED):**
-    * Przycisk "Zakończ Walkę" z podsumowaniem i opcją powrotu do Głównego Panelu Sesji.
+    * Przycisk **"Zakończ Walkę"** (`data-testid="end-combat-btn"`), estetyczny baner podsumowania walki z liczbą rund oraz opcja rozpoczęcia nowego starcia (*"Nowe Starcie"*).
+    * Automatyczna synchronizacja aktualnego stanu HP bohaterów do lewej kolumny kokpitu GM-a (`onCombatEnd`).
 * **Testowanie:**
-  * Przeprowadzenie 3 pełnych rund walki z poziomu interfejsu.
-  * Weryfikacja odliczania i samoczynnego zniknięcia statusu po zadanej liczbie tur.
-  * Zakończenie walki – weryfikacja czy w lewej kolumnie Dashboardu HP postaci graczy zaktualizowało się automatycznie.
+  * [`src/lib/combat.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/combat.test.ts): 12 testów jednostkowych (w tym test autorytatywnej synchronizacji `heroUpdates` przy zakończeniu walki).
+  * [`src/components/initiative/CombatantCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantCard.test.tsx): 7 testów jednostkowych (renderowanie, aktywny badge `TERAZ TURA`, przyciski szybkiego HP, obrażenia i leczenie z inputa, wybór czasu trwania statusu, usuwanie statusu i edycja inicjatywy w fazie PREPARING).
+  * [`src/components/initiative/InitiativeTracker.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/InitiativeTracker.test.tsx): 8 testów jednostkowych (cykl tur, inkrementacja rund, dekrementacja i wygasanie statusów, przejścia faz, synchronizacja HP, brak duplikatów wpisów w kronice walki, przycisk ładowania drużyny).
+  * [`src/components/initiative/TurnControls.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/TurnControls.test.tsx): 3 testy jednostkowe kontrolek tur.
+  * [`src/components/dashboard/PartySidebar.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/PartySidebar.test.tsx): 7 testów jednostkowych (renderowanie drużyny/NPC, przycisk ładowania drużyny, dodawanie pojedynczych postaci, odznaki "W walce").
+  * [`src/components/dashboard/CharacterInspectionCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.test.tsx): 7 testów jednostkowych (zarządzanie HP, sloty czarów, rzuty d20 oraz dodawanie do walki z inspekcji).
+  * [`src/components/dashboard/GmDashboard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/GmDashboard.test.tsx): 7 testów integracyjnych (layout 3 kolumn, orkiestracja walki, hurtowe dodawanie drużyny, dodawanie postaci, synchronizacja).
+  * [`e2e/initiative.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/initiative.spec.ts): 7 testów E2E Playwright sprawdzających pełny cykl życia walki na żywej aplikacji, ładowanie drużyny i pojedynczych postaci/NPC, szybkie klikanie obrażeń z natychmiastowym zakończeniem walki (debounced & authoritative sync), trwałość stanu (rundy, tury, HP, statusy) w bazie PostgreSQL po odświeżeniu strony (F5) oraz prawidłowe zamknięcie i powrót do fazy PREPARING po zakończeniu walki.
+  * Pełna integracja trwałości cyklu życia potyczki:
+    * Sesja bez aktywnej potyczki startuje w fazie `PREPARING` z widocznym przyciskiem *"Rozpocznij Walkę"*.
+    * Kliknięcie *"Rozpocznij Walkę"* tworzy rekord w PostgreSQL (`POST /api/combat/start`), pobiera UUID-y uczestników i przechodzi do fazy `ACTIVE`.
+    * Kolejne akcje (przejścia tur `next-turn`, zmiany HP z debouncingiem 500ms i wartościami bezwzględnymi `PATCH`, statusy, posiłki) są trwale i bezpiecznie zapisywane w PostgreSQL bez zalewania bazy i bez race conditions.
+    * Odświeżenie strony (F5) odtwarza dokładny stan potyczki, rundę i tury bez utraty danych.
+    * Kliknięcie *"Zakończ Walkę"* zamyka walkę w PostgreSQL (`status: FINISHED`), autorytatywnie przekazuje finalny stan HP bohaterów (`heroUpdates`), synchronizuje punkty życia postaci w PostgreSQL i przywraca stan przygotowania.
+  * Wszystkie 227 testów jednostkowych Vitest (100% zielone, 27 plików), 0 błędów Biome linter (135 plików), czysty build Turbopack oraz 14/14 testów Playwright E2E zielone (100%).
 
 ---
 

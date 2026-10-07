@@ -7,14 +7,15 @@ interface RouteContext {
   }>;
 }
 
-export async function POST(_request: Request, context: RouteContext) {
+export async function POST(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
     if (!id) {
       return NextResponse.json({ success: false, error: 'Combat ID is required' }, { status: 400 });
     }
 
-    const combat = await endCombat(id);
+    const body = await request.json().catch(() => null);
+    const combat = await endCombat(id, body || undefined);
     return NextResponse.json({ success: true, combat });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to end combat';

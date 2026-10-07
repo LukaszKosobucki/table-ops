@@ -92,6 +92,7 @@ export async function startCombat(
 
   const session = await client.session.findUnique({
     where: { id: input.sessionId },
+    include: { characters: true },
   });
 
   if (!session) {
@@ -107,8 +108,12 @@ export async function startCombat(
     return initB - initA;
   });
 
+  const sessionChars = (session as { characters?: { id: string }[] }).characters;
+  const validCharIds = Array.isArray(sessionChars) ? new Set(sessionChars.map((c) => c.id)) : null;
+
   const combatantsCreateData = sortedCombatants.map((c, index) => ({
-    characterId: c.characterId ?? null,
+    characterId:
+      c.characterId && (!validCharIds || validCharIds.has(c.characterId)) ? c.characterId : null,
     apiMonsterId: c.apiMonsterId ?? null,
     monsterId: c.monsterId ?? null,
     nameOverride: c.nameOverride ?? null,
@@ -235,12 +240,25 @@ export async function addCombatantToCombat(
 ) {
   const combat = await client.combat.findUnique({
     where: { id: combatId },
-    include: { combatants: true },
+    include: {
+      combatants: true,
+      session: {
+        include: { characters: true },
+      },
+    },
   });
 
   if (!combat) {
     throw new Error('Combat not found');
   }
+
+  const sessionChars = (combat as { session?: { characters?: { id: string }[] } }).session
+    ?.characters;
+  const validCharIds = Array.isArray(sessionChars) ? new Set(sessionChars.map((c) => c.id)) : null;
+  const characterId =
+    input.characterId && (!validCharIds || validCharIds.has(input.characterId))
+      ? input.characterId
+      : null;
 
   const maxOrder = combat.combatants.reduce((max, c) => Math.max(max, c.order), -1);
   const nextOrder = input.order !== undefined ? input.order : maxOrder + 1;
@@ -248,7 +266,7 @@ export async function addCombatantToCombat(
   const combatant = await client.combatant.create({
     data: {
       combatId,
-      characterId: input.characterId ?? null,
+      characterId,
       apiMonsterId: input.apiMonsterId ?? null,
       monsterId: input.monsterId ?? null,
       nameOverride: input.nameOverride ?? null,
@@ -377,14 +395,35 @@ export async function updateCombatantHp(
   return updated;
 }
 
+export interface EndCombatInput {
+  heroUpdates?: {
+    characterId: string;
+    hp: number;
+  }[];
+}
+
 /**
  * Concludes active combat:
  * - Changes status to FINISHED and sets endedAt timestamp.
  * - Automatically synchronizes player hero current HP back to character sheet.
  * - Records COMBAT_END session log.
  */
-export async function endCombat(combatId: string, client: CombatPrismaClient = defaultPrisma) {
-  const combat = await client.combat.findUnique({
+export async function endCombat(
+  combatId: string,
+  inputOrClient?: EndCombatInput | CombatPrismaClient,
+  client?: CombatPrismaClient
+) {
+  let input: EndCombatInput | undefined;
+  let resolvedClient: CombatPrismaClient = defaultPrisma;
+
+  if (inputOrClient && 'combat' in inputOrClient) {
+    resolvedClient = inputOrClient as CombatPrismaClient;
+  } else {
+    input = inputOrClient as EndCombatInput | undefined;
+    resolvedClient = client ?? defaultPrisma;
+  }
+
+  const combat = await resolvedClient.combat.findUnique({
     where: { id: combatId },
     include: {
       combatants: {
@@ -400,16 +439,40 @@ export async function endCombat(combatId: string, client: CombatPrismaClient = d
   }
 
   // Synchronize player character HP
-  for (const combatant of combat.combatants) {
-    if (combatant.characterId) {
-      await client.character.update({
-        where: { id: combatant.characterId },
-        data: { currentHp: combatant.currentHp },
-      });
+  if (input?.heroUpdates && input.heroUpdates.length > 0) {
+    for (const update of input.heroUpdates) {
+      if (update.characterId) {
+        try {
+          await resolvedClient.character.update({
+            where: { id: update.characterId },
+            data: { currentHp: update.hp },
+          });
+        } catch {
+          // Ignore if character does not exist in DB (e.g. temporary/mock id)
+        }
+        const matchingCombatant = combat.combatants.find(
+          (c) => c.characterId === update.characterId || c.id === update.characterId
+        );
+        if (matchingCombatant) {
+          await resolvedClient.combatant.update({
+            where: { id: matchingCombatant.id },
+            data: { currentHp: update.hp },
+          });
+        }
+      }
+    }
+  } else {
+    for (const combatant of combat.combatants) {
+      if (combatant.characterId) {
+        await resolvedClient.character.update({
+          where: { id: combatant.characterId },
+          data: { currentHp: combatant.currentHp },
+        });
+      }
     }
   }
 
-  const updatedCombat = await client.combat.update({
+  const updatedCombat = await resolvedClient.combat.update({
     where: { id: combatId },
     data: {
       status: 'FINISHED' as CombatStatusEnum,
@@ -418,7 +481,7 @@ export async function endCombat(combatId: string, client: CombatPrismaClient = d
     include: combatInclude,
   });
 
-  await client.sessionLog.create({
+  await resolvedClient.sessionLog.create({
     data: {
       sessionId: combat.sessionId,
       combatId: combat.id,

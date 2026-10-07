@@ -1,6 +1,6 @@
 'use client';
 
-import { Eye, Shield, Skull, User, Users } from 'lucide-react';
+import { Eye, Shield, Skull, Swords, User, Users } from 'lucide-react';
 import type { DashboardCharacter, HealthStatus } from './types';
 
 interface PartySidebarProps {
@@ -8,6 +8,9 @@ interface PartySidebarProps {
   selectedCharacterId: string | null;
   onSelectCharacter: (character: DashboardCharacter) => void;
   isLoading?: boolean;
+  onAddPartyToCombat?: () => void;
+  onAddCharacterToCombat?: (character: DashboardCharacter) => void;
+  isCharacterInCombat?: (characterId: string) => boolean;
 }
 
 export function getHealthStatus(currentHp: number, maxHp: number): HealthStatus {
@@ -23,9 +26,15 @@ export function PartySidebar({
   selectedCharacterId,
   onSelectCharacter,
   isLoading = false,
+  onAddPartyToCombat,
+  onAddCharacterToCombat,
+  isCharacterInCombat,
 }: PartySidebarProps) {
   const heroes = characters.filter((c) => c.type === 'HERO');
   const npcs = characters.filter((c) => c.type === 'NPC');
+  const allHeroesInCombat =
+    heroes.length > 0 &&
+    Boolean(isCharacterInCombat && heroes.every((h) => isCharacterInCombat(h.id)));
 
   return (
     <aside
@@ -33,20 +42,44 @@ export function PartySidebar({
       className="glass-panel rounded-2xl p-4 flex flex-col gap-4 border border-slate-800/80 shadow-xl h-full"
     >
       {/* Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-800/80">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-            <Users className="w-4 h-4" />
-          </div>
-          <div>
-            <h2 className="text-sm font-bold text-slate-100 tracking-tight">Drużyna & NPC</h2>
-            <p className="text-[11px] text-slate-400">
-              {isLoading
-                ? 'Ładowanie drużyny...'
-                : `${heroes.length} bohaterów • ${npcs.length} NPC`}
-            </p>
+      <div className="space-y-3 pb-3 border-b border-slate-800/80">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <Users className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-100 tracking-tight">Drużyna & NPC</h2>
+              <p className="text-[11px] text-slate-400">
+                {isLoading
+                  ? 'Ładowanie drużyny...'
+                  : `${heroes.length} bohaterów • ${npcs.length} NPC`}
+              </p>
+            </div>
           </div>
         </div>
+
+        {heroes.length > 0 && onAddPartyToCombat && (
+          <button
+            type="button"
+            data-testid="add-party-to-combat-btn"
+            onClick={onAddPartyToCombat}
+            disabled={allHeroesInCombat}
+            title={
+              allHeroesInCombat
+                ? 'Wszyscy bohaterowie są już w walce'
+                : 'Załaduj wszystkich bohaterów graczy do walki'
+            }
+            className={`w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-semibold transition ${
+              allHeroesInCombat
+                ? 'bg-slate-800/60 border-slate-700/60 text-slate-500 opacity-60 cursor-not-allowed'
+                : 'bg-emerald-950/40 hover:bg-emerald-900/60 border-emerald-500/40 text-emerald-300 shadow-md shadow-emerald-950/30 cursor-pointer active:scale-95'
+            }`}
+          >
+            <Swords className="w-3.5 h-3.5" />
+            <span>{allHeroesInCombat ? 'Drużyna w Walce' : 'Załaduj Drużynę do Walki'}</span>
+          </button>
+        )}
       </div>
 
       {isLoading ? (
@@ -90,6 +123,8 @@ export function PartySidebar({
                     character={char}
                     isSelected={selectedCharacterId === char.id}
                     onSelect={() => onSelectCharacter(char)}
+                    onAddToCombat={onAddCharacterToCombat}
+                    isInCombat={isCharacterInCombat?.(char.id)}
                   />
                 ))}
               </div>
@@ -109,6 +144,8 @@ export function PartySidebar({
                     character={char}
                     isSelected={selectedCharacterId === char.id}
                     onSelect={() => onSelectCharacter(char)}
+                    onAddToCombat={onAddCharacterToCombat}
+                    isInCombat={isCharacterInCombat?.(char.id)}
                   />
                 ))}
               </div>
@@ -124,10 +161,14 @@ function CharacterCard({
   character,
   isSelected,
   onSelect,
+  onAddToCombat,
+  isInCombat = false,
 }: {
   character: DashboardCharacter;
   isSelected: boolean;
   onSelect: () => void;
+  onAddToCombat?: (character: DashboardCharacter) => void;
+  isInCombat?: boolean;
 }) {
   const status = getHealthStatus(character.currentHp, character.maxHp);
   const hpPercent = Math.max(
@@ -136,112 +177,145 @@ function CharacterCard({
   );
 
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`w-full text-left p-2.5 rounded-xl transition-all border cursor-pointer ${
+    <div
+      data-testid={`party-card-${character.id}`}
+      className={`rounded-xl transition-all border overflow-hidden ${
         isSelected
           ? 'bg-indigo-600/15 border-indigo-500/60 shadow-lg shadow-indigo-950/40 ring-1 ring-indigo-500/50'
           : 'glass-card hover:bg-slate-800/40 border-slate-800/80 hover:border-slate-700'
       }`}
     >
-      <div className="flex items-center justify-between gap-2 mb-1.5">
-        <div className="flex items-center gap-2 min-w-0">
-          {/* Avatar initial */}
-          <div
-            className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
-              character.type === 'HERO'
-                ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-            }`}
-          >
-            {character.name.charAt(0).toUpperCase()}
+      <button
+        type="button"
+        onClick={onSelect}
+        className="w-full text-left p-2.5 pb-1 cursor-pointer"
+      >
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Avatar initial */}
+            <div
+              className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                character.type === 'HERO'
+                  ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                  : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+              }`}
+            >
+              {character.name.charAt(0).toUpperCase()}
+            </div>
+
+            <div className="min-w-0">
+              <h3 className="text-xs font-bold text-slate-100 truncate">{character.name}</h3>
+              <p className="text-[10px] text-slate-400 truncate">
+                {character.class ||
+                  character.race ||
+                  (character.type === 'HERO' ? 'Bohater' : 'NPC')}
+                {character.level ? ` • Poz. ${character.level}` : ''}
+              </p>
+            </div>
           </div>
 
-          <div className="min-w-0">
-            <h3 className="text-xs font-bold text-slate-100 truncate">{character.name}</h3>
-            <p className="text-[10px] text-slate-400 truncate">
-              {character.class || character.race || (character.type === 'HERO' ? 'Bohater' : 'NPC')}
-              {character.level ? ` • Poz. ${character.level}` : ''}
-            </p>
+          {/* Vitality Indicator */}
+          <div className="shrink-0 flex items-center gap-1.5">
+            {status === 'dead' ? (
+              <span
+                title="Nieprzytomny / Martwy (0 HP)"
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-bold"
+              >
+                <Skull className="w-3 h-3 text-rose-400" />
+                <span>0</span>
+              </span>
+            ) : status === 'critical' ? (
+              <span
+                title="Stan krytyczny (HP <= 20%)"
+                className="relative flex h-2.5 w-2.5 items-center justify-center"
+              >
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
+              </span>
+            ) : status === 'bloodied' ? (
+              <span
+                title="Ranny / Bloodied (HP <= 50%)"
+                className="inline-block h-2 w-2 rounded-full bg-amber-400"
+              />
+            ) : (
+              <span
+                title="W pełni sił (Healthy)"
+                className="inline-block h-2 w-2 rounded-full bg-emerald-400"
+              />
+            )}
           </div>
         </div>
 
-        {/* Vitality Indicator */}
-        <div className="shrink-0 flex items-center gap-1.5">
-          {status === 'dead' ? (
+        {/* Health Bar */}
+        <div className="space-y-1 mt-2">
+          <div className="flex justify-between text-[10px] font-mono">
+            <span className="text-slate-400">HP</span>
             <span
-              title="Nieprzytomny / Martwy (0 HP)"
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-rose-500/20 border border-rose-500/40 text-rose-300 text-[10px] font-bold"
+              className={
+                status === 'dead'
+                  ? 'text-rose-400 font-bold'
+                  : status === 'critical'
+                    ? 'text-orange-400 font-bold'
+                    : 'text-slate-200'
+              }
             >
-              <Skull className="w-3 h-3 text-rose-400" />
-              <span>0</span>
+              {character.currentHp}/{character.maxHp}
             </span>
-          ) : status === 'critical' ? (
-            <span
-              title="Stan krytyczny (HP <= 20%)"
-              className="relative flex h-2.5 w-2.5 items-center justify-center"
-            >
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500" />
-            </span>
-          ) : status === 'bloodied' ? (
-            <span
-              title="Ranny / Bloodied (HP <= 50%)"
-              className="inline-block h-2 w-2 rounded-full bg-amber-400"
+          </div>
+          <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+            <div
+              className={`h-full transition-all duration-300 rounded-full ${
+                status === 'dead'
+                  ? 'bg-rose-500'
+                  : status === 'critical'
+                    ? 'bg-orange-500'
+                    : status === 'bloodied'
+                      ? 'bg-amber-500'
+                      : 'bg-emerald-500'
+              }`}
+              style={{ width: `${hpPercent}%` }}
             />
-          ) : (
-            <span
-              title="W pełni sił (Healthy)"
-              className="inline-block h-2 w-2 rounded-full bg-emerald-400"
-            />
-          )}
+          </div>
         </div>
-      </div>
+      </button>
 
-      {/* Health Bar */}
-      <div className="space-y-1 mt-2">
-        <div className="flex justify-between text-[10px] font-mono">
-          <span className="text-slate-400">HP</span>
+      {/* Card Footer: AC & PP and Combat Action */}
+      <div className="flex items-center justify-between px-2.5 pb-2 pt-1 border-t border-slate-800/40 text-[10px] text-slate-400 font-mono">
+        <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1" title="Klasa Pancerza (AC)">
+            <Shield className="w-3 h-3 text-slate-400" />
+            <span>AC {character.ac}</span>
+          </div>
+          <div className="flex items-center gap-1" title="Pasywna Percepcja">
+            <Eye className="w-3 h-3 text-slate-400" />
+            <span>PP {character.passivePerception}</span>
+          </div>
+        </div>
+
+        {isInCombat ? (
           <span
-            className={
-              status === 'dead'
-                ? 'text-rose-400 font-bold'
-                : status === 'critical'
-                  ? 'text-orange-400 font-bold'
-                  : 'text-slate-200'
-            }
+            data-testid={`in-combat-badge-${character.id}`}
+            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-sans text-[10px] font-semibold border border-indigo-500/30"
           >
-            {character.currentHp}/{character.maxHp}
+            <Swords className="w-2.5 h-2.5 text-indigo-400" />
+            <span>W walce</span>
           </span>
-        </div>
-        <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
-          <div
-            className={`h-full transition-all duration-300 rounded-full ${
-              status === 'dead'
-                ? 'bg-rose-500'
-                : status === 'critical'
-                  ? 'bg-orange-500'
-                  : status === 'bloodied'
-                    ? 'bg-amber-500'
-                    : 'bg-emerald-500'
-            }`}
-            style={{ width: `${hpPercent}%` }}
-          />
-        </div>
+        ) : onAddToCombat ? (
+          <button
+            type="button"
+            data-testid={`add-to-combat-${character.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddToCombat(character);
+            }}
+            title={`Dołącz ${character.name} do walki`}
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-indigo-600 text-slate-300 hover:text-white border border-slate-700 hover:border-indigo-500 font-sans text-[10px] font-medium transition cursor-pointer"
+          >
+            <Swords className="w-2.5 h-2.5 text-emerald-400" />
+            <span>Do walki</span>
+          </button>
+        ) : null}
       </div>
-
-      {/* AC and Perception Badges */}
-      <div className="flex items-center gap-2 mt-2 pt-1.5 border-t border-slate-800/40 text-[10px] text-slate-400 font-mono">
-        <div className="flex items-center gap-1" title="Klasa Pancerza (AC)">
-          <Shield className="w-3 h-3 text-slate-400" />
-          <span>AC {character.ac}</span>
-        </div>
-        <div className="flex items-center gap-1" title="Pasywna Percepcja">
-          <Eye className="w-3 h-3 text-slate-400" />
-          <span>PP {character.passivePerception}</span>
-        </div>
-      </div>
-    </button>
+    </div>
   );
 }

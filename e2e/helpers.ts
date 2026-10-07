@@ -35,13 +35,31 @@ export async function ensureSessionSelected(page: Page) {
   }
 
   // Otherwise, create a new session via the modal
+  await createNewSession(page);
+}
+
+/**
+ * Creates a brand new isolated session specifically for tests that mutate session or combat state.
+ */
+export async function createNewSession(page: Page, prefix = 'Sesja E2E') {
+  await page.goto('/');
+  await page.waitForLoadState('domcontentloaded');
+
+  const gmTab = page.locator('button:has-text("Ekran Prowadzenia (GM)")');
+
+  // Wait for session list to load if currently loading
+  const loadingIndicator = page.locator('text=Ładowanie Twoich sesji RPG...');
+  if (await loadingIndicator.isVisible().catch(() => false)) {
+    await expect(loadingIndicator).not.toBeVisible({ timeout: 10000 });
+  }
+
   const createBtn = page.locator('button:has-text("+ Nowa Sesja")').first();
-  await expect(createBtn).toBeVisible({ timeout: 5000 });
+  await expect(createBtn).toBeVisible({ timeout: 10000 });
   await createBtn.click();
 
   const nameInput = page.locator('#session-name');
   await expect(nameInput).toBeVisible({ timeout: 5000 });
-  await nameInput.fill(`Sesja E2E ${Date.now()}`);
+  await nameInput.fill(`${prefix} ${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
 
   const submitBtn = page.locator('button:has-text("Utwórz i rozpocznij")');
   await submitBtn.click();

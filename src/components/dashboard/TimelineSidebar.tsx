@@ -2,7 +2,11 @@
 
 import { Clock, Dices, FileText, Flame, History, Moon, Swords, Wand2 } from 'lucide-react';
 import { useState } from 'react';
-import type { DashboardLog, SessionLogType } from './types';
+import type { MonsterData } from '@/lib/monsters';
+import { AddCombatantsPanel } from '../initiative/AddCombatantsPanel';
+import { CombatLogWidget } from '../initiative/CombatLogWidget';
+import type { Combatant, CombatLogEntry } from '../initiative/types';
+import type { CenterWorkspaceView, DashboardLog, SessionLogType } from './types';
 
 interface TimelineSidebarProps {
   logs: DashboardLog[];
@@ -10,6 +14,12 @@ interface TimelineSidebarProps {
   onSelectLog: (log: DashboardLog) => void;
   gmNotes: string;
   onChangeGmNotes: (notes: string) => void;
+  activeWorkspace?: CenterWorkspaceView;
+  monsters?: MonsterData[];
+  onAddCombatant?: (combatant: Combatant) => void;
+  combatantsCountForType?: (type: string) => number;
+  combatLogEntries?: CombatLogEntry[];
+  onClearCombatLog?: () => void;
 }
 
 export function TimelineSidebar({
@@ -18,6 +28,12 @@ export function TimelineSidebar({
   onSelectLog,
   gmNotes,
   onChangeGmNotes,
+  activeWorkspace = 'combat',
+  monsters,
+  onAddCombatant,
+  combatantsCountForType,
+  combatLogEntries,
+  onClearCombatLog,
 }: TimelineSidebarProps) {
   const [quickRollResult, setQuickRollResult] = useState<{
     die: string;
@@ -80,7 +96,7 @@ export function TimelineSidebar({
   return (
     <aside
       aria-label="Panel Historii i Szybkich Rzutów"
-      className="glass-panel rounded-2xl p-4 flex flex-col gap-5 border border-slate-800/80 shadow-xl h-full"
+      className="glass-panel rounded-2xl p-4 flex flex-col gap-5 border border-slate-800/80 shadow-xl h-full overflow-y-auto max-h-[calc(100vh-140px)]"
     >
       {/* 1. Quick Dice Roller Section */}
       <div className="space-y-2.5 pb-4 border-b border-slate-800/80">
@@ -122,7 +138,22 @@ export function TimelineSidebar({
         </div>
       </div>
 
-      {/* 2. GM Notes Section */}
+      {/* 2. Combat Tactics: Add Combatants & Combat Chronicle (when in combat workspace) */}
+      {activeWorkspace === 'combat' && onAddCombatant && monsters && (
+        <div className="space-y-4 pb-4 border-b border-slate-800/80">
+          <AddCombatantsPanel
+            monsters={monsters}
+            onAddCombatant={onAddCombatant}
+            existingCombatantCountForType={combatantsCountForType ?? (() => 0)}
+          />
+
+          {combatLogEntries && (
+            <CombatLogWidget entries={combatLogEntries} onClear={onClearCombatLog} />
+          )}
+        </div>
+      )}
+
+      {/* 3. GM Notes Section */}
       <div className="space-y-2 pb-4 border-b border-slate-800/80">
         <div className="flex items-center gap-2">
           <FileText className="w-3.5 h-3.5 text-slate-400" />

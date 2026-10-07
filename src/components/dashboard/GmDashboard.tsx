@@ -1,10 +1,10 @@
 'use client';
 
 import { History, Skull, Sparkles, Swords, Users } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { EncounterBuilder } from '@/components/encounters/EncounterBuilder';
 import { InitiativeTracker } from '@/components/initiative/InitiativeTracker';
-import type { Combatant } from '@/components/initiative/types';
+import type { Combatant, CombatLogEntry } from '@/components/initiative/types';
 import type { MonsterData } from '@/lib/monsters';
 import { CharacterInspectionCard } from './CharacterInspectionCard';
 import { LogInspectionCard } from './LogInspectionCard';
@@ -16,6 +16,7 @@ import type {
   DashboardLog,
   MobileDashboardTab,
 } from './types';
+import { useSessionFullState } from './useSessionFullState';
 
 interface GmDashboardProps {
   sessionId: string;
@@ -73,24 +74,6 @@ export const DEFAULT_PARTY: DashboardCharacter[] = [
   },
 ];
 
-const DEFAULT_LOGS: DashboardLog[] = [
-  {
-    id: 'log-default-1',
-    sessionId: 'default',
-    logType: 'CUSTOM_NOTE',
-    description: 'Sesja zainicjalizowana. Drużyna rozbiła obóz w pobliżu starych ruin Phandalin.',
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'log-default-2',
-    sessionId: 'default',
-    logType: 'REST_LONG',
-    description:
-      'Długi odpoczynek zakończony. Wszyscy bohaterowie odzyskali pełnię HP i sloty czarów.',
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-  },
-];
-
 export function GmDashboard({
   sessionId,
   sessionName,
@@ -98,9 +81,23 @@ export function GmDashboard({
   initialCharacters,
   onCharactersLoaded,
 }: GmDashboardProps) {
-  const [characters, setCharacters] = useState<DashboardCharacter[]>(initialCharacters || []);
-  const [isLoading, setIsLoading] = useState<boolean>(!initialCharacters && Boolean(sessionId));
-  const [logs, setLogs] = useState<DashboardLog[]>(DEFAULT_LOGS);
+  const {
+    characters,
+    setCharacters,
+    isLoading,
+    logs,
+    activeCombatId,
+    activeCombatRound,
+    activeCombatTurnIndex,
+    activeCombatPhase,
+    setActiveCombatPhase,
+    combatants,
+    setCombatants,
+  } = useSessionFullState({
+    sessionId,
+    initialCharacters,
+    onCharactersLoaded,
+  });
 
   const [selectedCharacter, setSelectedCharacter] = useState<DashboardCharacter | null>(null);
   const [selectedLog, setSelectedLog] = useState<DashboardLog | null>(null);
@@ -110,51 +107,6 @@ export function GmDashboard({
     'Notatki GM-a: Gobliny czają się na lewej flance. Zwróć uwagę na pułapkę pod mostem.'
   );
 
-  const [combatants, setCombatants] = useState<Combatant[]>([
-    {
-      id: 'pc-1',
-      name: 'Valerius (Paladyn)',
-      initiative: 18,
-      currentHp: 28,
-      maxHp: 28,
-      ac: 18,
-      isMonster: false,
-      conditions: [],
-    },
-    {
-      id: 'pc-2',
-      name: 'Eldrin (Czarodziej)',
-      initiative: 14,
-      currentHp: 16,
-      maxHp: 16,
-      ac: 12,
-      isMonster: false,
-      conditions: [],
-    },
-    {
-      id: 'm-1',
-      name: 'Goblin Łucznik A',
-      initiative: 12,
-      currentHp: 7,
-      maxHp: 7,
-      ac: 15,
-      isMonster: true,
-      type: 'Goblin',
-      conditions: [],
-    },
-    {
-      id: 'm-2',
-      name: 'Goblin Wojownik B',
-      initiative: 9,
-      currentHp: 7,
-      maxHp: 7,
-      ac: 15,
-      isMonster: true,
-      type: 'Goblin',
-      conditions: [],
-    },
-  ]);
-
   const handleLoadCombatants = (newCombatants: Combatant[]) => {
     setCombatants((prev) => {
       const combined = [...prev, ...newCombatants];
@@ -163,48 +115,194 @@ export function GmDashboard({
     setWorkspaceView('combat');
   };
 
-  const onCharactersLoadedRef = useRef(onCharactersLoaded);
-  useEffect(() => {
-    onCharactersLoadedRef.current = onCharactersLoaded;
-  }, [onCharactersLoaded]);
+  const [combatLog, setCombatLog] = useState<CombatLogEntry[]>([
+    {
+      id: 'log-init-1',
+      timestamp: '12:00:00',
+      text: 'Starcie przygotowane. Uczestnicy w gotowości.',
+      type: 'system',
+    },
+  ]);
 
-  const lastFetchedSessionIdRef = useRef<string | null>(null);
+  const handleAddLog = useCallback((entry: CombatLogEntry) => {
+    setCombatLog((prev) => [entry, ...prev]);
+  }, []);
 
-  const fetchFullState = useCallback(async () => {
-    try {
-      const res = await fetch(`/api/sessions/${sessionId}/full-state`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success) {
-          if (Array.isArray(data.characters)) {
-            setCharacters(data.characters);
-            onCharactersLoadedRef.current?.(data.characters);
-          }
+  const handleClearLog = useCallback(() => {
+    setCombatLog([]);
+  }, []);
 
-          if (Array.isArray(data.sessionLogs) && data.sessionLogs.length > 0) {
-            setLogs(data.sessionLogs);
-          }
-        }
+  const handleAddCombatant = useCallback(
+    (newCombatant: Combatant) => {
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(
+        now.getMinutes()
+      ).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+      const logEntry: CombatLogEntry = {
+        id: `c-log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        timestamp: timeStr,
+        text: `Do walki dołącza: ${newCombatant.name} (Inicjatywa: ${newCombatant.initiative}).`,
+        type: 'system',
+      };
+      setCombatLog((prev) => [logEntry, ...prev]);
+      setCombatants((prev) => {
+        const updated = [...prev, newCombatant];
+        return activeCombatPhase === 'ACTIVE'
+          ? updated
+          : updated.sort((a, b) => b.initiative - a.initiative);
+      });
+
+      if (activeCombatId) {
+        fetch(`/api/combat/${activeCombatId}/combatants`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            characterId:
+              newCombatant.characterId ?? (!newCombatant.isMonster ? newCombatant.id : null),
+            apiMonsterId: newCombatant.apiMonsterId ?? null,
+            monsterId: newCombatant.monsterId ?? null,
+            nameOverride: newCombatant.name,
+            initiative: newCombatant.initiative,
+            currentHp: newCombatant.currentHp,
+            maxHp: newCombatant.maxHp,
+            ac: newCombatant.ac,
+          }),
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data?.combatant?.id) {
+              setCombatants((prev) =>
+                prev.map((c) => (c.id === newCombatant.id ? { ...c, id: data.combatant.id } : c))
+              );
+            }
+          })
+          .catch(() => {});
       }
-    } catch (err) {
-      console.warn('Could not load full session state from API:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [sessionId]);
+    },
+    [activeCombatId, activeCombatPhase, setCombatants]
+  );
 
-  useEffect(() => {
-    if (initialCharacters) {
-      setCharacters(initialCharacters);
-      setIsLoading(false);
-    }
-  }, [initialCharacters]);
+  const isCharacterInCombat = useCallback(
+    (charId: string) => combatants.some((c) => c.characterId === charId || c.id === charId),
+    [combatants]
+  );
 
-  useEffect(() => {
-    if (lastFetchedSessionIdRef.current === sessionId) return;
-    lastFetchedSessionIdRef.current = sessionId;
-    fetchFullState();
-  }, [sessionId, fetchFullState]);
+  const handleAddPartyToCombat = useCallback(() => {
+    const heroes = characters.filter((c) => c.type === 'HERO');
+    if (heroes.length === 0) return;
+
+    const heroesToAdd = heroes.filter(
+      (h) => !combatants.some((c) => c.characterId === h.id || c.id === h.id)
+    );
+    if (heroesToAdd.length === 0) return;
+
+    const newCombatants: Combatant[] = heroesToAdd.map((h) => ({
+      id: h.id,
+      characterId: h.id,
+      name: h.name,
+      initiative: 0,
+      currentHp: h.currentHp,
+      maxHp: h.maxHp,
+      ac: h.ac,
+      isMonster: false,
+      conditions: [],
+      statuses: [],
+    }));
+
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(
+      2,
+      '0'
+    )}:${String(now.getSeconds()).padStart(2, '0')}`;
+    const logEntry: CombatLogEntry = {
+      id: `c-log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: timeStr,
+      text: `Do walki dołącza drużyna: ${heroesToAdd.map((h) => h.name).join(', ')}.`,
+      type: 'system',
+    };
+    setCombatLog((prev) => [logEntry, ...prev]);
+
+    setCombatants((prev) => {
+      const combined = [...prev, ...newCombatants];
+      return activeCombatPhase === 'ACTIVE'
+        ? combined
+        : combined.sort((a, b) => b.initiative - a.initiative);
+    });
+
+    if (activeCombatId) {
+      for (const combatant of newCombatants) {
+        fetch(`/api/combat/${activeCombatId}/combatants`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            characterId: combatant.characterId,
+            nameOverride: combatant.name,
+            initiative: combatant.initiative,
+            currentHp: combatant.currentHp,
+            maxHp: combatant.maxHp,
+            ac: combatant.ac,
+          }),
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data?.combatant?.id) {
+              setCombatants((prev) =>
+                prev.map((c) => (c.id === combatant.id ? { ...c, id: data.combatant.id } : c))
+              );
+            }
+          })
+          .catch(() => {});
+      }
+    }
+  }, [characters, combatants, activeCombatId, activeCombatPhase, setCombatants]);
+
+  const handleAddCharacterToCombat = useCallback(
+    (char: DashboardCharacter) => {
+      const alreadyInCombat = combatants.some((c) => c.characterId === char.id || c.id === char.id);
+      if (alreadyInCombat) return;
+
+      const newCombatant: Combatant = {
+        id: char.id,
+        characterId: char.id,
+        name: char.name,
+        initiative: 0,
+        currentHp: char.currentHp,
+        maxHp: char.maxHp,
+        ac: char.ac,
+        isMonster: false,
+        conditions: [],
+        statuses: [],
+      };
+      handleAddCombatant(newCombatant);
+    },
+    [combatants, handleAddCombatant]
+  );
+
+  const combatantsCountForType = useCallback(
+    (type: string) => combatants.filter((c) => c.type === type).length,
+    [combatants]
+  );
+
+  const handleCombatEnd = useCallback(
+    (heroUpdates: { characterId: string; hp: number }[]) => {
+      if (heroUpdates.length === 0) return;
+      setCharacters((prev) =>
+        prev.map((char) => {
+          const update = heroUpdates.find((u) => u.characterId === char.id);
+          if (update) {
+            return { ...char, currentHp: update.hp };
+          }
+          return char;
+        })
+      );
+      setSelectedCharacter((prev) => {
+        if (!prev) return null;
+        const update = heroUpdates.find((u) => u.characterId === prev.id);
+        return update ? { ...prev, currentHp: update.hp } : prev;
+      });
+    },
+    [setCharacters]
+  );
 
   const handleSelectCharacter = (character: DashboardCharacter) => {
     setSelectedCharacter(character);
@@ -305,6 +403,9 @@ export function GmDashboard({
             selectedCharacterId={selectedCharacter?.id ?? null}
             onSelectCharacter={handleSelectCharacter}
             isLoading={isLoading}
+            onAddPartyToCombat={handleAddPartyToCombat}
+            onAddCharacterToCombat={handleAddCharacterToCombat}
+            isCharacterInCombat={isCharacterInCombat}
           />
         </div>
 
@@ -323,6 +424,8 @@ export function GmDashboard({
                 setSelectedCharacter(updated);
                 setCharacters((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
               }}
+              onAddToCombat={handleAddCharacterToCombat}
+              isInCombat={isCharacterInCombat(selectedCharacter.id)}
             />
           ) : workspaceView === 'log-inspect' && selectedLog ? (
             <LogInspectionCard log={selectedLog} onBackToCombat={handleBackToCombat} />
@@ -361,10 +464,24 @@ export function GmDashboard({
               </div>
 
               <InitiativeTracker
+                sessionId={sessionId}
+                initialCombatId={activeCombatId}
+                initialRound={activeCombatRound}
+                initialTurnIndex={activeCombatTurnIndex}
+                initialPhase={activeCombatPhase}
                 monsters={initialMonsters}
                 onOpenEncounterBuilder={() => setWorkspaceView('encounter-builder')}
                 combatants={combatants}
                 onCombatantsChange={setCombatants}
+                onCombatEnd={handleCombatEnd}
+                showEmbeddedSidebar={false}
+                combatLog={combatLog}
+                onAddLog={handleAddLog}
+                onClearLog={handleClearLog}
+                onPhaseChange={setActiveCombatPhase}
+                isLoading={isLoading}
+                onAddPartyToCombat={handleAddPartyToCombat}
+                partyCount={characters.filter((c) => c.type === 'HERO').length}
               />
             </div>
           )}
@@ -383,6 +500,12 @@ export function GmDashboard({
             onSelectLog={handleSelectLog}
             gmNotes={gmNotes}
             onChangeGmNotes={setGmNotes}
+            activeWorkspace={workspaceView}
+            monsters={initialMonsters}
+            onAddCombatant={handleAddCombatant}
+            combatantsCountForType={combatantsCountForType}
+            combatLogEntries={combatLog}
+            onClearCombatLog={handleClearLog}
           />
         </div>
       </div>

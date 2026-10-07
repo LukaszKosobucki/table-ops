@@ -74,7 +74,7 @@ describe('GmDashboard Component (Chunk 2.2)', () => {
     await user.click(screen.getByText('Powrót do Walki / Tracker Inicjatywy'));
 
     // Should return to initiative tracker
-    expect(screen.getByText('Kolejność Inicjatywy (4)')).toBeInTheDocument();
+    expect(screen.getByText(/Kolejność Inicjatywy/i)).toBeInTheDocument();
   });
 
   it('switches center workspace to log inspection card on timeline log click and allows returning', async () => {
@@ -94,7 +94,7 @@ describe('GmDashboard Component (Chunk 2.2)', () => {
 
     // Click back button
     await user.click(screen.getByText('Powrót do Walki / Tracker Inicjatywy'));
-    expect(screen.getByText('Kolejność Inicjatywy (4)')).toBeInTheDocument();
+    expect(screen.getByText(/Kolejność Inicjatywy/i)).toBeInTheDocument();
   });
 
   it('allows mobile tab switching between party, workspace, and timeline', async () => {
@@ -132,5 +132,44 @@ describe('GmDashboard Component (Chunk 2.2)', () => {
 
     // Verify returned to combat initiative tracker
     expect(screen.getByText(/Kolejność Inicjatywy/i)).toBeInTheDocument();
+  });
+
+  it('allows loading entire party into combat via "Załaduj Drużynę do Walki"', async () => {
+    const user = userEvent.setup();
+    render(<GmDashboard sessionId="ses-1" sessionName="Wrota Baldura" initialMonsters={[]} />);
+
+    // Wait for characters to load
+    await waitFor(() => {
+      expect(screen.getByText('Valerius (Paladyn)')).toBeInTheDocument();
+    });
+
+    const addPartyBtn = screen.getByTestId('add-party-to-combat-btn');
+    expect(addPartyBtn).toBeInTheDocument();
+    await user.click(addPartyBtn);
+
+    // Verify Valerius is now in the initiative tracker as a combatant card
+    await waitFor(() => {
+      expect(screen.getByTestId('combatant-card-c-1')).toBeInTheDocument();
+    });
+  });
+
+  it('allows adding a single character to combat via "Do walki" button', async () => {
+    const user = userEvent.setup();
+    render(<GmDashboard sessionId="ses-1" sessionName="Wrota Baldura" initialMonsters={[]} />);
+
+    // Wait for characters to load
+    await waitFor(() => {
+      expect(screen.getByText('Valerius (Paladyn)')).toBeInTheDocument();
+    });
+
+    const addCharBtn = screen.getByTestId('add-to-combat-c-1');
+    expect(addCharBtn).toBeInTheDocument();
+    await user.click(addCharBtn);
+
+    // Verify character is added to combat
+    await waitFor(() => {
+      expect(screen.getByTestId('combatant-card-c-1')).toBeInTheDocument();
+      expect(screen.getByTestId('in-combat-badge-c-1')).toBeInTheDocument();
+    });
   });
 });

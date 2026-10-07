@@ -482,5 +482,63 @@ describe('Combat Service & State Machine (Chunk 5.1)', () => {
       );
       expect(result.status).toBe('FINISHED');
     });
+
+    it('synchronizes authoritative heroUpdates passed from client on combat end', async () => {
+      const mockCombat = {
+        id: 'comb-2',
+        sessionId: 'sess-1',
+        status: 'ACTIVE',
+        combatants: [
+          {
+            id: 'cb-hero-1',
+            characterId: 'char-hero-1',
+            currentHp: 20, // DB had 20
+            nameOverride: 'Valerius',
+          },
+        ],
+      };
+
+      const mockCharUpdate = vi.fn().mockResolvedValue({ id: 'char-hero-1', currentHp: 5 });
+      const mockCombatantUpdate = vi.fn().mockResolvedValue({ id: 'cb-hero-1', currentHp: 5 });
+      const mockCombatUpdate = vi.fn().mockResolvedValue({
+        ...mockCombat,
+        status: 'FINISHED',
+        endedAt: new Date(),
+      });
+      const mockLogCreate = vi.fn().mockResolvedValue({ id: 'log-1' });
+
+      const mockPrisma = {
+        combat: {
+          findUnique: vi.fn().mockResolvedValue(mockCombat),
+          update: mockCombatUpdate,
+        },
+        combatant: {
+          update: mockCombatantUpdate,
+        },
+        character: {
+          update: mockCharUpdate,
+        },
+        sessionLog: {
+          create: mockLogCreate,
+        },
+      } as unknown as CombatPrismaClient;
+
+      // Client says final HP is 5 (e.g. after rapid clicks)
+      const result = await endCombat(
+        'comb-2',
+        { heroUpdates: [{ characterId: 'char-hero-1', hp: 5 }] },
+        mockPrisma
+      );
+
+      expect(mockCharUpdate).toHaveBeenCalledWith({
+        where: { id: 'char-hero-1' },
+        data: { currentHp: 5 },
+      });
+      expect(mockCombatantUpdate).toHaveBeenCalledWith({
+        where: { id: 'cb-hero-1' },
+        data: { currentHp: 5 },
+      });
+      expect(result.status).toBe('FINISHED');
+    });
   });
 });

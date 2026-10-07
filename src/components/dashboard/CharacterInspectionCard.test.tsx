@@ -177,4 +177,35 @@ describe('CharacterInspectionCard Component (Chunk 3.2)', () => {
     fireEvent.click(saveButtons[0]);
     expect(screen.getByText(/Rzut Obronny:/i)).toBeInTheDocument();
   });
+
+  it('renders "Dodaj do Walki" button and triggers onAddToCombat when clicked', () => {
+    const handleAddToCombat = vi.fn();
+    render(
+      <CharacterInspectionCard
+        character={mockCharacter}
+        onBackToCombat={vi.fn()}
+        onAddToCombat={handleAddToCombat}
+        isInCombat={false}
+      />
+    );
+
+    const addBtn = screen.getByTestId('inspect-add-to-combat-btn');
+    expect(addBtn).toBeInTheDocument();
+    fireEvent.click(addBtn);
+    expect(handleAddToCombat).toHaveBeenCalledWith(mockCharacter);
+  });
+
+  it('renders "W Walce" badge when character is already in combat', () => {
+    render(
+      <CharacterInspectionCard
+        character={mockCharacter}
+        onBackToCombat={vi.fn()}
+        onAddToCombat={vi.fn()}
+        isInCombat={true}
+      />
+    );
+
+    expect(screen.getByTestId('inspect-in-combat-badge')).toBeInTheDocument();
+    expect(screen.queryByTestId('inspect-add-to-combat-btn')).not.toBeInTheDocument();
+  });
 });

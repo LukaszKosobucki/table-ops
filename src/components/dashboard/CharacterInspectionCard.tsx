@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Shield,
   Sparkles,
+  Swords,
   Wand2,
 } from 'lucide-react';
 import { useState } from 'react';
@@ -25,6 +26,8 @@ interface CharacterInspectionCardProps {
   character: DashboardCharacter;
   onBackToCombat: () => void;
   onCharacterUpdate?: (updated: DashboardCharacter) => void;
+  onAddToCombat?: (character: DashboardCharacter) => void;
+  isInCombat?: boolean;
 }
 
 function calculateModifier(score = 10): { num: number; str: string } {
@@ -37,6 +40,8 @@ export function CharacterInspectionCard({
   character,
   onBackToCombat,
   onCharacterUpdate,
+  onAddToCombat,
+  isInCombat = false,
 }: CharacterInspectionCardProps) {
   // Local HP state for instant response
   const [currentHp, setCurrentHp] = useState(character.currentHp);
@@ -201,15 +206,37 @@ export function CharacterInspectionCard({
           <span>Powrót do Walki / Tracker Inicjatywy</span>
         </button>
 
-        <span
-          className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
-            character.type === 'HERO'
-              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-              : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-          }`}
-        >
-          {character.type === 'HERO' ? 'Bohater Gracza' : 'NPC / Postać Niezależna'}
-        </span>
+        <div className="flex items-center gap-2">
+          {isInCombat ? (
+            <span
+              data-testid="inspect-in-combat-badge"
+              className="px-2.5 py-1 rounded-full text-xs font-bold border bg-indigo-500/20 text-indigo-300 border-indigo-500/40 flex items-center gap-1.5"
+            >
+              <Swords className="w-3 h-3 text-indigo-400" />
+              <span>W Walce</span>
+            </span>
+          ) : onAddToCombat ? (
+            <button
+              type="button"
+              data-testid="inspect-add-to-combat-btn"
+              onClick={() => onAddToCombat(character)}
+              className="px-3 py-1 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-950/40 transition cursor-pointer"
+            >
+              <Swords className="w-3 h-3" />
+              <span>Dodaj do Walki</span>
+            </button>
+          ) : null}
+
+          <span
+            className={`px-2.5 py-1 rounded-full text-xs font-bold border ${
+              character.type === 'HERO'
+                ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+            }`}
+          >
+            {character.type === 'HERO' ? 'Bohater Gracza' : 'NPC / Postać Niezależna'}
+          </span>
+        </div>
       </div>
 
       {/* Header: Name and details */}
