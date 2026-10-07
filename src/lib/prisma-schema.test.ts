@@ -34,8 +34,10 @@ describe('Prisma Schema and Generated Client (Chunk 0.1)', () => {
   it('supports strong typing for session creation input', () => {
     const sessionInput: Prisma.SessionCreateInput = {
       name: 'Wyprawa do Podmroku',
+      userId: 'user-uuid-123',
     };
     expect(sessionInput.name).toBe('Wyprawa do Podmroku');
+    expect(sessionInput.userId).toBe('user-uuid-123');
 
     const characterInput: Prisma.CharacterCreateWithoutSessionInput = {
       name: 'Aelar',

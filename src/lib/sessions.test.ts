@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  claimGuestSessions,
   createSession,
   deleteSession,
   getSessionFullState,
@@ -428,6 +429,183 @@ describe('Sessions Service (Chunk 1.1)', () => {
       const executionDuration = performance.now() - startTime;
 
       expect(executionDuration).toBeLessThan(100);
+    });
+  });
+
+  describe('Multi-Tenancy & User Isolation (Chunk 6.1)', () => {
+    it('filters sessions by userId for authenticated users', async () => {
+      const mockPrisma = {
+        session: {
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+      };
+
+      await getSessions({ userId: 'user-gm-1' }, mockPrisma as unknown as SessionPrismaClient);
+
+      expect(mockPrisma.session.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: 'user-gm-1' },
+        })
+      );
+    });
+
+    it('filters sessions by null userId for guest users', async () => {
+      const mockPrisma = {
+        session: {
+          findMany: vi.fn().mockResolvedValue([]),
+        },
+      };
+
+      await getSessions({ userId: null }, mockPrisma as unknown as SessionPrismaClient);
+
+      expect(mockPrisma.session.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { userId: null },
+        })
+      );
+    });
+
+    it('assigns userId to newly created session when provided', async () => {
+      const mockPrisma = {
+        session: {
+          create: vi.fn().mockResolvedValue({ id: 's-1', name: 'Kampania', userId: 'user-gm-1' }),
+        },
+      };
+
+      await createSession(
+        { name: 'Kampania', userId: 'user-gm-1' },
+        mockPrisma as unknown as SessionPrismaClient
+      );
+
+      expect(mockPrisma.session.create).toHaveBeenCalledWith({
+        data: { name: 'Kampania', userId: 'user-gm-1' },
+      });
+    });
+
+    it('prevents updating session owned by a different user', async () => {
+      const mockPrisma = {
+        session: {
+          findUnique: vi
+            .fn()
+            .mockResolvedValue({ id: 's-1', name: 'Kampania', userId: 'user-owner' }),
+          update: vi.fn(),
+        },
+      };
+
+      const result = await updateSession(
+        's-1',
+        { name: 'Nowa Nazwa', userId: 'user-attacker' },
+        mockPrisma as unknown as SessionPrismaClient
+      );
+
+      expect(result).toBeNull();
+      expect(mockPrisma.session.update).not.toHaveBeenCalled();
+    });
+
+    it('prevents deleting session owned by a different user', async () => {
+      const mockPrisma = {
+        session: {
+          findUnique: vi
+            .fn()
+            .mockResolvedValue({ id: 's-1', name: 'Kampania', userId: 'user-owner' }),
+          delete: vi.fn(),
+        },
+      };
+
+      const result = await deleteSession(
+        's-1',
+        { userId: 'user-attacker' },
+        mockPrisma as unknown as SessionPrismaClient
+      );
+
+      expect(result).toBeNull();
+      expect(mockPrisma.session.delete).not.toHaveBeenCalled();
+    });
+
+    it('prevents viewing full state of session owned by a different user', async () => {
+      const mockPrisma = {
+        session: {
+          findUnique: vi.fn().mockResolvedValue({
+            id: 's-1',
+            userId: 'user-owner',
+            name: 'Prywatna',
+            characters: [],
+            encounterGroups: [],
+            combats: [],
+            sessionLogs: [],
+          }),
+        },
+      };
+
+      const result = await getSessionFullState(
+        's-1',
+        { userId: 'user-attacker' },
+        mockPrisma as unknown as SessionPrismaClient
+      );
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('claimGuestSessions (Option A: Anonymous Device Migration)', () => {
+    it('migrates all sessions owned by guestId to targetUserId and returns count', async () => {
+      const mockPrisma = {
+        session: {
+          updateMany: vi.fn().mockResolvedValue({ count: 3 }),
+        },
+      };
+
+      const count = await claimGuestSessions(
+        'registered-user-uuid',
+        'guest_device_123',
+        mockPrisma as unknown as SessionPrismaClient
+      );
+
+      expect(count).toBe(3);
+      expect(mockPrisma.session.updateMany).toHaveBeenCalledWith({
+        where: { userId: 'guest_device_123' },
+        data: { userId: 'registered-user-uuid' },
+      });
+    });
+
+    it('returns 0 and does not perform update if targetUserId is identical to guestId', async () => {
+      const mockPrisma = {
+        session: {
+          updateMany: vi.fn(),
+        },
+      };
+
+      const count = await claimGuestSessions(
+        'guest_device_123',
+        'guest_device_123',
+        mockPrisma as unknown as SessionPrismaClient
+      );
+
+      expect(count).toBe(0);
+      expect(mockPrisma.session.updateMany).not.toHaveBeenCalled();
+    });
+
+    it('returns 0 if targetUserId or guestId is empty', async () => {
+      const mockPrisma = {
+        session: {
+          updateMany: vi.fn(),
+        },
+      };
+
+      const count1 = await claimGuestSessions(
+        '',
+        'guest_device_123',
+        mockPrisma as unknown as SessionPrismaClient
+      );
+      const count2 = await claimGuestSessions(
+        'registered-user-uuid',
+        '',
+        mockPrisma as unknown as SessionPrismaClient
+      );
+
+      expect(count1).toBe(0);
+      expect(count2).toBe(0);
+      expect(mockPrisma.session.updateMany).not.toHaveBeenCalled();
     });
   });
 });

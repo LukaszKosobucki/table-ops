@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getUserIdFromRequest } from '@/lib/auth';
 import { deleteSession, updateSession, validateSessionName } from '@/lib/sessions';
 
 interface RouteContext {
@@ -27,7 +28,8 @@ export async function PUT(request: Request, context: RouteContext) {
       return NextResponse.json({ success: false, error: validation.error }, { status: 400 });
     }
 
-    const updated = await updateSession(id, { name: validation.name });
+    const userId = await getUserIdFromRequest(request);
+    const updated = await updateSession(id, { name: validation.name, userId });
     if (!updated) {
       return NextResponse.json({ success: false, error: 'Session not found' }, { status: 404 });
     }
@@ -42,7 +44,7 @@ export async function PUT(request: Request, context: RouteContext) {
   }
 }
 
-export async function DELETE(_request: Request, context: RouteContext) {
+export async function DELETE(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
     if (!id) {
@@ -52,7 +54,8 @@ export async function DELETE(_request: Request, context: RouteContext) {
       );
     }
 
-    const deleted = await deleteSession(id);
+    const userId = await getUserIdFromRequest(request);
+    const deleted = await deleteSession(id, { userId });
     if (!deleted) {
       return NextResponse.json({ success: false, error: 'Session not found' }, { status: 404 });
     }

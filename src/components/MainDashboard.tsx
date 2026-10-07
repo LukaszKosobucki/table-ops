@@ -2,7 +2,9 @@
 
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getClientGuestId } from '@/lib/guest';
 import type { MonsterData } from '@/lib/monsters';
+import { useAuth } from './auth/useAuth';
 import type { Character } from './characters/types';
 import type { DashboardCharacter } from './dashboard/types';
 import { Footer } from './layout/Footer';
@@ -54,7 +56,21 @@ const ACTIVE_SESSION_STORAGE_KEY = 'tableops_active_session_id';
 function syncUrlParams(session: SessionItem | null, tab: string) {
   if (typeof window === 'undefined') return;
   try {
+    if (window.location.pathname !== '/') return;
     const url = new URL(window.location.href);
+    const targetSession = session?.id ?? null;
+    const targetTab = session ? tab : 'sessions';
+
+    const currentSession = url.searchParams.get('session');
+    const currentTab = url.searchParams.get('tab');
+
+    // Skip replaceState if URL is already in the target state
+    const isSessionSame = currentSession === targetSession;
+    const isTabSame = currentTab === targetTab || (!currentTab && targetTab === 'sessions');
+    if (isSessionSame && isTabSame) {
+      return;
+    }
+
     if (session) {
       url.searchParams.set('session', session.id);
       url.searchParams.set('tab', tab);
@@ -73,6 +89,7 @@ interface MainDashboardProps {
 }
 
 export function MainDashboard({ initialMonsters }: MainDashboardProps) {
+  const { user, signOut } = useAuth();
   const [activeTab, setActiveTab] = useState('sessions');
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [activeSession, setActiveSession] = useState<SessionItem | null>(null);
@@ -83,7 +100,11 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
   const fetchSessions = useCallback(async () => {
     try {
       setIsLoadingSessions(true);
-      const res = await fetch('/api/sessions');
+      const guestId = getClientGuestId();
+      const headers: Record<string, string> = {};
+      if (guestId) headers['x-guest-id'] = guestId;
+
+      const res = await fetch('/api/sessions', { headers });
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.sessions)) {
@@ -142,6 +163,22 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
     fetchSessions();
   }, [fetchSessions]);
 
+  useEffect(() => {
+    if (user?.id !== undefined) {
+      fetchSessions();
+    }
+  }, [user?.id, fetchSessions]);
+
+  const handleSignOut = useCallback(async () => {
+    await signOut();
+    setActiveSession(null);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
+    }
+    syncUrlParams(null, 'sessions');
+    fetchSessions();
+  }, [signOut, fetchSessions]);
+
   // Handle browser back/forward buttons
   useEffect(() => {
     const handlePopState = () => {
@@ -196,9 +233,13 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
 
   const handleCreateSession = async (name: string) => {
     try {
+      const guestId = getClientGuestId();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (guestId) headers['x-guest-id'] = guestId;
+
       const res = await fetch('/api/sessions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ name }),
       });
 
@@ -386,6 +427,8 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
         sessions={sessions}
         activeSession={activeSession}
         onSelectSession={handleSelectSession}
+        user={user}
+        onSignOut={handleSignOut}
       />
 
       {/* Main Content Area */}

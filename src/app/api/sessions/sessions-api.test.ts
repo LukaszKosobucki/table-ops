@@ -1,4 +1,6 @@
+import type { Session } from '@prisma/client';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as authHelper from '@/lib/auth';
 import * as sessionsService from '@/lib/sessions';
 import { DELETE, PUT } from './[id]/route';
 import { GET, POST } from './route';
@@ -203,6 +205,90 @@ describe('/api/sessions Endpoints (Chunk 1.1)', () => {
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
       expect(data.message).toBe('Session deleted successfully');
+    });
+  });
+
+  describe('Multi-Tenancy & Auth scoping (Chunk 6.1)', () => {
+    it('scopes GET /api/sessions to authenticated userId when present', async () => {
+      vi.spyOn(authHelper, 'getUserIdFromRequest').mockResolvedValue('user-gm-123');
+      const getSpy = vi.spyOn(sessionsService, 'getSessions').mockResolvedValue([]);
+
+      const request = new Request('http://localhost/api/sessions');
+      const response = await GET(request);
+
+      expect(response.status).toBe(200);
+      expect(getSpy).toHaveBeenCalledWith({ userId: 'user-gm-123' });
+    });
+
+    it('scopes POST /api/sessions to authenticated userId when present', async () => {
+      vi.spyOn(authHelper, 'getUserIdFromRequest').mockResolvedValue('user-gm-123');
+      const createSpy = vi.spyOn(sessionsService, 'createSession').mockResolvedValue({
+        id: 'new-id',
+        name: 'Kampania Strahda',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as unknown as Session);
+
+      const request = new Request('http://localhost/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Kampania Strahda' }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(201);
+      expect(createSpy).toHaveBeenCalledWith({
+        name: 'Kampania Strahda',
+        userId: 'user-gm-123',
+      });
+    });
+
+    it('scopes PUT /api/sessions/[id] to authenticated userId when present', async () => {
+      vi.spyOn(authHelper, 'getUserIdFromRequest').mockResolvedValue('user-gm-123');
+      const updateSpy = vi.spyOn(sessionsService, 'updateSession').mockResolvedValue({
+        id: 's-1',
+        name: 'Nowa Nazwa',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as unknown as Session);
+
+      const request = new Request('http://localhost/api/sessions/s-1', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'Nowa Nazwa' }),
+      });
+
+      const response = await PUT(request, {
+        params: Promise.resolve({ id: 's-1' }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(updateSpy).toHaveBeenCalledWith('s-1', {
+        name: 'Nowa Nazwa',
+        userId: 'user-gm-123',
+      });
+    });
+
+    it('scopes DELETE /api/sessions/[id] to authenticated userId when present', async () => {
+      vi.spyOn(authHelper, 'getUserIdFromRequest').mockResolvedValue('user-gm-123');
+      const deleteSpy = vi.spyOn(sessionsService, 'deleteSession').mockResolvedValue({
+        id: 's-1',
+        name: 'Usunięta',
+      } as unknown as Session);
+
+      const request = new Request('http://localhost/api/sessions/s-1', {
+        method: 'DELETE',
+      });
+
+      const response = await DELETE(request, {
+        params: Promise.resolve({ id: 's-1' }),
+      });
+
+      expect(response.status).toBe(200);
+      expect(deleteSpy).toHaveBeenCalledWith('s-1', {
+        userId: 'user-gm-123',
+      });
     });
   });
 });

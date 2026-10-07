@@ -67,4 +67,44 @@ describe('Navbar Routing & Access Guard', () => {
     await user.click(bestiaryBtn);
     expect(handleSetActiveTab).toHaveBeenCalledWith('bestiary');
   });
+
+  describe('Auth Profile & Indicators (Chunk 6.2)', () => {
+    it('renders login link when user is not logged in', () => {
+      render(
+        <Navbar activeTab="sessions" setActiveTab={vi.fn()} activeSession={null} user={null} />
+      );
+
+      const loginBtn = screen.getByTestId('login-link-btn');
+      expect(loginBtn).toBeInTheDocument();
+      expect(loginBtn).toHaveAttribute('href', '/login');
+      expect(screen.queryByTestId('user-profile-badge')).not.toBeInTheDocument();
+    });
+
+    it('renders user avatar initial and triggers onSignOut when logged in', async () => {
+      const handleSignOut = vi.fn();
+      const user = userEvent.setup();
+
+      render(
+        <Navbar
+          activeTab="sessions"
+          setActiveTab={vi.fn()}
+          activeSession={null}
+          user={{
+            email: 'strahd@barovia.com',
+            user_metadata: { name: 'Hrabia Strahd' },
+          }}
+          onSignOut={handleSignOut}
+        />
+      );
+
+      expect(screen.getByTestId('user-profile-badge')).toBeInTheDocument();
+      expect(screen.getByText('S')).toBeInTheDocument();
+      expect(screen.getByText('Hrabia Strahd')).toBeInTheDocument();
+      expect(screen.queryByTestId('login-link-btn')).not.toBeInTheDocument();
+
+      const logoutBtn = screen.getByTestId('logout-btn');
+      await user.click(logoutBtn);
+      expect(handleSignOut).toHaveBeenCalled();
+    });
+  });
 });

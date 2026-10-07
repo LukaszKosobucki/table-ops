@@ -1,8 +1,28 @@
 'use client';
 
-import { BookOpen, Dices, FolderKanban, Lock, Shield, Sparkles, UserPlus } from 'lucide-react';
+import {
+  BookOpen,
+  Dices,
+  FolderKanban,
+  Lock,
+  LogIn,
+  LogOut,
+  Shield,
+  Sparkles,
+  User,
+  UserPlus,
+} from 'lucide-react';
+import Link from 'next/link';
 import { SessionSwitcher } from '../sessions/SessionSwitcher';
 import type { SessionItem } from '../sessions/types';
+
+export interface NavbarUser {
+  id?: string;
+  email?: string | null;
+  user_metadata?: {
+    name?: string;
+  };
+}
 
 interface NavbarProps {
   activeTab: string;
@@ -11,6 +31,8 @@ interface NavbarProps {
   activeSession?: SessionItem | null;
   onSelectSession?: (session: SessionItem) => void;
   onOpenCreateModal?: () => void;
+  user?: NavbarUser | null;
+  onSignOut?: () => void;
 }
 
 export function Navbar({
@@ -20,6 +42,8 @@ export function Navbar({
   activeSession = null,
   onSelectSession,
   onOpenCreateModal,
+  user = null,
+  onSignOut,
 }: NavbarProps) {
   const navItems = [
     { id: 'dashboard', label: 'Ekran Prowadzenia (GM)', icon: Shield },
@@ -119,6 +143,45 @@ export function Navbar({
               );
             })}
           </nav>
+
+          {/* User Profile / Auth Action */}
+          {user ? (
+            <div
+              className="flex items-center gap-2 pl-2 sm:border-l border-slate-800"
+              data-testid="user-profile-badge"
+            >
+              <div
+                className="w-8 h-8 rounded-full bg-gradient-to-tr from-amber-600 via-indigo-600 to-purple-600 flex items-center justify-center text-xs font-bold text-white shadow-sm border border-white/10 shrink-0"
+                title={user.email ?? 'Mistrz Gry'}
+              >
+                {user.email ? user.email.charAt(0).toUpperCase() : <User className="w-3.5 h-3.5" />}
+              </div>
+              <div className="hidden xl:block text-left max-w-[130px] truncate">
+                <div className="text-xs font-medium text-slate-200 truncate">
+                  {user.user_metadata?.name || user.email?.split('@')[0] || 'Mistrz Gry'}
+                </div>
+                <div className="text-[10px] text-slate-400 font-mono truncate">{user.email}</div>
+              </div>
+              <button
+                type="button"
+                data-testid="logout-btn"
+                onClick={onSignOut}
+                title="Wyloguj się"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <Link
+              href="/login"
+              data-testid="login-link-btn"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 text-slate-200 hover:text-white border border-slate-700/80 text-xs font-medium transition-all shadow-sm shrink-0"
+            >
+              <LogIn className="w-3.5 h-3.5 text-amber-400" />
+              <span>Zaloguj się</span>
+            </Link>
+          )}
         </div>
       </div>
     </header>

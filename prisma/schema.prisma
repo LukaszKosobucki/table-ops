@@ -28,6 +28,7 @@ enum SessionLogType {
 
 model Session {
   id              String           @id @default(uuid())
+  userId          String?          @map("user_id")
   name            String
   characters      Character[]
   encounterGroups EncounterGroup[]
@@ -36,6 +37,7 @@ model Session {
   createdAt       DateTime         @default(now()) @map("created_at")
   updatedAt       DateTime         @updatedAt @map("updated_at")
 
+  @@index([userId])
   @@map("sessions")
 }
 

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getUserIdFromRequest } from '@/lib/auth';
 import { getSessionFullState } from '@/lib/sessions';
 
 interface RouteContext {
@@ -7,7 +8,7 @@ interface RouteContext {
   }>;
 }
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   try {
     const { id } = await context.params;
     if (!id || typeof id !== 'string' || !id.trim()) {
@@ -17,7 +18,8 @@ export async function GET(_request: Request, context: RouteContext) {
       );
     }
 
-    const fullState = await getSessionFullState(id.trim());
+    const userId = await getUserIdFromRequest(request);
+    const fullState = await getSessionFullState(id.trim(), { userId });
     if (!fullState) {
       return NextResponse.json({ success: false, error: 'Session not found' }, { status: 404 });
     }

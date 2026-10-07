@@ -282,24 +282,48 @@ flowchart TD
 *User Stories:* [`user-stories-and-spec/user_stories_autentykacja_i_konta.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_autentykacja_i_konta.md)  
 *API Spec:* Supabase Auth / Next.js Server Actions & Route Handlers
 
-### Chunk 6.1: Backend & Schema – Integracja Supabase Auth i Izolacja Danych Sesji
+### Chunk 6.1: Backend & Schema – Integracja Supabase Auth i Izolacja Danych Sesji (✅ Zakończone)
 * **Backend & Baza Danych:**
-  * Rozszerzenie modelu Prisma `Session` o pole `userId String? @map("user_id")` z indeksem.
-  * Helpery / middleware autoryzacyjny z użyciem `@supabase/ssr` weryfikujące token JWT użytkownika w żądaniach API.
-  * Ograniczenie zapytań `getSessions()` oraz mutacji wyłącznie do aktywnego `userId` (izolacja sesji per konto).
-  * Zapewnienie kompatybilności dla sesji `test` / trybu developerskiego i gościa.
+  * Rozszerzenie modelu Prisma `Session` o pole `userId String? @map("user_id")` z indeksem `@@index([userId])` w [`prisma/schema.prisma`](file:///Users/lukaszkosobucki/Documents/table-ops/prisma/schema.prisma) i synchronizacja schematu (`prisma db push`).
+  * Moduł autoryzacji [`src/lib/auth.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/auth.ts):
+    * `getUserFromRequest`: weryfikuje tożsamość użytkownika z nagłówka `Authorization: Bearer <jwt>` lub ciasteczek Supabase SSR (`createClient()`).
+    * `getGuestIdFromRequest`: pobiera unikalny token urządzenia gościa z nagłówka `x-guest-id` lub ciasteczka `tableops_guest_id`.
+    * `getUserIdFromRequest`: priorytetyzuje zalogowane `user.id`, a dla gości zwraca unikalny `guestId` (pełna izolacja gości).
+  * Proxy Next.js 16 [`src/proxy.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/proxy.ts): odświeża tokeny Supabase w locie oraz automatycznie generuje i utrwala ciasteczko `tableops_guest_id` (`SameSite: Lax`, ważność 1 rok) dla każdego nowego odwiedzającego.
+  * Klient pomocniczy [`src/lib/guest.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/guest.ts): dwukierunkowa synchronizacja tokena gościa między `document.cookie` a `localStorage`.
+  * Serwis sesji [`src/lib/sessions.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/sessions.ts) z pełnym wsparciem wielodostępności i Opcji A:
+    * `getSessions`: filtruje sesje ściśle według `userId` zalogowanego użytkownika lub `guestId` urządzenia gościa.
+    * `createSession`, `updateSession`, `deleteSession`, `getSessionFullState`: zabezpieczenia przed nieautoryzowanym dostępem.
+    * `claimGuestSessions`: atomowa migracja sesji gościa z urządzenia na konto zalogowanego użytkownika (`updateMany: userId = targetUserId WHERE userId = guestId`).
+  * Route Handlery API:
+    * [`src/app/api/sessions/route.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/route.ts) – automatyczne przejmowanie (claim) sesji gościa po zalogowaniu oraz filtrowanie per użytkownik/gość.
+    * [`src/app/api/sessions/claim/route.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/claim/route.ts) – dedykowany endpoint do migracji sesji gościa.
+    * [`src/app/api/sessions/[id]/route.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/[id]/route.ts)
+    * [`src/app/api/sessions/[id]/full-state/route.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/[id]/full-state/route.ts)
 * **Testowanie:**
-  * Testy integracyjne izolacji: weryfikacja, że użytkownik A nie widzi ani nie może edytować sesji użytkownika B.
+  * [`src/lib/auth.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/auth.test.ts): 8 testów jednostkowych (ekstrakcja z tokena, ciasteczek, nagłówków `x-guest-id`, ciasteczek gościa i priorytetów).
+  * [`src/lib/guest.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/guest.test.ts): 3 testy jednostkowe synchronizacji tokena gościa.
+  * [`src/lib/sessions.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/sessions.test.ts): 24 testy jednostkowe (w tym 6 testów multi-tenancy oraz 3 testy migracji `claimGuestSessions`).
+  * [`src/app/api/sessions/sessions-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/sessions-api.test.ts): 14 testów integracyjnych endpointów REST.
+  * [`src/app/api/sessions/sessions-isolation.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/sessions-isolation.test.ts): testy pełnej izolacji między kontami oraz test izolacji i migracji urządzeń gości (Opcja A).
 
-### Chunk 6.2: Frontend – Logowanie, Rejestracja i Google OAuth
+### Chunk 6.2: Frontend – Logowanie, Rejestracja i Google OAuth (✅ Zakończone)
 * **Frontend ([`src/components/auth/`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/auth/)):**
-  * Estetyczny ekran logowania i rejestracji zgodny z dark fantasy design tokens.
-  * Formularz rejestracji oraz logowania loginem (e-mail) i hasłem z walidacją i komunikatami błędów.
-  * Przycisk **"Zaloguj przez Google"** (Google OAuth przez Supabase Auth provider).
-  * Pasek nawigacyjny: wskaźnik profilu (avatar / e-mail) oraz przycisk wylogowania.
-  * Przekierowanie po pomyślnym logowaniu do widoku własnych sesji.
+  * Hook [`src/components/auth/useAuth.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/auth/useAuth.ts): zarządzanie stanem sesji przez Supabase, logowanie hasłem, rejestracja, logowanie Google OAuth i wylogowanie.
+  * Formularze [`LoginForm.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/auth/LoginForm.tsx) i [`RegisterForm.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/auth/RegisterForm.tsx):
+    * Płynne przekierowanie po rejestracji do ekranu logowania (`/login?registered=true`) wraz z zielonym banerem potwierdzenia.
+    * Walidacja haseł, logowanie Google OAuth, bezpieczny powrót do trybu gościa.
+  * Strony uwierzytelniania w Next.js App Router:
+    * [`src/app/login/page.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/login/page.tsx)
+    * [`src/app/register/page.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/register/page.tsx)
+    * [`src/app/auth/callback/route.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/auth/callback/route.ts)
+  * Pasek nawigacyjny [`src/components/layout/Navbar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/layout/Navbar.tsx): profil użytkownika z awatarem i wylogowaniem lub przycisk logowania.
+  * Dashboard [`src/components/MainDashboard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/MainDashboard.tsx): przekazywanie tokena gościa w nagłówkach i cookies, eliminacja konfliktów URL.
 * **Testowanie:**
-  * Testy jednostkowe widoków autoryzacji: weryfikacja obsługi błędów niepoprawnych danych logowania oraz przekierowania po sukcesie.
+  * [`src/components/auth/AuthForms.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/auth/AuthForms.test.tsx): 9 testów jednostkowych (w tym test przekierowania do `/login?registered=true` i baneru powitalnego).
+  * [`src/components/layout/Navbar.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/layout/Navbar.test.tsx): 4 testy jednostkowe.
+  * [`e2e/auth.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/auth.spec.ts): 2 testy E2E Playwright sprawdzające pełny flow nawigacji logowania/rejestracji oraz rzeczywistą izolację między osobnymi kontekstami przeglądarki gości (Option A).
+  * Wszystkie 264 testy jednostkowe Vitest (31 plików, 100% zielone), 0 błędów Biome linter (150 plików), czysty build Turbopack oraz 16/16 testów Playwright E2E zielone (100%).
 
 ---
 
