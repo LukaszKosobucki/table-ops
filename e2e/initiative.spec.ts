@@ -393,4 +393,89 @@ test.describe('Initiative Tracker Module', () => {
     );
     await expect(heroCardAfterReload.locator('text=6/10')).toBeVisible();
   });
+
+  test('executes Long Rest and adds custom notes on the Session Timeline with database persistence', async ({
+    page,
+  }) => {
+    // 1. Seed a damaged hero (10/24 HP)
+    const url = new URL(page.url());
+    const sessionId = url.searchParams.get('session');
+    expect(sessionId).toBeTruthy();
+
+    const heroRes = await page.request.post('/api/characters', {
+      data: {
+        sessionId,
+        name: 'Kleryk Odpoczynku',
+        type: 'HERO',
+        race: 'Krasnolud',
+        class: 'Kleryk',
+        level: 3,
+        maxHp: 24,
+        currentHp: 10,
+        ac: 16,
+      },
+    });
+    expect(heroRes.ok()).toBeTruthy();
+
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
+    const gmTab = page.locator('button:has-text("Ekran Prowadzenia (GM)")');
+    if (await gmTab.isVisible().catch(() => false)) {
+      await gmTab.click();
+    }
+
+    const heroCard = page.locator('[data-testid^="party-card-"]:has-text("Kleryk Odpoczynku")');
+    await expect(heroCard).toBeVisible();
+    await expect(heroCard.locator('text=10/24')).toBeVisible();
+
+    // 2. Open Long Rest Modal from Timeline
+    const longRestTrigger = page.locator('button[data-testid="open-long-rest-btn"]');
+    await expect(longRestTrigger).toBeVisible();
+    await longRestTrigger.click();
+
+    const confirmLongRestBtn = page.locator('button[data-testid="confirm-long-rest-btn"]');
+    await expect(confirmLongRestBtn).toBeVisible();
+
+    const restPromise = page.waitForResponse(
+      (res) =>
+        res.url().includes('/api/sessions/') && res.url().includes('/logs') && res.status() === 201
+    );
+    await confirmLongRestBtn.click();
+    await restPromise;
+
+    // 3. Verify hero was fully restored to 24/24 HP
+    await expect(heroCard.locator('text=24/24')).toBeVisible();
+
+    // 4. Verify Long Rest log is on the timeline
+    await expect(page.locator('text=Długi Odpoczynek').first()).toBeVisible();
+
+    // 6. Open Add Note Modal and write a custom narrative note
+    const addNoteTrigger = page.locator('button[data-testid="open-add-note-btn"]');
+    await addNoteTrigger.click();
+
+    const noteTextarea = page.locator('textarea[data-testid="note-description-input"]');
+    await noteTextarea.fill('Drużyna rozbiła obóz pod prastarym dębem.');
+
+    const saveNoteBtn = page.locator('button[data-testid="save-note-btn"]');
+    const notePromise = page.waitForResponse(
+      (res) =>
+        res.url().includes('/api/sessions/') && res.url().includes('/logs') && res.status() === 201
+    );
+    await saveNoteBtn.click();
+    await notePromise;
+
+    // 7. Verify narrative note appears on timeline
+    await expect(page.locator('text=Drużyna rozbiła obóz pod prastarym dębem.')).toBeVisible();
+
+    // 8. Reload page to verify persistence in PostgreSQL
+    await page.reload();
+    await page.waitForLoadState('domcontentloaded');
+
+    if (await gmTab.isVisible().catch(() => false)) {
+      await gmTab.click();
+    }
+
+    await expect(page.locator('text=Drużyna rozbiła obóz pod prastarym dębem.')).toBeVisible();
+  });
 });

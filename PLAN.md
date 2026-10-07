@@ -331,28 +331,41 @@ flowchart TD
 *User Stories:* [`user-stories-and-spec/user_stories_modu_historii.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_modu_historii.md)  
 *API Spec:* [`user-stories-and-spec/wymagania_crud_api.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/wymagania_crud_api.md) (Sekcja 5)
 
-### Chunk 7.1: Backend – Obsługa Logów i Automatyka Odpoczynków
+### Chunk 7.1: Backend – Obsługa Logów i Automatyka Odpoczynków (✅ Zakończone)
 * **Backend:**
-  * `GET /api/sessions/[id]/logs` – pobieranie chronologicznej listy zdarzeń sesji.
-  * `POST /api/sessions/[id]/logs` – dodanie zdarzenia:
-    * Typ `REST_SHORT`: dodanie wpisu oraz opcjonalne wydanie Kości Wytrzymałości (Hit Dice).
-    * Typ `REST_LONG`: automatyczna regeneracja tabeli `characters` dla wszystkich bohaterów sesji (przywrócenie `currentHp = maxHp`, zresetowanie zużytych slotów czarów `used: 0`), wygenerowanie podsumowującego wpisu na osi czasu.
-    * Typ `SPELL_CAST` / `CUSTOM_NOTE`: rejestracja użycia czaru lub notatki narracyjnej GM-a.
-  * `GET /api/combat/[combat_id]/logs` – pobranie szczegółowego logu aktywnej lub zakończonej potyczki.
+  * Domena [`src/lib/logs.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/logs.ts):
+    * `getSessionLogs`: pobieranie chronologicznej listy zdarzeń sesji z opcjonalnym filtrowaniem po typie (`REST_SHORT`, `REST_LONG`, `SPELL_CAST`, `COMBAT_ACTION`, `CUSTOM_NOTE`).
+    * `createSessionLog`: dodanie zdarzenia z autoryzacją użytkownika/gościa i automatyką D&D 5e:
+      * Typ `REST_LONG`: pełna automatyczna regeneracja tabeli `characters` dla wszystkich bohaterów sesji (`currentHp = maxHp`, zerowanie `tempHp = 0`, resetowanie zużytych slotów czarów `used: 0`), wygenerowanie podsumowującego wpisu na osi czasu.
+      * Typ `REST_SHORT`: regeneracja HP bohaterów (z ograniczeniem do `maxHp`) i opcjonalne wydanie Kości Wytrzymałości (Hit Dice).
+      * Typ `CUSTOM_NOTE` / `SPELL_CAST` / `COMBAT_ACTION`: rejestracja notatek narracyjnych i akcji fabularnych.
+    * `getCombatLogs`: pobranie szczegółowej historii akcji z zakończonej lub aktywnej potyczki.
+  * REST Route Handlers:
+    * [`src/app/api/sessions/[id]/logs/route.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/[id]/logs/route.ts): `GET` (pobranie logów sesji) oraz `POST` (dodanie logu / wykonanie odpoczynku).
+    * [`src/app/api/combat/[id]/logs/route.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/combat/[id]/logs/route.ts): `GET` (pobranie logów walki).
 * **Testowanie:**
-  * Wywołanie `POST /api/sessions/[id]/logs` z typem `REST_LONG` dla postaci z 5/20 HP – sprawdzenie, czy w bazie postać ma natychmiast 20/20 HP oraz odnowione sloty.
+  * [`src/lib/logs.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/logs.test.ts): 12 testów jednostkowych (w tym test Long Rest przywracający 100% HP i sloty czarów dla wielu postaci, Short Rest z leczeniem, autoryzacja sesji).
+  * [`src/app/api/sessions/[id]/logs/logs-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/[id]/logs/logs-api.test.ts): 7 testów integracyjnych endpointu sesji.
+  * [`src/app/api/combat/[id]/logs/combat-logs-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/combat/[id]/logs/combat-logs-api.test.ts): 3 testy integracyjne endpointu logów walki.
 
-### Chunk 7.2: Frontend – Interaktywna Oś Czasu i Modale Odpoczynków
-* **Frontend:**
-  * Rozbudowa Prawej Kolumny Dashboardu:
-    * Wizualny timeline ze wskaźnikami godzinowymi (`18:42`, `19:15`).
-    * Filtrowanie zdarzeń: "Wszystko", "Tylko walki", "Odpoczynki", "Zaklęcia i akcje".
-    * Modal "Krótki Odpoczynek (1 godzina)" z wyborem postaci.
-    * Modal "Długi Odpoczynek (8 godzin)" z podsumowaniem zregenerowanych HP i slotów czarów.
-    * Przycisk dodania szybkiej notatki fabularnej (np. "Drużyna dotarła do karczmy Pod Rozbrykanym Kucykiem").
-  * Obsługa widoku podsumowania zdarzenia w Środkowej Kolumnie po kliknięciu wpisu z Osi Czasu.
+### Chunk 7.2: Frontend – Interaktywna Oś Czasu i Modale Odpoczynków (✅ Zakończone)
+* **Frontend ([`src/components/dashboard/`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/)):**
+  * Modale Odpoczynków i Notatek:
+    * [`LongRestModal.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/LongRestModal.tsx): modal 8-godzinnego Długiego Odpoczynku z podsumowaniem regeneracji HP i wszystkich slotów zaklęć dla całej drużyny oraz potwierdzeniem przez API (`POST /api/sessions/[id]/logs`).
+    * [`ShortRestModal.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/ShortRestModal.tsx): modal 1-godzinnego Krótkiego Odpoczynku z wyborem postaci, ilością odzyskiwanego zdrowia i zużytych Kości Wytrzymałości (Hit Dice).
+    * [`AddNoteModal.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/AddNoteModal.tsx): szybki modal dodawania narracyjnych notatek fabularnych GM-a na osi czasu.
+  * Prawa Kolumna Osi Czasu ([`TimelineSidebar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/TimelineSidebar.tsx)):
+    * Filtrowanie zdarzeń za pomocą zakładek: *"Wszystkie"*, *"Odpoczynki"*, *"Walki"*, *"Zaklęcia"*, *"Notatki"*.
+    * Przyciski szybkich akcji na osi czasu: *"Krótki (1h)"*, *"Długi (8h)"*, *"Notatka"*.
+    * Wizualny timeline ze wskaźnikami godzinowymi, odznakami i ikonami typów zdarzeń.
+  * Główny Kokpit GM-a ([`GmDashboard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/GmDashboard.tsx)):
+    * Płynna synchronizacja stanu postaci w lewej kolumnie i na osi czasu po wykonaniu odpoczynku bez potrzeby przeładowania strony.
 * **Testowanie:**
-  * Przetestowanie wykonania Długiego Odpoczynku w UI – sprawdzenie animacji i odświeżenia pasków życia bohaterów w Lewej Kolumnie.
+  * [`src/components/dashboard/RestModals.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/RestModals.test.tsx): 4 testy jednostkowe modali Long Rest, Short Rest i Add Note.
+  * [`src/components/dashboard/TimelineSidebar.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/TimelineSidebar.test.tsx): 3 testy jednostkowe (renderowanie, filtrowanie kategorii, otwieranie modali odpoczynków).
+  * [`src/components/dashboard/GmDashboard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/GmDashboard.test.tsx): 8 testów integracyjnych kokpitu (w tym pełny flow wykonania Long Rest i aktualizacji stanu drużyny).
+  * [`e2e/initiative.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/initiative.spec.ts): test E2E Playwright weryfikujący wykonanie Long Rest, uzdrowienie postaci do pełnego HP (10 -> 24/24 HP), dodanie notatki narracyjnej oraz trwałość wpisów i stanu w bazie PostgreSQL po odświeżeniu strony (F5).
+  * Wszystkie 294 testy jednostkowe Vitest (36 plików, 100% zielone), 0 błędów Biome linter (161 plików), czysty build Turbopack oraz 17/17 testów Playwright E2E zielone (100%).
 
 ---
 

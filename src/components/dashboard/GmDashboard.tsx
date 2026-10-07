@@ -86,6 +86,7 @@ export function GmDashboard({
     setCharacters,
     isLoading,
     logs,
+    setLogs,
     activeCombatId,
     activeCombatRound,
     activeCombatTurnIndex,
@@ -506,6 +507,25 @@ export function GmDashboard({
             combatantsCountForType={combatantsCountForType}
             combatLogEntries={combatLog}
             onClearCombatLog={handleClearLog}
+            sessionId={sessionId}
+            heroes={characters.filter((c) => c.type === 'HERO')}
+            onRestComplete={(updatedChars, newLog) => {
+              setCharacters((prev) =>
+                prev.map((c) => {
+                  const match = updatedChars.find((u) => u.id === c.id);
+                  return match ? { ...c, ...match } : c;
+                })
+              );
+              setSelectedCharacter((prev) => {
+                if (!prev) return null;
+                const match = updatedChars.find((u) => u.id === prev.id);
+                return match ? { ...prev, ...match } : prev;
+              });
+              setLogs((prev) => [newLog, ...prev]);
+            }}
+            onAddSessionLog={(newLog) => {
+              setLogs((prev) => [newLog, ...prev]);
+            }}
           />
         </div>
       </div>

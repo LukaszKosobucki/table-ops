@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GmDashboard } from './GmDashboard';
@@ -170,6 +170,76 @@ describe('GmDashboard Component (Chunk 2.2)', () => {
     await waitFor(() => {
       expect(screen.getByTestId('combatant-card-c-1')).toBeInTheDocument();
       expect(screen.getByTestId('in-combat-badge-c-1')).toBeInTheDocument();
+    });
+  });
+
+  it('allows performing a long rest from timeline and updates characters in party column', async () => {
+    global.fetch = vi.fn().mockImplementation((url, opts) => {
+      if (typeof url === 'string' && url.includes('/logs') && opts?.method === 'POST') {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            log: {
+              id: 'log-rest-1',
+              sessionId: 'ses-1',
+              logType: 'REST_LONG',
+              description:
+                'Drużyna ukończyła Długi Odpoczynek (8h). Wszyscy bohaterowie odzyskali pełnię sił.',
+              createdAt: new Date().toISOString(),
+            },
+            updatedCharacters: [
+              {
+                id: 'c-1',
+                name: 'Valerius (Paladyn)',
+                type: 'HERO',
+                currentHp: 28,
+                maxHp: 28,
+              },
+            ],
+          }),
+        });
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          success: true,
+          characters: [
+            {
+              id: 'c-1',
+              name: 'Valerius (Paladyn)',
+              type: 'HERO',
+              class: 'Paladyn',
+              level: 3,
+              currentHp: 10,
+              maxHp: 28,
+              ac: 18,
+              passivePerception: 13,
+            },
+          ],
+          sessionLogs: [],
+        }),
+      });
+    });
+
+    render(<GmDashboard sessionId="ses-1" sessionName="Wrota Baldura" initialMonsters={[]} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Valerius (Paladyn)')).toBeInTheDocument();
+    });
+
+    // Open long rest modal
+    const longRestTrigger = screen.getByTestId('open-long-rest-btn');
+    fireEvent.click(longRestTrigger);
+
+    // Confirm long rest
+    const confirmBtn = await screen.findByTestId('confirm-long-rest-btn');
+    fireEvent.click(confirmBtn);
+
+    // Verify timeline received the new log
+    await waitFor(() => {
+      expect(screen.getByText(/Drużyna ukończyła Długi Odpoczynek \(8h\)/i)).toBeInTheDocument();
     });
   });
 });
