@@ -107,13 +107,28 @@ describe('CharacterWizard Component (Chunk 3.2)', () => {
     const levelInput = levelInputs[0];
     fireEvent.change(levelInput, { target: { value: '3' } });
 
-    // Przejście do Kroku 4
-    fireEvent.click(screen.getByText(/Podsumowanie Karty/i));
+    // Przejście do Kroku 4: Ekwipunek i Zaklęcia
+    fireEvent.click(screen.getByText(/Dalej: Ekwipunek i Zaklęcia/i));
 
-    // --- KROK 4: Podsumowanie ---
-    expect(screen.getByText(/Krok 4: Podsumowanie/i)).toBeInTheDocument();
+    // --- KROK 4: Ekwipunek Początkowy i Zaklęcia ---
+    expect(screen.getByText(/Krok 4: Ekwipunek Początkowy i Zaklęcia/i)).toBeInTheDocument();
+    // Krasnolud Wojownik ma domyślny ekwipunek
+    expect(screen.getByText(/Długi miecz/i)).toBeInTheDocument();
+
+    // Dodanie dodatkowego przedmiotu
+    const itemInput = screen.getByTestId('wizard-new-item-input');
+    fireEvent.change(itemInput, { target: { value: 'Mithrilowy Hełm' } });
+    fireEvent.click(screen.getByTestId('wizard-add-item-btn'));
+    expect(screen.getByText('Mithrilowy Hełm')).toBeInTheDocument();
+
+    // Przejście do Kroku 5: Podsumowanie
+    fireEvent.click(screen.getByTestId('wizard-to-summary-btn'));
+
+    // --- KROK 5: Podsumowanie ---
+    expect(screen.getByText(/Krok 5: Podsumowanie/i)).toBeInTheDocument();
     expect(screen.getByText('Gimli Syn Gloina')).toBeInTheDocument();
     expect(screen.getByText(/Poziom 3 • Krasnolud/i)).toBeInTheDocument();
+    expect(screen.getByText('Mithrilowy Hełm')).toBeInTheDocument();
 
     // Zapis karty postaci
     const saveBtn = screen.getByText(/Zapisz Kartę Postaci/i);
@@ -151,9 +166,41 @@ describe('CharacterWizard Component (Chunk 3.2)', () => {
     fireEvent.change(nameInput, { target: { value: 'Raistlin' } });
 
     // Krok 3 -> Krok 4
-    fireEvent.click(screen.getByText(/Podsumowanie Karty/i));
+    fireEvent.click(screen.getByText(/Dalej: Ekwipunek i Zaklęcia/i));
+
+    // Krok 4 -> Krok 5
+    fireEvent.click(screen.getByTestId('wizard-to-summary-btn'));
 
     // Weryfikacja sekcji slotów czarów
     expect(screen.getByText(/Dostępne Komórki Czarów/i)).toBeInTheDocument();
+  });
+
+  it('allows customizing equipment and spells in step 4', () => {
+    render(<CharacterWizard sessionId="test" />);
+
+    // Wybieramy Czarodzieja
+    fireEvent.click(screen.getByText('Czarodziej (Wizard)'));
+    fireEvent.click(screen.getByText(/Dalej: Przypisanie Atrybutów/i));
+    fireEvent.click(screen.getByText(/Dalej: Nazwa i Poziom/i));
+
+    const nameInput = screen.getByPlaceholderText('np. Thorin Dębowa Tarcza');
+    fireEvent.change(nameInput, { target: { value: 'Galdor' } });
+
+    fireEvent.click(screen.getByText(/Dalej: Ekwipunek i Zaklęcia/i));
+    expect(screen.getByText(/Krok 4: Ekwipunek Początkowy i Zaklęcia/i)).toBeInTheDocument();
+
+    // Dodanie własnego zaklęcia przez pole tekstowe
+    const spellInput = screen.getByTestId('wizard-custom-spell-input');
+    fireEvent.change(spellInput, { target: { value: 'Ognista Kula' } });
+    const form = spellInput.closest('form');
+    expect(form).not.toBeNull();
+    if (form) fireEvent.submit(form);
+
+    expect(screen.getByText('Ognista Kula')).toBeInTheDocument();
+
+    // Przejście do kroku 5 i sprawdzenie czy zaklęcie jest w podsumowaniu
+    fireEvent.click(screen.getByTestId('wizard-to-summary-btn'));
+    expect(screen.getByText(/Krok 5: Podsumowanie/i)).toBeInTheDocument();
+    expect(screen.getByText('Ognista Kula')).toBeInTheDocument();
   });
 });

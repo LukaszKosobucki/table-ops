@@ -238,6 +238,224 @@ export function calculateSpellSlots(className?: string, level: number = 1): Char
 }
 
 /**
+ * Resolves localized or formatted class names to standard English SRD class identifiers.
+ */
+export function getCanonicalClassName(className?: string): string {
+  if (!className) return 'Fighter';
+  const norm = normalizeClassName(className);
+  switch (norm) {
+    case 'wizard':
+    case 'czarodziej':
+      return 'Wizard';
+    case 'cleric':
+    case 'kleryk':
+    case 'kapłan':
+    case 'kaplan':
+      return 'Cleric';
+    case 'druid':
+      return 'Druid';
+    case 'bard':
+      return 'Bard';
+    case 'sorcerer':
+    case 'zaklinacz':
+      return 'Sorcerer';
+    case 'warlock':
+    case 'czarnoksiężnik':
+    case 'czarnoksieznik':
+      return 'Warlock';
+    case 'paladin':
+    case 'paladyn':
+      return 'Paladin';
+    case 'ranger':
+    case 'łowca':
+    case 'lowca':
+      return 'Ranger';
+    case 'barbarian':
+    case 'barbarzyńca':
+    case 'barbarzynca':
+      return 'Barbarian';
+    case 'rogue':
+    case 'łotrzyk':
+    case 'lotrzyk':
+      return 'Rogue';
+    case 'monk':
+    case 'mnich':
+      return 'Monk';
+    default:
+      return 'Fighter';
+  }
+}
+
+/**
+ * Checks whether the specified class possesses spellcasting capability in D&D 5e SRD.
+ */
+export function isSpellcasterClass(className?: string): boolean {
+  const canonical = getCanonicalClassName(className);
+  return ['Wizard', 'Cleric', 'Druid', 'Bard', 'Sorcerer', 'Warlock', 'Paladin', 'Ranger'].includes(
+    canonical
+  );
+}
+
+/**
+ * Returns the maximum spell level/circle (0-9) accessible to a character based on class and level.
+ */
+export function getMaxSpellLevel(className?: string, level: number = 1): number {
+  if (!className) return 0;
+  const canonical = getCanonicalClassName(className);
+  const clampedLevel = Math.max(1, Math.min(20, Math.floor(level)));
+
+  // Full Casters: Wizard, Cleric, Druid, Bard, Sorcerer
+  if (['Wizard', 'Cleric', 'Druid', 'Bard', 'Sorcerer'].includes(canonical)) {
+    return Math.min(9, Math.ceil(clampedLevel / 2));
+  }
+
+  // Warlock (Pact Magic caps at 5th level slots)
+  if (canonical === 'Warlock') {
+    if (clampedLevel >= 9) return 5;
+    if (clampedLevel >= 7) return 4;
+    if (clampedLevel >= 5) return 3;
+    if (clampedLevel >= 3) return 2;
+    return 1;
+  }
+
+  // Half Casters: Paladin, Ranger (get spells at level 2)
+  if (['Paladin', 'Ranger'].includes(canonical)) {
+    if (clampedLevel < 2) return 0;
+    return Math.min(5, Math.ceil(clampedLevel / 4));
+  }
+
+  return 0;
+}
+
+/**
+ * Returns the recommended number of cantrips known according to D&D 5e PHB class progression.
+ */
+export function getRecommendedCantripsCount(className?: string, level: number = 1): number {
+  if (!className) return 0;
+  const canonical = getCanonicalClassName(className);
+  const clampedLevel = Math.max(1, Math.min(20, Math.floor(level)));
+
+  if (canonical === 'Sorcerer') {
+    if (clampedLevel >= 10) return 6;
+    if (clampedLevel >= 4) return 5;
+    return 4;
+  }
+  if (['Wizard', 'Cleric', 'Druid'].includes(canonical)) {
+    if (clampedLevel >= 10) return 5;
+    if (clampedLevel >= 4) return 4;
+    return 3;
+  }
+  if (['Bard', 'Warlock'].includes(canonical)) {
+    if (clampedLevel >= 10) return 4;
+    if (clampedLevel >= 4) return 3;
+    return 2;
+  }
+  return 0;
+}
+
+/**
+ * Returns canonical starting equipment package for a class according to D&D 5e rules.
+ */
+export function getDefaultClassEquipment(className?: string): string[] {
+  const canonical = getCanonicalClassName(className);
+  switch (canonical) {
+    case 'Fighter':
+      return [
+        'Długi miecz (Longsword)',
+        'Tarcza (Shield)',
+        'Kolczuga (Chain Mail)',
+        'Kusza lekka (Light Crossbow) i 20 bełtów',
+        "Zestaw odkrywcy (Dungeoneer's Pack)",
+      ];
+    case 'Wizard':
+      return [
+        'Sztylet (Dagger)',
+        'Księga zaklęć (Spellbook)',
+        'Różdżka (Wand)',
+        'Torba na komponenty (Component Pouch)',
+        "Zestaw uczonego (Scholar's Pack)",
+      ];
+    case 'Cleric':
+      return [
+        'Buzdygan (Mace)',
+        'Tarcza (Shield)',
+        'Pancerz łuskowy (Scale Mail)',
+        'Święty symbol (Holy Symbol)',
+        "Zestaw kapłana (Priest's Pack)",
+      ];
+    case 'Rogue':
+      return [
+        'Rapier',
+        'Krótki łuk i 20 strzał',
+        'Skórzana zbroja (Leather Armor)',
+        'Dwa sztylety (2x Dagger)',
+        "Narzędzia złodziejskie (Thieves' Tools)",
+      ];
+    case 'Paladin':
+      return [
+        'Długi miecz (Longsword)',
+        'Tarcza (Shield)',
+        'Pięć oszczepów (5x Javelins)',
+        'Kolczuga (Chain Mail)',
+        'Święty symbol (Holy Symbol)',
+      ];
+    case 'Barbarian':
+      return [
+        'Topór dwuręczny (Greataxe)',
+        'Dwa toporki (2x Handaxes)',
+        'Cztery oszczepy (4x Javelins)',
+        "Zestaw odkrywcy (Explorer's Pack)",
+      ];
+    case 'Ranger':
+      return [
+        'Pancerz łuskowy (Scale Mail)',
+        'Dwa krótkie miecze (2x Shortswords)',
+        'Długi łuk i kołczan z 20 strzałami',
+        "Zestaw odkrywcy (Explorer's Pack)",
+      ];
+    case 'Druid':
+      return [
+        'Drewniana tarcza (Wooden Shield)',
+        'Kordelas (Scimitar)',
+        'Skórzana zbroja (Leather Armor)',
+        'Fokus druidyczny (Druidic Focus)',
+        "Zestaw odkrywcy (Explorer's Pack)",
+      ];
+    case 'Bard':
+      return [
+        'Rapier',
+        'Lutnia (Lute)',
+        'Skórzana zbroja (Leather Armor)',
+        'Sztylet (Dagger)',
+        "Zestaw dyplomaty (Diplomat's Pack)",
+      ];
+    case 'Warlock':
+      return [
+        'Kusza lekka i 20 bełtów',
+        'Torba na komponenty (Component Pouch)',
+        'Skórzana zbroja (Leather Armor)',
+        'Dwa sztylety (2x Daggers)',
+        "Zestaw uczonego (Scholar's Pack)",
+      ];
+    case 'Sorcerer':
+      return [
+        'Kusza lekka i 20 bełtów',
+        'Kryształowy fokus (Arcane Focus)',
+        'Dwa sztylety (2x Daggers)',
+        "Zestaw odkrywcy (Dungeoneer's Pack)",
+      ];
+    case 'Monk':
+      return [
+        'Krótki miecz (Shortsword)',
+        '10 rzutek (10x Darts)',
+        "Zestaw odkrywcy (Dungeoneer's Pack)",
+      ];
+    default:
+      return ["Zestaw podróżnika (Explorer's Pack)"];
+  }
+}
+
+/**
  * Applies damage to a character according to D&D 5e rules:
  * Absorbs with tempHp first, then subtracts remainder from currentHp (floored at 0).
  */

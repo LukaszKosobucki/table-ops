@@ -208,4 +208,134 @@ describe('CharacterInspectionCard Component (Chunk 3.2)', () => {
     expect(screen.getByTestId('inspect-in-combat-badge')).toBeInTheDocument();
     expect(screen.queryByTestId('inspect-add-to-combat-btn')).not.toBeInTheDocument();
   });
+
+  it('allows adding and removing inventory items with optimistic update and API synchronization', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    } as Response);
+
+    const onUpdate = vi.fn();
+    render(
+      <CharacterInspectionCard
+        character={mockCharacter}
+        onBackToCombat={vi.fn()}
+        onCharacterUpdate={onUpdate}
+      />
+    );
+
+    // Initial items present
+    expect(screen.getByText('Księga zaklęć')).toBeInTheDocument();
+
+    // Open add item input
+    fireEvent.click(screen.getByTestId('open-add-item-btn'));
+    const itemInput = screen.getByTestId('new-item-input');
+    fireEvent.change(itemInput, { target: { value: 'Mikstura Niewidzialności' } });
+    fireEvent.click(screen.getByTestId('confirm-add-item-btn'));
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inventory: expect.arrayContaining(['Mikstura Niewidzialności']),
+        })
+      );
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/characters/char-test-1',
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({
+          inventory: ['Księga zaklęć', 'Różdżka magicznych pocisków', 'Mikstura Niewidzialności'],
+        }),
+      })
+    );
+
+    // Remove item
+    const removeBtn = screen.getByTestId('remove-item-Księga zaklęć');
+    fireEvent.click(removeBtn);
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          inventory: ['Różdżka magicznych pocisków'],
+        })
+      );
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/characters/char-test-1',
+      expect.objectContaining({
+        method: 'PUT',
+        body: JSON.stringify({
+          inventory: ['Różdżka magicznych pocisków'],
+        }),
+      })
+    );
+  });
+
+  it('allows adding a custom spell and removing a known spell', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, spells: [] }),
+    } as Response);
+
+    const charWithSpells: DashboardCharacter = {
+      ...mockCharacter,
+      spells: {
+        slots: { 1: { max: 4, used: 0 } },
+        known: ['Promień Mrozu'],
+      },
+    };
+
+    const onUpdate = vi.fn();
+    render(
+      <CharacterInspectionCard
+        character={charWithSpells}
+        onBackToCombat={vi.fn()}
+        onCharacterUpdate={onUpdate}
+      />
+    );
+
+    // Initial known spell
+    expect(screen.getByText('Promień Mrozu')).toBeInTheDocument();
+
+    // Open spell form
+    fireEvent.click(screen.getByTestId('open-add-spell-btn'));
+    const customSpellInput = screen.getByTestId('custom-spell-input');
+    fireEvent.change(customSpellInput, { target: { value: 'Tarcza Magiczna' } });
+    fireEvent.click(screen.getByTestId('confirm-add-custom-spell-btn'));
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          spells: expect.objectContaining({
+            known: ['Promień Mrozu', 'Tarcza Magiczna'],
+          }),
+        })
+      );
+    });
+
+    // Remove spell
+    const removeSpellBtn = screen.getByTestId('remove-spell-Promień Mrozu');
+    fireEvent.click(removeSpellBtn);
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          spells: expect.objectContaining({
+            known: [],
+          }),
+        })
+      );
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/characters/char-test-1',
+      expect.objectContaining({
+        method: 'PUT',
+        body: expect.stringContaining('Tarcza Magiczna'),
+      })
+    );
+  });
 });

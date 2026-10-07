@@ -122,9 +122,10 @@ export function StepIdentity({
           type="button"
           disabled={!charName.trim()}
           onClick={onNext}
+          data-testid="wizard-to-equipment-btn"
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold text-sm transition cursor-pointer"
         >
-          <span>Podsumowanie Karty</span>
+          <span>Dalej: Ekwipunek i Zaklęcia</span>
           <ChevronRight className="w-4 h-4" />
         </button>
       </div>

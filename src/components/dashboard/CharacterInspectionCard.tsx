@@ -7,18 +7,24 @@ import {
   Dices,
   Heart,
   MessageSquare,
+  Plus,
   Shield,
   Sparkles,
   Swords,
+  Trash2,
   Wand2,
+  X,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import type { CompendiumSpell } from '@/lib/compendium';
 import {
   applyDamage,
   applyHealing,
   applyTempHp,
   type CharacterSpellSlots,
   calculateSpellSlots,
+  getCanonicalClassName,
+  getMaxSpellLevel,
 } from '@/lib/dnd-rules';
 import type { DashboardCharacter } from './types';
 
@@ -63,6 +69,162 @@ export function CharacterInspectionCard({
     total: number;
     isSavingThrow?: boolean;
   } | null>(null);
+
+  // Item management state
+  const [isAddingItem, setIsAddingItem] = useState(false);
+  const [newItemName, setNewItemName] = useState('');
+
+  // Spell management state
+  const [isAddingSpell, setIsAddingSpell] = useState(false);
+  const [compendiumSpells, setCompendiumSpells] = useState<CompendiumSpell[]>([]);
+  const [selectedSpellToAdd, setSelectedSpellToAdd] = useState('');
+  const [customSpellInput, setCustomSpellInput] = useState('');
+
+  // Fetch compendium spells if add modal is toggled
+  useEffect(() => {
+    if (!isAddingSpell || compendiumSpells.length > 0) return;
+    let mounted = true;
+    fetch('/api/compendium/spells')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!mounted || !data) return;
+        const list = Array.isArray(data) ? data : data.spells;
+        if (Array.isArray(list)) setCompendiumSpells(list);
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, [isAddingSpell, compendiumSpells.length]);
+
+  const canonicalClass = getCanonicalClassName(character.class ?? undefined);
+  const maxSpellLvl = getMaxSpellLevel(character.class ?? undefined, character.level || 1);
+
+  // Available spells filtered by class and max level
+  const classFilteredSpells = compendiumSpells.filter((s) => {
+    const matchesClass = s.classes.some((c) => c.toLowerCase() === canonicalClass.toLowerCase());
+    const matchesLevel = s.level <= maxSpellLvl;
+    const notAlreadyKnown = !(character.spells?.known || []).includes(s.name);
+    return matchesClass && matchesLevel && notAlreadyKnown;
+  });
+
+  const handleAddItem = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = newItemName.trim();
+    if (!trimmed) return;
+
+    const currentInv = character.inventory || [];
+    const nextInv = [...currentInv, trimmed];
+
+    const updatedChar: DashboardCharacter = {
+      ...character,
+      inventory: nextInv,
+    };
+    onCharacterUpdate?.(updatedChar);
+    setNewItemName('');
+    setIsAddingItem(false);
+
+    if (character.id && !character.id.startsWith('char-default')) {
+      try {
+        await fetch(`/api/characters/${character.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inventory: nextInv }),
+        });
+      } catch {
+        // Optimistic UI state already updated
+      }
+    }
+  };
+
+  const handleRemoveItem = async (itemToRemove: string) => {
+    const currentInv = character.inventory || [];
+    const nextInv = currentInv.filter((item) => item !== itemToRemove);
+
+    const updatedChar: DashboardCharacter = {
+      ...character,
+      inventory: nextInv,
+    };
+    onCharacterUpdate?.(updatedChar);
+
+    if (character.id && !character.id.startsWith('char-default')) {
+      try {
+        await fetch(`/api/characters/${character.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inventory: nextInv }),
+        });
+      } catch {
+        // Optimistic UI state already updated
+      }
+    }
+  };
+
+  const handleAddSpell = async (spellName?: string) => {
+    const nameToAdd = (spellName || selectedSpellToAdd || customSpellInput).trim();
+    if (!nameToAdd) return;
+
+    const currentSpells = character.spells || {};
+    const currentKnown = currentSpells.known || [];
+    if (currentKnown.includes(nameToAdd)) {
+      setIsAddingSpell(false);
+      return;
+    }
+    const nextKnown = [...currentKnown, nameToAdd];
+    const nextSpells = {
+      ...currentSpells,
+      known: nextKnown,
+    };
+
+    const updatedChar: DashboardCharacter = {
+      ...character,
+      spells: nextSpells,
+    };
+    onCharacterUpdate?.(updatedChar);
+    setSelectedSpellToAdd('');
+    setCustomSpellInput('');
+    setIsAddingSpell(false);
+
+    if (character.id && !character.id.startsWith('char-default')) {
+      try {
+        await fetch(`/api/characters/${character.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ spells: nextSpells }),
+        });
+      } catch {
+        // Optimistic UI state already updated
+      }
+    }
+  };
+
+  const handleRemoveSpell = async (spellToRemove: string) => {
+    const currentSpells = character.spells || {};
+    const currentKnown = currentSpells.known || [];
+    const nextKnown = currentKnown.filter((s) => s !== spellToRemove);
+    const nextSpells = {
+      ...currentSpells,
+      known: nextKnown,
+    };
+
+    const updatedChar: DashboardCharacter = {
+      ...character,
+      spells: nextSpells,
+    };
+    onCharacterUpdate?.(updatedChar);
+
+    if (character.id && !character.id.startsWith('char-default')) {
+      try {
+        await fetch(`/api/characters/${character.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ spells: nextSpells }),
+        });
+      } catch {
+        // Optimistic UI state already updated
+      }
+    }
+  };
 
   const stats = character.stats || {
     str: 10,
@@ -473,6 +635,140 @@ export function CharacterInspectionCard({
         </div>
       )}
 
+      {/* Known Spells Section */}
+      {((character.spells?.known && character.spells.known.length > 0) || hasSpellSlots) && (
+        <div
+          data-testid="known-spells-section"
+          className="glass-card p-4 rounded-xl border border-slate-800 space-y-3"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-bold text-indigo-300 uppercase tracking-wider">
+              <Sparkles className="w-4 h-4 text-indigo-400" />
+              <span>Znane Zaklęcia i Księga Czarów</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {character.spells?.known && character.spells.known.length > 0 && (
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {character.spells.known.length}{' '}
+                  {character.spells.known.length === 1 ? 'zaklęcie' : 'zaklęć'}
+                </span>
+              )}
+              <button
+                type="button"
+                data-testid="open-add-spell-btn"
+                onClick={() => setIsAddingSpell(!isAddingSpell)}
+                className="flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>{isAddingSpell ? 'Zamknij' : 'Dodaj czar'}</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Inline Add Spell Form */}
+          {isAddingSpell && (
+            <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5 animate-fadeIn">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-slate-300">
+                  Dostępne dla {canonicalClass} (do kręgu {maxSpellLvl}):
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {classFilteredSpells.length} dostępnych
+                </span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <select
+                  data-testid="select-spell-to-add"
+                  value={selectedSpellToAdd}
+                  onChange={(e) => {
+                    setSelectedSpellToAdd(e.target.value);
+                    if (e.target.value) setCustomSpellInput('');
+                  }}
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">-- Wybierz z listy zaklęć klasy --</option>
+                  {classFilteredSpells.map((s) => (
+                    <option key={s.index} value={s.name}>
+                      {s.level === 0 ? '✨ [Cantrip] ' : `⚡ [Krąg ${s.level}] `}
+                      {s.name} ({s.school})
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  type="button"
+                  data-testid="confirm-add-selected-spell-btn"
+                  disabled={!selectedSpellToAdd}
+                  onClick={() => handleAddSpell(selectedSpellToAdd)}
+                  className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-semibold cursor-pointer transition shadow-sm"
+                >
+                  Wybierz
+                </button>
+              </div>
+
+              {/* Or custom input */}
+              <div className="pt-1.5 border-t border-slate-800/60 flex items-center gap-2">
+                <input
+                  type="text"
+                  data-testid="custom-spell-input"
+                  placeholder="Lub wpisz własną nazwę (Homebrew)..."
+                  value={customSpellInput}
+                  onChange={(e) => {
+                    setCustomSpellInput(e.target.value);
+                    if (e.target.value) setSelectedSpellToAdd('');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddSpell(customSpellInput);
+                    }
+                  }}
+                  className="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+                />
+                <button
+                  type="button"
+                  data-testid="confirm-add-custom-spell-btn"
+                  disabled={!customSpellInput.trim()}
+                  onClick={() => handleAddSpell(customSpellInput)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 text-xs font-semibold cursor-pointer transition"
+                >
+                  Dodaj
+                </button>
+              </div>
+            </div>
+          )}
+
+          {character.spells?.known && character.spells.known.length > 0 ? (
+            <div className="flex flex-wrap gap-2 pt-1">
+              {character.spells.known.map((spellName) => (
+                <span
+                  key={spellName}
+                  data-testid={`known-spell-${spellName}`}
+                  className="group/spell px-2.5 py-1 rounded-xl bg-indigo-950/60 border border-indigo-500/30 text-indigo-200 text-xs font-medium flex items-center gap-1.5 shadow-sm"
+                >
+                  <Wand2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                  <span>{spellName}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSpell(spellName)}
+                    data-testid={`remove-spell-${spellName}`}
+                    title={`Usuń zaklęcie ${spellName}`}
+                    className="p-0.5 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 transition cursor-pointer"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-500 italic">
+              Brak przypisanych zaklęć w księdze. Kliknij „Dodaj czar” lub skorzystaj z Kompendium.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Dice Roll Result Banner */}
       {lastRoll && (
         <div className="p-3.5 rounded-xl bg-gradient-to-r from-amber-500/15 to-indigo-500/15 border border-amber-500/30 flex items-center justify-between animate-fadeIn">
@@ -572,17 +868,64 @@ export function CharacterInspectionCard({
         </div>
 
         {/* Inventory / Equipment */}
-        <div className="glass-card p-4 rounded-xl border border-slate-800 space-y-2">
-          <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase tracking-wider">
-            <Backpack className="w-3.5 h-3.5" />
-            <span>Ekwipunek i Ważne Przedmioty</span>
+        <div className="glass-card p-4 rounded-xl border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase tracking-wider">
+              <Backpack className="w-3.5 h-3.5" />
+              <span>Ekwipunek i Ważne Przedmioty</span>
+            </div>
+            <button
+              type="button"
+              data-testid="open-add-item-btn"
+              onClick={() => setIsAddingItem(!isAddingItem)}
+              className="flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition cursor-pointer"
+            >
+              <Plus className="w-3 h-3" />
+              <span>{isAddingItem ? 'Anuluj' : 'Dodaj'}</span>
+            </button>
           </div>
+
+          {/* Inline Add Item Form */}
+          {isAddingItem && (
+            <form onSubmit={handleAddItem} className="flex items-center gap-2 animate-fadeIn">
+              <input
+                type="text"
+                data-testid="new-item-input"
+                placeholder="Wpisz nazwę przedmiotu..."
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
+              />
+              <button
+                type="submit"
+                data-testid="confirm-add-item-btn"
+                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer transition shadow-sm"
+              >
+                Dodaj
+              </button>
+            </form>
+          )}
+
           {character.inventory && character.inventory.length > 0 ? (
             <ul className="text-xs text-slate-300 space-y-1">
               {character.inventory.map((item) => (
-                <li key={item} className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3 h-3 text-indigo-400 shrink-0" />
-                  <span>{item}</span>
+                <li
+                  key={item}
+                  className="flex items-center justify-between group/item p-1 rounded-lg hover:bg-slate-900/60 transition"
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span className="truncate">{item}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveItem(item)}
+                    data-testid={`remove-item-${item}`}
+                    title={`Usuń ${item}`}
+                    className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer opacity-80 group-hover/item:opacity-100"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </button>
                 </li>
               ))}
             </ul>

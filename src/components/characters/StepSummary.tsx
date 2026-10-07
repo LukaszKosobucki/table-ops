@@ -1,6 +1,6 @@
 'use client';
 
-import { CheckCircle2, ChevronLeft, Loader2, Sparkles, Wand2 } from 'lucide-react';
+import { Backpack, CheckCircle2, ChevronLeft, Loader2, Sparkles, Wand2 } from 'lucide-react';
 import { calculateSpellSlots } from '@/lib/dnd-rules';
 
 interface StepSummaryProps {
@@ -10,6 +10,8 @@ interface StepSummaryProps {
   selectedRace: string;
   selectedClass: string;
   traits?: string;
+  inventory?: string[];
+  knownSpells?: string[];
   calculatedHp: number;
   calculatedAc: number;
   calculatedPassivePerception: number;
@@ -25,6 +27,8 @@ export function StepSummary({
   selectedRace,
   selectedClass,
   traits = '',
+  inventory = [],
+  knownSpells = [],
   calculatedHp,
   calculatedAc,
   calculatedPassivePerception,
@@ -38,7 +42,7 @@ export function StepSummary({
   return (
     <div className="space-y-5 animate-in fade-in duration-200">
       <h4 className="font-bold text-emerald-400 text-sm uppercase tracking-wider">
-        Krok 4: Podsumowanie Wygenerowanej Karty
+        Krok 5: Podsumowanie Wygenerowanej Karty
       </h4>
 
       <div className="glass-card p-5 rounded-2xl border border-slate-800 space-y-4">
@@ -106,6 +110,46 @@ export function StepSummary({
                   <span className="text-slate-400 mr-1.5">Krąg {slotLvl}:</span>
                   <span className="font-bold text-indigo-300">{slotData.max} sloty</span>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Known Spells Preview */}
+        {knownSpells.length > 0 && (
+          <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-indigo-300 uppercase tracking-wider">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Wybrane Zaklęcia i Cantripy ({knownSpells.length})</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {knownSpells.map((s) => (
+                <span
+                  key={s}
+                  className="px-2 py-0.5 rounded-lg bg-indigo-950/80 border border-indigo-700/50 text-xs font-mono text-indigo-200"
+                >
+                  {s}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Equipment Preview */}
+        {inventory.length > 0 && (
+          <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-300 uppercase tracking-wider">
+              <Backpack className="w-3.5 h-3.5" />
+              <span>Wyposażenie Początkowe ({inventory.length})</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {inventory.map((item) => (
+                <span
+                  key={item}
+                  className="px-2 py-0.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-slate-300"
+                >
+                  {item}
+                </span>
               ))}
             </div>
           </div>

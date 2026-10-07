@@ -8,8 +8,10 @@ import {
   calculateSpellSlots,
   calculateUnarmoredAc,
   getClassHitDie,
+  getDefaultClassEquipment,
 } from '@/lib/dnd-rules';
 import { CharacterCard } from './CharacterCard';
+import { StepEquipmentSpells } from './StepEquipmentSpells';
 import { StepIdentity } from './StepIdentity';
 import { StepRaceClass } from './StepRaceClass';
 import { StepStats } from './StepStats';
@@ -67,7 +69,7 @@ export function CharacterWizard({
   const [isLoadingCharacters, setIsLoadingCharacters] = useState<boolean>(
     !initialCharacters && Boolean(sessionId)
   );
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   // Wizard state
   const [charName, setCharName] = useState('');
@@ -76,6 +78,10 @@ export function CharacterWizard({
   const [selectedClass, setSelectedClass] = useState(CLASSES[0].name);
   const [level, setLevel] = useState(1);
   const [traits, setTraits] = useState('');
+  const [inventory, setInventory] = useState<string[]>(() =>
+    getDefaultClassEquipment(CLASSES[0].name)
+  );
+  const [knownSpells, setKnownSpells] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   const [stats, setStats] = useState<CharacterStats>({
@@ -204,7 +210,11 @@ export function CharacterWizard({
       passivePerception: pp,
       stats: { ...stats, tempHp: 0 },
       traits: traits.trim() ? [traits.trim()] : [],
-      spells: hasSpells ? { slots: spellSlots, known: [], prepared: [] } : null,
+      inventory,
+      spells:
+        hasSpells || knownSpells.length > 0
+          ? { slots: spellSlots, known: knownSpells, prepared: [] }
+          : null,
     };
 
     let newChar: Character = {
@@ -238,7 +248,12 @@ export function CharacterWizard({
             passivePerception: data.character.passivePerception,
             stats: (data.character.stats as CharacterStats) || stats,
             traits: (data.character.traits as string[]) || (traits ? [traits] : []),
-            spells: data.character.spells || null,
+            inventory: data.character.inventory || inventory,
+            spells:
+              data.character.spells ||
+              (knownSpells.length > 0
+                ? { slots: spellSlots, known: knownSpells, prepared: [] }
+                : null),
           };
         }
       }
@@ -251,6 +266,8 @@ export function CharacterWizard({
       setStep(1);
       setCharName('');
       setTraits('');
+      setInventory(getDefaultClassEquipment(CLASSES[0].name));
+      setKnownSpells([]);
     }
   };
 
@@ -311,7 +328,11 @@ export function CharacterWizard({
             selectedRace={selectedRace}
             onSelectRace={setSelectedRace}
             selectedClass={selectedClass}
-            onSelectClass={setSelectedClass}
+            onSelectClass={(cls) => {
+              setSelectedClass(cls);
+              setInventory(getDefaultClassEquipment(cls));
+              setKnownSpells([]);
+            }}
             onNext={() => setStep(2)}
           />
         )}
@@ -342,8 +363,22 @@ export function CharacterWizard({
           />
         )}
 
-        {/* Step 4: Summary & Generate */}
+        {/* Step 4: Equipment & Spells */}
         {step === 4 && (
+          <StepEquipmentSpells
+            selectedClass={selectedClass}
+            level={level}
+            inventory={inventory}
+            onInventoryChange={setInventory}
+            knownSpells={knownSpells}
+            onKnownSpellsChange={setKnownSpells}
+            onPrev={() => setStep(3)}
+            onNext={() => setStep(5)}
+          />
+        )}
+
+        {/* Step 5: Summary & Generate */}
+        {step === 5 && (
           <StepSummary
             charName={charName}
             level={level}
@@ -351,11 +386,13 @@ export function CharacterWizard({
             selectedRace={selectedRace}
             selectedClass={selectedClass}
             traits={traits}
+            inventory={inventory}
+            knownSpells={knownSpells}
             calculatedHp={calculateHp()}
             calculatedAc={calculateAc()}
             calculatedPassivePerception={calculatePassive()}
             isSaving={isSaving}
-            onPrev={() => setStep(3)}
+            onPrev={() => setStep(4)}
             onFinish={handleFinishWizard}
           />
         )}

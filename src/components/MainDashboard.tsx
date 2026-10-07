@@ -418,6 +418,48 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
     });
   }, []);
 
+  // Fetch session characters if null and active session is set
+  useEffect(() => {
+    if (!activeSession || sessionCharacters !== null) return;
+    let mounted = true;
+
+    fetch(`/api/sessions/${activeSession.id}/characters`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then((chars) => {
+        if (!mounted || !Array.isArray(chars)) return;
+        const mapped: DashboardCharacter[] = chars.map((c) => ({
+          id: c.id,
+          sessionId: c.sessionId,
+          name: c.name,
+          type: (c.type || 'HERO') as 'HERO' | 'NPC',
+          race: c.race,
+          class: c.class,
+          level: c.level,
+          currentHp: c.currentHp ?? c.hp ?? c.maxHp,
+          maxHp: c.maxHp,
+          ac: c.ac,
+          passivePerception: c.passivePerception,
+          stats: c.stats,
+          traits: c.traits,
+          inventory: c.inventory,
+          spells: c.spells,
+        }));
+        setSessionCharacters(mapped);
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, [activeSession, sessionCharacters]);
+
+  const handleCompendiumCharacterUpdate = useCallback((updated: DashboardCharacter) => {
+    setSessionCharacters((prev) => {
+      if (!prev) return [updated];
+      return prev.map((c) => (c.id === updated.id ? updated : c));
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col selection:bg-amber-500 selection:text-slate-950">
       {/* Navigation Header */}
@@ -457,7 +499,13 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
                 onCharactersLoaded={handleGmCharactersLoaded}
               />
             )}
-            {activeTab === 'bestiary' && <Bestiary initialMonsters={initialMonsters} />}
+            {activeTab === 'bestiary' && (
+              <Bestiary
+                initialMonsters={initialMonsters}
+                characters={sessionCharacters || undefined}
+                onCharacterUpdate={handleCompendiumCharacterUpdate}
+              />
+            )}
             {activeTab === 'characters' && (
               <CharacterWizard
                 sessionId={activeSession.id}

@@ -369,28 +369,66 @@ flowchart TD
 
 ---
 
-## FAZA 8: Rozbudowa Kompendium (Zaklęcia, Przedmioty i Integracja)
+## FAZA 8: Rozbudowa Kompendium (Zaklęcia, Przedmioty i Integracja) (✅ Zakończone)
 *Specyfikacja:* [`user-stories-and-spec/specyfikacja_aplikacji_rpg_tracker.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/specyfikacja_aplikacji_rpg_tracker.md) (Sekcja 1)  
 *API Spec:* [`user-stories-and-spec/wymagania_crud_api.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/wymagania_crud_api.md) (Sekcja 6)
 
-### Chunk 8.1: Backend – Seed i API Zaklęć oraz Przedmiotów
+### Chunk 8.1: Backend – Seed i API Zaklęć oraz Przedmiotów (✅ Zakończone)
 * **Backend:**
-  * Skrypt seedujący / wrapper dla D&D 5e SRD API (podobnie jak dla potworów):
-    * `GET /api/compendium/spells?search=...&level=...&school=...`
-    * `GET /api/compendium/items?search=...&type=...`
-    * `GET /api/compendium/monsters?search=...` (zintegrowany z istniejącym [`src/lib/monsters.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/monsters.ts)).
-  * Lokalne pliki seed JSON (`prisma/spells_seed.json`, `prisma/items_seed.json`) dla bezbłędnego działania offline.
+  * Domena [`src/lib/compendium.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/compendium.ts):
+    * `getCompendiumSpells`: pobieranie i filtrowanie zaklęć D&D 5e SRD po nazwie, kręgu magii (0-9), szkole magii, klasie postaci, koncentracji i rytuale.
+    * `getCompendiumItems`: pobieranie i filtrowanie przedmiotów, uzbrojenia i magicznych artefaktów po nazwie, typie i rzadkości.
+    * `getCompendiumMonsters`: zunifikowane pobieranie bestiariusza.
+    * Pamięciowe buforowanie (memory cache) eliminujące powtarzalne I/O dyskowe (< 5ms czasu odpowiedzi).
+  * Lokalne pliki seed JSON dla trybu offline:
+    * [`prisma/spells_seed.json`](file:///Users/lukaszkosobucki/Documents/table-ops/prisma/spells_seed.json): 40 autentycznych zaklęć D&D 5e SRD z opisami, komponentami i klasami.
+    * [`prisma/items_seed.json`](file:///Users/lukaszkosobucki/Documents/table-ops/prisma/items_seed.json): 27 autentycznych broni, pancerzy, mikstur i artefaktów.
+  * REST Route Handlers:
+    * `GET /api/compendium/spells`: zapytania z parametrami `search`, `level`, `school`, `class`.
+    * `GET /api/compendium/items`: zapytania z parametrami `search`, `type`, `rarity`.
+    * `GET /api/compendium/monsters`: zintegrowany z bazą potworów.
 * **Testowanie:**
-  * Weryfikacja endpointów kompendium, poprawności filtrów i czasów odpowiedzi poniżej 50ms w trybie offline/cache.
+  * [`src/lib/compendium.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/compendium.test.ts): 11 testów jednostkowych logiki filtrowania, buforowania i odporności na błędy.
+  * [`src/app/api/compendium/compendium-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/compendium/compendium-api.test.ts): 7 testów integracyjnych endpointów REST.
 
-### Chunk 8.2: Frontend – Przeglądarka Kompendium i Dodawanie do Karty
+### Chunk 8.2: Frontend – Przeglądarka Kompendium i Dodawanie do Karty (✅ Zakończone)
 * **Frontend ([`src/components/bestiary/`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/bestiary/)):**
-  * Rozszerzenie modułu kompendium w pełne narzędzie D&D 5e:
-    * Zakładki: Bestiariusz, Zaklęcia (Spells), Ekwipunek (Items).
-    * Karty zaklęć: poziom, szkoła magii, czas rzucania, zasięg, komponenty, opis.
-    * Akcja: **"+ Dodaj do postaci"** – pozwala z poziomu karty czaru/przedmiotu przypisać go od razu wybranemu bohaterowi sesji.
+  * Ewolucja modułu Kompendium z 3 podzakładkami:
+    * **Bestiariusz (Potwory):** zachowany natywny widok z filtrami CR, wyszukiwaniem i klonowaniem homebrew.
+    * **Księga Zaklęć (Spells):** filtrowanie wg kręgu (sztuczki 0, kręgi 1–9), szkoły magii i klasy postaci, karty zaklęć ([`SpellCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/bestiary/SpellCard.tsx)), pełny modal właściwości ([`SpellDetailModal.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/bestiary/SpellDetailModal.tsx)).
+    * **Ekwipunek i Przedmioty (Items):** filtrowanie wg typu (broń, pancerz, mikstury, artefakty) i rzadkości, karty ekwipunku ([`ItemCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/bestiary/ItemCard.tsx)), modal szczegółów ([`ItemDetailModal.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/bestiary/ItemDetailModal.tsx)).
+  * Integracja z Kartami Bohaterów:
+    * Modal przypisywania [`AssignToCharacterModal.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/bestiary/AssignToCharacterModal.tsx): pozwala bezpośrednio z poziomu karty/modalu zaklęcia lub przedmiotu przypisać go do wybranego bohatera sesji i zapisać przez `PUT /api/characters/:id`.
+    * Sekcja **„Znane Zaklęcia i Księga Czarów”** w [`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx): prezentuje listę znanych czarów postaci (`character.spells.known`) wraz z interaktywnymi znacznikami i synchronizacją stanu.
 * **Testowanie:**
-  * Wyszukanie czaru "Cure Wounds", przypisanie go do postaci Kleryka, otwarcie karty Kleryka w Dashboardzie i weryfikacja obecności czaru w jego liście.
+  * [`src/components/bestiary/Compendium.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/bestiary/Compendium.test.tsx): 6 testów jednostkowo-integracyjnych (przełączanie podzakładek, filtrowanie zaklęć i przedmiotów, przypisywanie do bohatera oraz inspekcja karty postaci).
+  * [`e2e/bestiary.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/bestiary.spec.ts): 3 testy E2E Playwright weryfikujące Bestiariusz, Księgę Zaklęć i Ekwipunek.
+  * Wszystkie 319 testów jednostkowych Vitest (39 plików, 100% zielone), 0 błędów Biome linter (175 plików), czysty build Turbopack oraz 19/19 testów Playwright E2E zielone (100%).
+
+### Chunk 8.3: Integracja Zaklęć i Ekwipunku w Kreatorze i Podglądzie Postaci (✅ Zakończone)
+* **Domena i Reguły D&D 5e ([`src/lib/dnd-rules.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.ts)):**
+  * `getCanonicalClassName`: mapowanie polskich i angielskich nazw klas na kanoniczne klasy SRD.
+  * `isSpellcasterClass`: sprawdzanie predyspozycji magicznych klasy.
+  * `getMaxSpellLevel`: wyliczanie maksymalnego dostępnego kręgu czarów (0-9) dla poziomu i klasy (Full Casters, Half Casters, Warlock Pact Magic).
+  * `getRecommendedCantripsCount`: liczba zalecanych cantripów (sztuczek) wg PHB dla poziomu 1-20.
+  * `getDefaultClassEquipment`: kanoniczne pakiety startowego ekwipunku dla wszystkich 12 klas D&D 5e.
+* **Frontend – Kreator Postaci ([`src/components/characters/CharacterWizard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/CharacterWizard.tsx)):**
+  * Rozszerzenie kreatora z 4 do 5 kroków (`WizardProgress.tsx`):
+    * **Krok 4: Ekwipunek Początkowy i Zaklęcia** ([`StepEquipmentSpells.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/StepEquipmentSpells.tsx)):
+      * Lista przedmiotów z możliwością dodawania, usuwania i resetowania do pakietu domyślnego danej klasy.
+      * Lista zaklęć i cantripów filtrowana na żywo pod wybraną klasę i poziom (kręgi 0 do Max Spell Level), z licznikami wybranych i zalecanych sztuczek oraz możliwością dodawania zaklęć Homebrew.
+    * **Krok 5: Podsumowanie Wygenerowanej Karty** ([`StepSummary.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/StepSummary.tsx)):
+      * Prezentacja wybranego ekwipunku i zaklęć wraz z przeliczonymi komórkami czarów i atrybutami.
+      * Zapis do bazy danych przez `POST /api/characters` z polami `inventory` oraz `spells: { slots, known }`.
+* **Frontend – Karta Podglądu Bohatera w Panelu GM ([`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx)):**
+  * Bezpośrednie dodawanie i usuwanie przedmiotów z ekwipunku z natychmiastowym zapisem przez `PUT /api/characters/:id`.
+  * Bezpośrednie dodawanie i usuwanie zaklęć oraz cantripów z poziomu panelu (z selektorem klasowym oraz polem Homebrew) i automatyczną synchronizacją przez `PUT /api/characters/:id`.
+* **Testowanie:**
+  * [`src/lib/dnd-rules.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.test.ts): 39 testów jednostkowych reguł D&D 5e.
+  * [`src/components/characters/CharacterWizard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/CharacterWizard.test.tsx): testy 5-krokowego kreatora, slotów czarów i edycji ekwipunku/zaklęć.
+  * [`src/components/dashboard/CharacterInspectionCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.test.tsx): 9 testów weryfikujących inspekcję, rzuty d20, modyfikacje HP, slotów, dodawanie/usuwanie ekwipunku i zaklęć.
+  * [`e2e/characters.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/characters.spec.ts): test E2E Playwright przechodzący pełen 5-krokowy proces kreatora postaci.
+  * Pełny zestaw testów: 327/327 testów Vitest (39 plików, 100% zielone), 0 błędów Biome, czysty build Turbopack oraz 19/19 testów Playwright E2E zielone.
 
 ---
 
@@ -438,5 +476,5 @@ flowchart TD
 | **Faza 5** | Combat Tracker (Maszyna stanów, tury, statusy, HP) | Faza 4 | 2 chunki |
 | **Faza 6** | Autentykacja (Login/Hasło + Google OAuth) i Izolacja Sesji | Faza 5 | 2 chunki |
 | **Faza 7** | Oś Czasu, Historia i System Odpoczynków | Faza 6 | 2 chunki |
-| **Faza 8** | Kompendium (Zaklęcia, Przedmioty, seed offline) | Faza 3 | 2 chunki |
+| **Faza 8** | Kompendium & Kreator (Zaklęcia, Ekwipunek, Cantripy, Seed) (✅ Zakończone) | Faza 3 | 3 chunki |
 | **Faza 9** | Integracja rzutów kośćmi, weryfikacja E2E & CI | Faza 1-8 | 3 chunki |

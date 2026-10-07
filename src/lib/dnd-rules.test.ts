@@ -11,9 +11,14 @@ import {
   calculateUnarmoredAc,
   formatModifier,
   getAbilityModifier,
+  getCanonicalClassName,
   getClassHitDie,
+  getDefaultClassEquipment,
   getEncounterMultiplier,
+  getMaxSpellLevel,
   getMonsterXp,
+  getRecommendedCantripsCount,
+  isSpellcasterClass,
   modifySpellSlot,
   roll4d6DropLowest,
 } from './dnd-rules';
@@ -429,5 +434,73 @@ describe('dnd-rules - getMonsterXp', () => {
   it('handles empty or undefined monster input gracefully', () => {
     expect(getMonsterXp(undefined)).toBe(10);
     expect(getMonsterXp({})).toBe(10);
+  });
+});
+
+describe('dnd-rules - getCanonicalClassName & isSpellcasterClass', () => {
+  it('maps localized Polish and English class names to canonical SRD identifiers', () => {
+    expect(getCanonicalClassName('Czarodziej (Wizard)')).toBe('Wizard');
+    expect(getCanonicalClassName('Kleryk (Cleric)')).toBe('Cleric');
+    expect(getCanonicalClassName('Wojownik (Fighter)')).toBe('Fighter');
+    expect(getCanonicalClassName('Paladyn')).toBe('Paladin');
+    expect(getCanonicalClassName('Łotrzyk')).toBe('Rogue');
+    expect(getCanonicalClassName(undefined)).toBe('Fighter');
+  });
+
+  it('correctly identifies spellcasters vs non-spellcasters', () => {
+    expect(isSpellcasterClass('Wizard')).toBe(true);
+    expect(isSpellcasterClass('Kleryk (Cleric)')).toBe(true);
+    expect(isSpellcasterClass('Paladin')).toBe(true);
+    expect(isSpellcasterClass('Wojownik (Fighter)')).toBe(false);
+    expect(isSpellcasterClass('Barbarzyńca')).toBe(false);
+    expect(isSpellcasterClass('Łotrzyk')).toBe(false);
+  });
+});
+
+describe('dnd-rules - getMaxSpellLevel & getRecommendedCantripsCount', () => {
+  it('calculates maximum spell level accessible based on class and level', () => {
+    // Full Caster: Wizard
+    expect(getMaxSpellLevel('Wizard', 1)).toBe(1);
+    expect(getMaxSpellLevel('Wizard', 3)).toBe(2);
+    expect(getMaxSpellLevel('Wizard', 5)).toBe(3);
+    expect(getMaxSpellLevel('Wizard', 9)).toBe(5);
+    expect(getMaxSpellLevel('Wizard', 17)).toBe(9);
+
+    // Half Caster: Paladin (no spells at level 1, 1st level at level 2)
+    expect(getMaxSpellLevel('Paladin', 1)).toBe(0);
+    expect(getMaxSpellLevel('Paladin', 2)).toBe(1);
+    expect(getMaxSpellLevel('Paladin', 5)).toBe(2);
+
+    // Warlock (Pact Magic caps at 5)
+    expect(getMaxSpellLevel('Warlock', 1)).toBe(1);
+    expect(getMaxSpellLevel('Warlock', 9)).toBe(5);
+    expect(getMaxSpellLevel('Warlock', 20)).toBe(5);
+
+    // Non-caster: Fighter
+    expect(getMaxSpellLevel('Fighter', 5)).toBe(0);
+  });
+
+  it('provides recommended cantrips count based on class and level', () => {
+    expect(getRecommendedCantripsCount('Wizard', 1)).toBe(3);
+    expect(getRecommendedCantripsCount('Wizard', 4)).toBe(4);
+    expect(getRecommendedCantripsCount('Sorcerer', 1)).toBe(4);
+    expect(getRecommendedCantripsCount('Warlock', 1)).toBe(2);
+    expect(getRecommendedCantripsCount('Paladin', 1)).toBe(0);
+    expect(getRecommendedCantripsCount('Fighter', 1)).toBe(0);
+  });
+});
+
+describe('dnd-rules - getDefaultClassEquipment', () => {
+  it('returns appropriate starter equipment package for class', () => {
+    const fighterEquip = getDefaultClassEquipment('Fighter');
+    expect(fighterEquip).toContain('Długi miecz (Longsword)');
+    expect(fighterEquip).toContain('Tarcza (Shield)');
+
+    const wizardEquip = getDefaultClassEquipment('Czarodziej (Wizard)');
+    expect(wizardEquip).toContain('Księga zaklęć (Spellbook)');
+    expect(wizardEquip).toContain('Sztylet (Dagger)');
+
+    const clericEquip = getDefaultClassEquipment('Kleryk (Cleric)');
+    expect(clericEquip).toContain('Święty symbol (Holy Symbol)');
   });
 });

@@ -29,10 +29,14 @@ test.describe('Character Wizard Module', () => {
     const nameInput = page.locator('input[placeholder="np. Thorin Dębowa Tarcza"]');
     await nameInput.fill('Gildor Strażnik Lasu');
 
-    await page.locator('button:has-text("Podsumowanie Karty")').click();
+    await page.locator('button:has-text("Dalej: Ekwipunek i Zaklęcia")').click();
 
-    // 5. Step 4: Summary and save
-    await expect(page.locator('text=Krok 4: Podsumowanie Wygenerowanej Karty')).toBeVisible();
+    // 5. Step 4: Equipment & Spells
+    await expect(page.locator('text=Krok 4: Ekwipunek Początkowy i Zaklęcia')).toBeVisible();
+    await page.locator('button:has-text("Dalej: Podsumowanie")').click();
+
+    // 6. Step 5: Summary and save
+    await expect(page.locator('text=Krok 5: Podsumowanie Wygenerowanej Karty')).toBeVisible();
     await page.locator('button:has-text("Zapisz Kartę Postaci")').click();
 
     // 6. Verify newly created character appears in the party list

@@ -3,7 +3,7 @@
 import { Sparkles } from 'lucide-react';
 
 interface WizardProgressProps {
-  currentStep: 1 | 2 | 3 | 4;
+  currentStep: 1 | 2 | 3 | 4 | 5;
 }
 
 export function WizardProgress({ currentStep }: WizardProgressProps) {
@@ -15,13 +15,13 @@ export function WizardProgress({ currentStep }: WizardProgressProps) {
           Kreator Wielokrokowy Postaci (Wizard)
         </h3>
         <p className="text-xs text-slate-400">
-          Wygeneruj czystą kartę postaci w 4 szybkich krokach.
+          Wygeneruj czystą kartę postaci w 5 szybkich krokach.
         </p>
       </div>
 
       {/* Steps Indicator */}
       <div className="flex items-center gap-2">
-        {[1, 2, 3, 4].map((s) => (
+        {[1, 2, 3, 4, 5].map((s) => (
           <div
             key={s}
             className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs font-mono transition ${
