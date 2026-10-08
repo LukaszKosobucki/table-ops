@@ -6,6 +6,13 @@ export interface CombatStatusItem {
   durationTurns: number;
 }
 
+export interface DeathSaveState {
+  successes: number;
+  failures: number;
+  isStabilized?: boolean;
+  isDead?: boolean;
+}
+
 export interface Combatant {
   id: string;
   characterId?: string | null;
@@ -21,13 +28,32 @@ export interface Combatant {
   conditions: string[];
   statuses?: CombatStatusItem[];
   order?: number;
+  avatarUrl?: string | null;
+  xp?: number;
+  isFled?: boolean;
+  deathSaves?: DeathSaveState;
 }
 
 export interface CombatLogEntry {
   id: string;
   timestamp: string;
   text: string;
-  type?: 'turn' | 'damage' | 'heal' | 'status' | 'system';
+  type?:
+    | 'turn'
+    | 'damage'
+    | 'heal'
+    | 'status'
+    | 'system'
+    | 'spell'
+    | 'action'
+    | 'flee'
+    | 'death_save';
+  actorName?: string;
+  actorIsMonster?: boolean;
+  actorAvatar?: string;
+  targetName?: string;
+  targetIsMonster?: boolean;
+  spellLevel?: number;
 }
 
 export const AVAILABLE_CONDITIONS = [

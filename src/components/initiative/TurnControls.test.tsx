@@ -11,7 +11,14 @@ describe('TurnControls Component', () => {
 
   it('calls onNextTurn when clicking "Następna Tura"', () => {
     const handleNext = vi.fn();
-    render(<TurnControls round={1} onNextTurn={handleNext} onRollAllMonsterInitiative={vi.fn()} />);
+    render(
+      <TurnControls
+        round={1}
+        combatPhase="ACTIVE"
+        onNextTurn={handleNext}
+        onRollAllMonsterInitiative={vi.fn()}
+      />
+    );
 
     const nextButton = screen.getByRole('button', { name: /Następna Tura/i });
     fireEvent.click(nextButton);
@@ -19,13 +26,38 @@ describe('TurnControls Component', () => {
     expect(handleNext).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onRollAllMonsterInitiative when clicking "Losuj Inicjatywę Potworów"', () => {
+  it('calls onRollAllMonsterInitiative when clicking "Losuj Inicjatywę Potworów" in PREPARING phase', () => {
     const handleRoll = vi.fn();
-    render(<TurnControls round={1} onNextTurn={vi.fn()} onRollAllMonsterInitiative={handleRoll} />);
+    render(
+      <TurnControls
+        round={1}
+        combatPhase="PREPARING"
+        onNextTurn={vi.fn()}
+        onRollAllMonsterInitiative={handleRoll}
+      />
+    );
 
     const rollButton = screen.getByRole('button', { name: /Losuj Inicjatywę Potworów/i });
     fireEvent.click(rollButton);
 
     expect(handleRoll).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables "Losuj Inicjatywę Potworów" when combatPhase is ACTIVE', () => {
+    const handleRoll = vi.fn();
+    render(
+      <TurnControls
+        round={1}
+        combatPhase="ACTIVE"
+        onNextTurn={vi.fn()}
+        onRollAllMonsterInitiative={handleRoll}
+      />
+    );
+
+    const rollButton = screen.getByRole('button', { name: /Losuj Inicjatywę Potworów/i });
+    expect(rollButton).toBeDisabled();
+    fireEvent.click(rollButton);
+
+    expect(handleRoll).not.toHaveBeenCalled();
   });
 });

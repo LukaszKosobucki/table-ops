@@ -15,3 +15,7 @@
 **Jako** Mistrz Gry
 **Chcę** móc kliknąć na konkretne wydarzenie (np. zakończoną potyczkę) w prawej kolumnie historii
 **Aby** w środkowej kolumnie wyświetliło się jego szczegółowe podsumowanie (kto przeżył, z jakim HP, zużyte zasoby).
+
+**Jako** Mistrz Gry
+**Chcę** mieć stale dostępny przycisk z ikoną kości w prawym górnym rogu nagłówka sesji oraz globalny skrót klawiszowy `D`
+**Aby** w dowolnej chwili wywołać pływające okno rzutnika kości bez zasłaniania aktualnych danych widoku i bez opuszczania aktywnego ekranu.

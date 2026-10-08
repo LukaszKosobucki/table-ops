@@ -13,11 +13,20 @@ export function CharacterCard({ character }: CharacterCardProps) {
   return (
     <div className="glass-card rounded-2xl p-5 border border-slate-800 space-y-4">
       <div className="flex items-start justify-between">
-        <div>
-          <h3 className="font-bold text-lg text-slate-100">{character.name}</h3>
-          <p className="text-xs text-amber-400 font-semibold">
-            Poziom {character.level} • {character.race} • {character.class}
-          </p>
+        <div className="flex items-center gap-3">
+          {character.avatarUrl ? (
+            <img
+              src={character.avatarUrl}
+              alt={character.name}
+              className="w-12 h-12 rounded-xl object-cover border border-amber-500/30 shrink-0"
+            />
+          ) : null}
+          <div>
+            <h3 className="font-bold text-lg text-slate-100">{character.name}</h3>
+            <p className="text-xs text-amber-400 font-semibold">
+              Poziom {character.level} • {character.race} • {character.class}
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
           <Eye className="w-4 h-4 text-indigo-400" />

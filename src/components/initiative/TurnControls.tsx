@@ -14,11 +14,12 @@ interface TurnControlsProps {
   onStartCombat?: () => void;
   onEndCombat?: () => void;
   onResetCombat?: () => void;
+  isLoading?: boolean;
 }
 
 export function TurnControls({
   round,
-  combatPhase = 'ACTIVE',
+  combatPhase = 'PREPARING',
   activeCombatantName,
   nextCombatantName,
   canStartCombat = true,
@@ -27,7 +28,33 @@ export function TurnControls({
   onStartCombat,
   onEndCombat,
   onResetCombat,
+  isLoading = false,
 }: TurnControlsProps) {
+  if (isLoading) {
+    return (
+      <div
+        data-testid="turn-controls-skeleton"
+        className="glass-panel rounded-2xl p-5 border border-indigo-500/20 bg-slate-900/80 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 shadow-xl animate-pulse"
+      >
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-slate-800/80 shrink-0" />
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-28 bg-slate-800 rounded" />
+              <div className="h-4 w-16 bg-slate-800/60 rounded" />
+            </div>
+            <div className="h-5 w-44 bg-slate-800 rounded" />
+            <div className="h-3 w-64 bg-slate-800/60 rounded" />
+          </div>
+        </div>
+        <div className="flex items-center gap-2.5 justify-end">
+          <div className="h-9 w-36 bg-slate-800/80 rounded-xl" />
+          <div className="h-9 w-32 bg-slate-800/80 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="glass-panel rounded-2xl p-5 border border-indigo-500/20 bg-gradient-to-r from-slate-900/90 via-slate-900/80 to-indigo-950/40 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 shadow-xl">
       <div className="flex items-center gap-4">
@@ -72,7 +99,9 @@ export function TurnControls({
           </div>
 
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <span>Initiative Tracker GM</span>
+            <span>
+              {combatPhase === 'FINISHED' ? 'Starcie Zakończone!' : 'Initiative Tracker GM'}
+            </span>
           </h2>
 
           {/* Turn status indicator */}
@@ -139,10 +168,12 @@ export function TurnControls({
           <>
             <button
               type="button"
-              onClick={onRollAllMonsterInitiative}
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-medium transition cursor-pointer"
+              disabled
+              title="Inicjatywa potworów jest zablokowana po rozpoczęciu walki"
+              data-testid="roll-monsters-init-disabled-btn"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/40 text-slate-500 border border-slate-800 text-xs font-medium cursor-not-allowed opacity-50"
             >
-              <RotateCcw className="w-4 h-4 text-amber-400" />
+              <RotateCcw className="w-4 h-4 text-slate-600" />
               <span>Losuj Inicjatywę Potworów</span>
             </button>
 
@@ -174,7 +205,7 @@ export function TurnControls({
           onResetCombat && (
             <button
               type="button"
-              data-testid="reset-combat-btn"
+              data-testid="reset-combat-summary-btn"
               onClick={onResetCombat}
               className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs transition cursor-pointer"
             >

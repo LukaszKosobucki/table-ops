@@ -31,6 +31,7 @@ export interface Character {
   traits?: string[];
   inventory?: string[];
   spells?: CharacterSpells | null;
+  avatarUrl?: string | null;
 }
 
 export interface RaceOption {

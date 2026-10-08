@@ -48,6 +48,7 @@ export function Bestiary({
 
   // --- SPELLS STATE ---
   const [spells, setSpells] = useState<CompendiumSpell[]>(initialSpells);
+  const [isLoadingSpells, setIsLoadingSpells] = useState(initialSpells.length === 0);
   const [spellSearch, setSpellSearch] = useState('');
   const [spellLevel, setSpellLevel] = useState<string>('ALL');
   const [spellSchool, setSpellSchool] = useState<string>('ALL');
@@ -56,6 +57,7 @@ export function Bestiary({
 
   // --- ITEMS STATE ---
   const [items, setItems] = useState<CompendiumItem[]>(initialItems);
+  const [isLoadingItems, setIsLoadingItems] = useState(initialItems.length === 0);
   const [itemSearch, setItemSearch] = useState('');
   const [itemType, setItemType] = useState<string>('ALL');
   const [itemRarity, setItemRarity] = useState<string>('ALL');
@@ -72,6 +74,7 @@ export function Bestiary({
   useEffect(() => {
     let mounted = true;
     if (spells.length === 0) {
+      setIsLoadingSpells(true);
       fetch('/api/compendium/spells')
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
@@ -79,9 +82,16 @@ export function Bestiary({
           const list = Array.isArray(data) ? data : data.spells;
           if (Array.isArray(list)) setSpells(list);
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          if (mounted) setIsLoadingSpells(false);
+        });
+    } else {
+      setIsLoadingSpells(false);
     }
+
     if (items.length === 0) {
+      setIsLoadingItems(true);
       fetch('/api/compendium/items')
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
@@ -89,8 +99,14 @@ export function Bestiary({
           const list = Array.isArray(data) ? data : data.items;
           if (Array.isArray(list)) setItems(list);
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          if (mounted) setIsLoadingItems(false);
+        });
+    } else {
+      setIsLoadingItems(false);
     }
+
     return () => {
       mounted = false;
     };
@@ -280,21 +296,44 @@ export function Bestiary({
             onClassChange={setSpellClass}
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredSpells.map((s) => (
-              <SpellCard
-                key={s.index}
-                spell={s}
-                onSelect={() => setActiveSpell(s)}
-                onAssign={() => setAssignModal({ isOpen: true, type: 'spell', name: s.name })}
-              />
-            ))}
-          </div>
-
-          {filteredSpells.length === 0 && (
-            <div className="p-8 text-center glass-panel rounded-2xl border border-slate-800 text-slate-400 text-sm">
-              Nie znaleziono zaklęć spełniających wybrane kryteria filtrów.
+          {isLoadingSpells ? (
+            <div
+              data-testid="spells-skeleton"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-pulse"
+            >
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div
+                  key={`spell-skel-${i}`}
+                  className="glass-card rounded-2xl p-5 border border-slate-800 space-y-3"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="h-5 bg-slate-800 rounded w-1/2" />
+                    <div className="h-4 bg-slate-800/60 rounded w-16" />
+                  </div>
+                  <div className="h-3 bg-slate-800/50 rounded w-1/3" />
+                  <div className="h-12 bg-slate-800/30 rounded" />
+                </div>
+              ))}
             </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filteredSpells.map((s) => (
+                  <SpellCard
+                    key={s.index}
+                    spell={s}
+                    onSelect={() => setActiveSpell(s)}
+                    onAssign={() => setAssignModal({ isOpen: true, type: 'spell', name: s.name })}
+                  />
+                ))}
+              </div>
+
+              {filteredSpells.length === 0 && (
+                <div className="p-8 text-center glass-panel rounded-2xl border border-slate-800 text-slate-400 text-sm">
+                  Nie znaleziono zaklęć spełniających wybrane kryteria filtrów.
+                </div>
+              )}
+            </>
           )}
 
           <SpellDetailModal
@@ -317,21 +356,44 @@ export function Bestiary({
             onRarityChange={setItemRarity}
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredItems.map((item) => (
-              <ItemCard
-                key={item.index}
-                item={item}
-                onSelect={() => setActiveItem(item)}
-                onAssign={() => setAssignModal({ isOpen: true, type: 'item', name: item.name })}
-              />
-            ))}
-          </div>
-
-          {filteredItems.length === 0 && (
-            <div className="p-8 text-center glass-panel rounded-2xl border border-slate-800 text-slate-400 text-sm">
-              Nie znaleziono przedmiotów spełniających wybrane kryteria filtrów.
+          {isLoadingItems ? (
+            <div
+              data-testid="items-skeleton"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 animate-pulse"
+            >
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div
+                  key={`item-skel-${i}`}
+                  className="glass-card rounded-2xl p-5 border border-slate-800 space-y-3"
+                >
+                  <div className="flex justify-between items-start">
+                    <div className="h-5 bg-slate-800 rounded w-1/2" />
+                    <div className="h-4 bg-slate-800/60 rounded w-16" />
+                  </div>
+                  <div className="h-3 bg-slate-800/50 rounded w-1/3" />
+                  <div className="h-12 bg-slate-800/30 rounded" />
+                </div>
+              ))}
             </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filteredItems.map((item) => (
+                  <ItemCard
+                    key={item.index}
+                    item={item}
+                    onSelect={() => setActiveItem(item)}
+                    onAssign={() => setAssignModal({ isOpen: true, type: 'item', name: item.name })}
+                  />
+                ))}
+              </div>
+
+              {filteredItems.length === 0 && (
+                <div className="p-8 text-center glass-panel rounded-2xl border border-slate-800 text-slate-400 text-sm">
+                  Nie znaleziono przedmiotów spełniających wybrane kryteria filtrów.
+                </div>
+              )}
+            </>
           )}
 
           <ItemDetailModal

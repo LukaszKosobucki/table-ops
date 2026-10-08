@@ -1,4 +1,4 @@
-import type { CombatStatusEnum, PrismaClient } from '@prisma/client';
+import type { CombatStatusEnum, Prisma, PrismaClient } from '@prisma/client';
 import { prisma as defaultPrisma } from './prisma';
 
 export interface CreateCombatantInput {
@@ -400,6 +400,8 @@ export interface EndCombatInput {
     characterId: string;
     hp: number;
   }[];
+  summaryText?: string;
+  metadata?: Record<string, unknown>;
 }
 
 /**
@@ -486,7 +488,10 @@ export async function endCombat(
       sessionId: combat.sessionId,
       combatId: combat.id,
       logType: 'COMBAT_END',
-      description: `Walka zakończona po ${combat.currentRound} rundach. Zsynchronizowano stan postaci.`,
+      description:
+        input?.summaryText ||
+        `Walka zakończona po ${combat.currentRound} rundach. Zsynchronizowano stan postaci.`,
+      metadata: input?.metadata ? (input.metadata as Prisma.InputJsonValue) : undefined,
     },
   });
 

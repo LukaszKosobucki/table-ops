@@ -2,7 +2,6 @@
 
 import {
   BookOpen,
-  Dices,
   FolderKanban,
   Lock,
   LogIn,
@@ -47,10 +46,9 @@ export function Navbar({
 }: NavbarProps) {
   const navItems = [
     { id: 'dashboard', label: 'Ekran Prowadzenia (GM)', icon: Shield },
-    { id: 'sessions', label: 'Sesje', icon: FolderKanban },
-    { id: 'bestiary', label: 'Bestiariusz', icon: BookOpen },
     { id: 'characters', label: 'Kreator i Karty Postaci', icon: UserPlus },
-    { id: 'dice', label: 'Kości i Real-time', icon: Dices },
+    { id: 'bestiary', label: 'Bestiariusz', icon: BookOpen },
+    { id: 'sessions', label: 'Sesje', icon: FolderKanban },
   ];
 
   return (

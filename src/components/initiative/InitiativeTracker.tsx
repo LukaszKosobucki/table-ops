@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertCircle, CheckCircle2, RotateCcw, Skull, Swords } from 'lucide-react';
+import { AlertCircle, AlertTriangle, Skull, Square, Swords, X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
 import type { MonsterData } from '@/lib/monsters';
@@ -22,7 +22,11 @@ export interface InitiativeTrackerProps {
   initialRound?: number;
   initialTurnIndex?: number;
   initialPhase?: CombatPhase;
-  onCombatEnd?: (updatedCharactersHp: { characterId: string; hp: number }[]) => void;
+  onCombatEnd?: (
+    updatedCharactersHp: { characterId: string; hp: number }[],
+    summaryText?: string,
+    metadata?: Record<string, unknown>
+  ) => void;
   combatLog?: CombatLogEntry[];
   onAddLog?: (entry: CombatLogEntry) => void;
   onClearLog?: () => void;
@@ -78,6 +82,10 @@ export function InitiativeTracker({
     handleRemoveCombatant,
     handleAddCombatant,
     handleClearCombatLog,
+    handleAddCustomAction,
+    handleCombatantFlee,
+    handleRollDeathSave,
+    handleUpdateDeathSaves,
   } = useCombatEngine({
     sessionId,
     initialCombatId,
@@ -93,6 +101,25 @@ export function InitiativeTracker({
     onPhaseChange,
   });
 
+  const [showEndCombatWarning, setShowEndCombatWarning] = useState(false);
+
+  const aliveMonsters = combatants.filter(
+    (c) => c.isMonster && c.currentHp > 0 && !c.isFled && !c.conditions?.includes('Martwy')
+  );
+
+  const handleRequestEndCombat = () => {
+    if (aliveMonsters.length > 0) {
+      setShowEndCombatWarning(true);
+    } else {
+      handleEndCombat();
+    }
+  };
+
+  const handleConfirmEndCombat = () => {
+    setShowEndCombatWarning(false);
+    handleEndCombat();
+  };
+
   return (
     <div className="space-y-6">
       {/* Round & Phase Controls */}
@@ -105,34 +132,87 @@ export function InitiativeTracker({
         onNextTurn={handleNextTurn}
         onRollAllMonsterInitiative={handleRollAllMonsterInitiative}
         onStartCombat={handleStartCombat}
-        onEndCombat={handleEndCombat}
+        onEndCombat={handleRequestEndCombat}
         onResetCombat={handleResetCombat}
+        isLoading={isLoading}
       />
 
-      {/* Finished Summary Banner */}
-      {combatPhase === 'FINISHED' && (
-        <div className="glass-card rounded-2xl p-5 border border-emerald-500/30 bg-emerald-950/20 flex flex-col sm:flex-row items-center justify-between gap-4 animate-in fade-in duration-300">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center">
-              <CheckCircle2 className="w-6 h-6" />
+      {/* Confirmation Modal when ending combat with alive monsters */}
+      {showEndCombatWarning && (
+        <div
+          data-testid="end-combat-warning-modal"
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200"
+        >
+          <div className="glass-card bg-slate-900/95 border border-amber-500/40 rounded-2xl p-6 max-w-lg w-full space-y-5 shadow-2xl shadow-amber-950/40">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0">
+                  <AlertTriangle className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-100">
+                    Ostrzeżenie: Żywi przeciwnicy w starciu!
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    W walce wciąż znajdują się aktywni przeciwnicy ({aliveMonsters.length})
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEndCombatWarning(false)}
+                className="text-slate-500 hover:text-slate-300 transition p-1 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <div>
-              <h4 className="text-white font-bold text-sm">Starcie Zakończone!</h4>
-              <p className="text-xs text-slate-300">
-                Walka trwała {round} {round === 1 ? 'rundę' : round < 5 ? 'rundy' : 'rund'}. Stan
-                zdrowia bohaterów został zsynchronizowany.
+
+            <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
+              <p className="text-xs font-semibold text-amber-300">
+                Następujący przeciwnicy mają jeszcze punkty życia:
               </p>
+              <div className="flex flex-wrap gap-2 pt-1 max-h-36 overflow-y-auto">
+                {aliveMonsters.map((m) => (
+                  <span
+                    key={m.id}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-950/50 border border-red-800/60 text-red-200 text-xs font-mono"
+                  >
+                    <Skull className="w-3.5 h-3.5 text-red-400" />
+                    <span>{m.name}</span>
+                    <span className="text-red-400 font-bold">
+                      ({m.currentHp}/{m.maxHp} HP)
+                    </span>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Przedwczesne zakończenie walki usunie żywych przeciwników z kolejki, a punkty
+              doświadczenia (PD) nie zostaną za nich przyznane. Czy na pewno chcesz zakończyć
+              starcie?
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                data-testid="cancel-end-combat-btn"
+                onClick={() => setShowEndCombatWarning(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold transition cursor-pointer"
+              >
+                Wróć do walki
+              </button>
+              <button
+                type="button"
+                data-testid="confirm-end-combat-btn"
+                onClick={handleConfirmEndCombat}
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition flex items-center gap-1.5 cursor-pointer shadow-lg shadow-red-600/30"
+              >
+                <Square className="w-3.5 h-3.5" />
+                <span>Zakończ walkę mimo to</span>
+              </button>
             </div>
           </div>
-          <button
-            type="button"
-            data-testid="reset-combat-summary-btn"
-            onClick={handleResetCombat}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-1.5 transition cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>Nowe Starcie</span>
-          </button>
         </div>
       )}
 
@@ -146,9 +226,13 @@ export function InitiativeTracker({
                   Kolejność Inicjatywy ({isLoading ? '...' : combatants.length})
                 </h3>
                 <p className="text-xs text-slate-400 font-normal">
-                  {combatPhase === 'PREPARING'
-                    ? 'Faza przygotowania: Edytuj wartości inicjatywy lub wylosuj rzuty potworów'
-                    : 'Aktywna walka: Kolejność zamrożona według inicjatywy (D20)'}
+                  {isLoading
+                    ? 'Ładowanie stanu potyczki...'
+                    : combatPhase === 'PREPARING'
+                      ? 'Faza przygotowania: Edytuj wartości inicjatywy lub wylosuj rzuty potworów'
+                      : combatPhase === 'FINISHED'
+                        ? 'Starcie zakończone: Wyniki i stan zdrowia bohaterów zostały zsynchronizowane.'
+                        : 'Aktywna walka: Kolejność zamrożona według inicjatywy (D20)'}
                 </p>
               </div>
               {onOpenEncounterBuilder && (
@@ -219,6 +303,9 @@ export function InitiativeTracker({
                     onRemoveStatus={(statusId) => handleRemoveStatus(c.id, statusId)}
                     onInitiativeChange={(newInit) => handleInitiativeChange(c.id, newInit)}
                     onRemove={() => handleRemoveCombatant(c.id)}
+                    onFlee={() => handleCombatantFlee(c.id)}
+                    onRollDeathSave={() => handleRollDeathSave(c.id)}
+                    onUpdateDeathSaves={(saves) => handleUpdateDeathSaves(c.id, saves)}
                   />
                 ))}
               </div>
@@ -234,7 +321,12 @@ export function InitiativeTracker({
                 combatants.filter((c) => c.type === type).length
               }
             />
-            <CombatLogWidget entries={activeCombatLog} onClear={handleClearCombatLog} />
+            <CombatLogWidget
+              entries={activeCombatLog}
+              onClear={handleClearCombatLog}
+              activeCombatantName={activeCombatant?.name}
+              onAddCustomAction={handleAddCustomAction}
+            />
             <GmNotes notes={gmNotes} onChangeNotes={setGmNotes} />
           </div>
         </div>
@@ -247,9 +339,13 @@ export function InitiativeTracker({
                 Kolejność Inicjatywy ({isLoading ? '...' : combatants.length})
               </h3>
               <p className="text-xs text-slate-400 font-normal">
-                {combatPhase === 'PREPARING'
-                  ? 'Faza przygotowania: Edytuj wartości inicjatywy lub wylosuj rzuty potworów'
-                  : 'Aktywna walka: Kolejność zamrożona według inicjatywy (D20)'}
+                {isLoading
+                  ? 'Ładowanie stanu potyczki...'
+                  : combatPhase === 'PREPARING'
+                    ? 'Faza przygotowania: Edytuj wartości inicjatywy lub wylosuj rzuty potworów'
+                    : combatPhase === 'FINISHED'
+                      ? 'Starcie zakończone: Wyniki i stan zdrowia bohaterów zostały zsynchronizowane.'
+                      : 'Aktywna walka: Kolejność zamrożona według inicjatywy (D20)'}
               </p>
             </div>
             {onOpenEncounterBuilder && (
@@ -320,6 +416,9 @@ export function InitiativeTracker({
                   onRemoveStatus={(statusId) => handleRemoveStatus(c.id, statusId)}
                   onInitiativeChange={(newInit) => handleInitiativeChange(c.id, newInit)}
                   onRemove={() => handleRemoveCombatant(c.id)}
+                  onFlee={() => handleCombatantFlee(c.id)}
+                  onRollDeathSave={() => handleRollDeathSave(c.id)}
+                  onUpdateDeathSaves={(saves) => handleUpdateDeathSaves(c.id, saves)}
                 />
               ))}
             </div>

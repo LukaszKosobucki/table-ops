@@ -64,7 +64,11 @@ test.describe('Character Wizard Module', () => {
     await page.locator('button:has-text("Dalej: Podsumowanie")').click();
 
     await expect(page.locator('text=Krok 5: Podsumowanie Wygenerowanej Karty')).toBeVisible();
+    const savePromise = page.waitForResponse(
+      (res) => res.url().includes('/api/characters') && res.status() === 201
+    );
     await page.locator('button:has-text("Zapisz Kartę Postaci")').click();
+    await savePromise;
     await expect(page.locator('h3:has-text("Valerius z Ostrej Bieli")')).toBeVisible();
 
     // 2. Navigate back to Ekran Prowadzenia (GM)
@@ -72,7 +76,11 @@ test.describe('Character Wizard Module', () => {
     await expect(page.locator('text=Drużyna & NPC')).toBeVisible();
 
     // 3. Select character from party list
-    await page.locator('text=Valerius z Ostrej Bieli').click();
+    const partyCharacter = page
+      .locator('[data-testid="dashboard-party-column"]')
+      .locator('text=Valerius z Ostrej Bieli');
+    await expect(partyCharacter).toBeVisible({ timeout: 10000 });
+    await partyCharacter.click();
     await expect(page.locator('h2:has-text("Valerius z Ostrej Bieli")')).toBeVisible();
 
     // 4. Verify EXP section is visible
@@ -95,7 +103,9 @@ test.describe('Character Wizard Module', () => {
     await plusStr.click();
 
     // 9. Confirm level up
-    await page.locator('button[data-testid="level-up-confirm-btn"]').click();
+    const confirmBtn = page.locator('button[data-testid="level-up-confirm-btn"]');
+    await expect(confirmBtn).toBeEnabled();
+    await confirmBtn.click();
 
     // 10. Modal closes and level is updated
     await expect(page.locator('div[data-testid="level-up-modal"]')).not.toBeVisible();

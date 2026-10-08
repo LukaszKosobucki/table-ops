@@ -422,4 +422,209 @@ describe('CharacterInspectionCard Component (Chunk 3.2)', () => {
       );
     });
   });
+
+  it('renders avatar image if avatarUrl is provided, or fallback letter when missing', () => {
+    const charWithAvatar: DashboardCharacter = {
+      ...mockCharacter,
+      avatarUrl: 'https://images.unsplash.com/photo-wizard.jpg',
+    };
+
+    const { rerender } = render(
+      <CharacterInspectionCard character={charWithAvatar} onBackToCombat={vi.fn()} />
+    );
+
+    const img = screen.getByTestId('inspection-card-avatar');
+    expect(img).toBeInTheDocument();
+    expect(img).toHaveAttribute('src', 'https://images.unsplash.com/photo-wizard.jpg');
+
+    // Rerender with character without avatar
+    rerender(<CharacterInspectionCard character={mockCharacter} onBackToCombat={vi.fn()} />);
+    expect(screen.getByTestId('inspection-card-avatar-fallback')).toBeInTheDocument();
+    expect(screen.getByTestId('inspection-card-avatar-fallback')).toHaveTextContent('E');
+  });
+
+  it('casts a cantrip without consuming spell slots and triggers onCastSpell', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        spells: [
+          {
+            index: 'fire-bolt',
+            name: 'Ognisty Pocisk',
+            level: 0,
+            school: 'Evocation',
+            classes: ['Czarodziej'],
+          },
+        ],
+      }),
+    } as Response);
+
+    const onCast = vi.fn();
+    const onUpdate = vi.fn();
+    const charWithCantrip: DashboardCharacter = {
+      ...mockCharacter,
+      sessionId: 'sess-123',
+      spells: {
+        slots: { 1: { max: 4, used: 0 } },
+        known: ['Ognisty Pocisk'],
+      },
+    };
+
+    render(
+      <CharacterInspectionCard
+        character={charWithCantrip}
+        onBackToCombat={vi.fn()}
+        onCharacterUpdate={onUpdate}
+        onCastSpell={onCast}
+      />
+    );
+
+    // Wait for compendium spells to load and update button text
+    await waitFor(() => {
+      expect(screen.getByTestId('cast-spell-Ognisty Pocisk')).toHaveTextContent('✨ Rzuć');
+    });
+
+    const castBtn = screen.getByTestId('cast-spell-Ognisty Pocisk');
+    fireEvent.click(castBtn);
+
+    await waitFor(() => {
+      expect(onCast).toHaveBeenCalledWith('Ognisty Pocisk', 0, 'Eldrin Srebrny Liść');
+    });
+
+    // Slots should NOT be consumed for cantrips
+    expect(onUpdate).not.toHaveBeenCalled();
+    expect(screen.getByTestId('spell-cast-feedback')).toHaveTextContent(
+      /Rzucono sztuczkę: Ognisty Pocisk/i
+    );
+  });
+
+  it('casts a leveled spell, consumes slot and triggers onCastSpell', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        spells: [
+          {
+            index: 'magic-missile',
+            name: 'Magiczny Pocisk',
+            level: 1,
+            school: 'Evocation',
+            classes: ['Czarodziej'],
+          },
+        ],
+      }),
+    } as Response);
+
+    const onCast = vi.fn();
+    const onUpdate = vi.fn();
+    const charWithSpell: DashboardCharacter = {
+      ...mockCharacter,
+      sessionId: 'sess-123',
+      spells: {
+        slots: { 1: { max: 4, used: 1 } },
+        known: ['Magiczny Pocisk'],
+      },
+    };
+
+    render(
+      <CharacterInspectionCard
+        character={charWithSpell}
+        onBackToCombat={vi.fn()}
+        onCharacterUpdate={onUpdate}
+        onCastSpell={onCast}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('cast-spell-Magiczny Pocisk')).toHaveTextContent('⚡ Rzuć (K.1)');
+    });
+
+    const castBtn = screen.getByTestId('cast-spell-Magiczny Pocisk');
+    fireEvent.click(castBtn);
+
+    await waitFor(() => {
+      expect(onCast).toHaveBeenCalledWith('Magiczny Pocisk', 1, 'Eldrin Srebrny Liść');
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          spells: expect.objectContaining({
+            slots: expect.objectContaining({
+              1: { max: 4, used: 2 },
+            }),
+          }),
+        })
+      );
+    });
+
+    expect(screen.getByTestId('spell-cast-feedback')).toHaveTextContent(
+      /Rzucono zaklęcie: Magiczny Pocisk \(1\. krąg\)/i
+    );
+  });
+
+  it('upcasts a spell using next available higher slot when base slot is exhausted', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        spells: [
+          {
+            index: 'magic-missile',
+            name: 'Magiczny Pocisk',
+            level: 1,
+            school: 'Evocation',
+            classes: ['Czarodziej'],
+          },
+        ],
+      }),
+    } as Response);
+
+    const onCast = vi.fn();
+    const onUpdate = vi.fn();
+    const charWithExhaustedSlot1: DashboardCharacter = {
+      ...mockCharacter,
+      sessionId: 'sess-123',
+      spells: {
+        slots: {
+          1: { max: 4, used: 4 }, // Level 1 is completely exhausted!
+          2: { max: 2, used: 0 }, // Level 2 has 2 available slots!
+        },
+        known: ['Magiczny Pocisk'],
+      },
+    };
+
+    render(
+      <CharacterInspectionCard
+        character={charWithExhaustedSlot1}
+        onBackToCombat={vi.fn()}
+        onCharacterUpdate={onUpdate}
+        onCastSpell={onCast}
+      />
+    );
+
+    // Button should automatically adapt to use Level 2 slot
+    await waitFor(() => {
+      expect(screen.getByTestId('cast-spell-Magiczny Pocisk')).toHaveTextContent('⚡ Rzuć (K.2)');
+    });
+
+    const castBtn = screen.getByTestId('cast-spell-Magiczny Pocisk');
+    fireEvent.click(castBtn);
+
+    await waitFor(() => {
+      expect(onCast).toHaveBeenCalledWith('Magiczny Pocisk', 2, 'Eldrin Srebrny Liść');
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          spells: expect.objectContaining({
+            slots: expect.objectContaining({
+              1: { max: 4, used: 4 },
+              2: { max: 2, used: 1 }, // Consumed Level 2 slot!
+            }),
+          }),
+        })
+      );
+    });
+
+    expect(screen.getByTestId('spell-cast-feedback')).toHaveTextContent(
+      /Rzucono zaklęcie: Magiczny Pocisk \(używając wyższego 2\. kręgu\)/i
+    );
+  });
 });

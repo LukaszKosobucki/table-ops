@@ -36,8 +36,8 @@ export function useSessionFullState({
   onCharactersLoaded,
 }: UseSessionFullStateOptions) {
   const [characters, setCharacters] = useState<DashboardCharacter[]>(initialCharacters || []);
-  const [isLoading, setIsLoading] = useState<boolean>(!initialCharacters && Boolean(sessionId));
-  const [logs, setLogs] = useState<DashboardLog[]>(DEFAULT_LOGS);
+  const [isLoading, setIsLoading] = useState<boolean>(Boolean(sessionId));
+  const [logs, setLogs] = useState<DashboardLog[]>([]);
 
   const [activeCombatId, setActiveCombatId] = useState<string | null>(null);
   const [activeCombatRound, setActiveCombatRound] = useState<number>(1);
@@ -53,6 +53,7 @@ export function useSessionFullState({
   const lastFetchedSessionIdRef = useRef<string | null>(null);
 
   const fetchFullState = useCallback(async () => {
+    setIsLoading(true);
     try {
       const res = await fetch(`/api/sessions/${sessionId}/full-state`);
       if (res.ok) {
@@ -88,7 +89,7 @@ export function useSessionFullState({
                 maxHp: number;
                 ac: number;
                 order?: number;
-                character?: { name: string } | null;
+                character?: { name: string; avatarUrl?: string | null } | null;
                 monster?: { name: string } | null;
                 statuses?: { id: string; statusName: string; durationTurns: number }[];
               }) => ({
@@ -97,6 +98,7 @@ export function useSessionFullState({
                 monsterId: c.monsterId,
                 apiMonsterId: c.apiMonsterId,
                 name: c.nameOverride || c.character?.name || c.monster?.name || 'Uczestnik',
+                avatarUrl: c.character?.avatarUrl || null,
                 initiative: c.initiative,
                 currentHp: c.currentHp,
                 maxHp: c.maxHp,
@@ -134,9 +136,8 @@ export function useSessionFullState({
   }, [sessionId]);
 
   useEffect(() => {
-    if (initialCharacters) {
+    if (initialCharacters && initialCharacters.length > 0) {
       setCharacters(initialCharacters);
-      setIsLoading(false);
     }
   }, [initialCharacters]);
 

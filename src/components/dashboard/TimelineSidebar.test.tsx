@@ -154,7 +154,7 @@ describe('TimelineSidebar (Chunk 7.2)', () => {
     }
   });
 
-  it('switches between timeline, tactics and all sub-tabs', () => {
+  it('switches between timeline and tactics tabs without all tab or quick dice', () => {
     render(
       <TimelineSidebar
         logs={mockLogs}
@@ -170,26 +170,23 @@ describe('TimelineSidebar (Chunk 7.2)', () => {
       />
     );
 
-    // Initial view is 'all': both timeline and quick dice are present
+    // Initial view is 'timeline': timeline and notes are present, tab 'all' and dice are gone
     expect(screen.getByTestId('sidebar-tab-timeline')).toBeInTheDocument();
     expect(screen.getByTestId('sidebar-tab-tactics')).toBeInTheDocument();
-    expect(screen.getByTestId('sidebar-tab-all')).toBeInTheDocument();
+    expect(screen.queryByTestId('sidebar-tab-all')).not.toBeInTheDocument();
     expect(screen.getByText('Oś Czasu Sesji')).toBeInTheDocument();
-    expect(screen.getByText('Szybkie Rzuty Kośćmi')).toBeInTheDocument();
-
-    // Switch to 'timeline' tab: tactical dice section should be hidden
-    fireEvent.click(screen.getByTestId('sidebar-tab-timeline'));
-    expect(screen.getByText('Oś Czasu Sesji')).toBeInTheDocument();
+    expect(screen.getByText('Podręczne Notatki GM-a')).toBeInTheDocument();
     expect(screen.queryByText('Szybkie Rzuty Kośćmi')).not.toBeInTheDocument();
 
-    // Switch to 'tactics' tab: timeline section should be hidden
+    // Switch to 'tactics' tab: timeline and notes are hidden, add combatant panel is present
     fireEvent.click(screen.getByTestId('sidebar-tab-tactics'));
-    expect(screen.getByText('Szybkie Rzuty Kośćmi')).toBeInTheDocument();
     expect(screen.queryByText('Oś Czasu Sesji')).not.toBeInTheDocument();
+    expect(screen.queryByText('Podręczne Notatki GM-a')).not.toBeInTheDocument();
+    expect(screen.getByText(/Dodaj z Bestiariusza/i)).toBeInTheDocument();
 
-    // Switch back to 'all' tab: both sections visible again
-    fireEvent.click(screen.getByTestId('sidebar-tab-all'));
+    // Switch back to 'timeline' tab: timeline is visible again
+    fireEvent.click(screen.getByTestId('sidebar-tab-timeline'));
     expect(screen.getByText('Oś Czasu Sesji')).toBeInTheDocument();
-    expect(screen.getByText('Szybkie Rzuty Kośćmi')).toBeInTheDocument();
+    expect(screen.getByText('Podręczne Notatki GM-a')).toBeInTheDocument();
   });
 });

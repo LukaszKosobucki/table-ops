@@ -41,6 +41,9 @@ export function AddCombatantsPanel({
       ac: targetMonster.armorClass,
       isMonster: true,
       type: targetMonster.name,
+      xp:
+        targetMonster.xp ||
+        (targetMonster.challengeRating ? Math.round(targetMonster.challengeRating * 200) : 100),
       conditions: [],
     };
 
@@ -59,6 +62,7 @@ export function AddCombatantsPanel({
       maxHp: parseInt(customHp, 10) || 10,
       ac: parseInt(customAc, 10) || 10,
       isMonster: isMonsterAdd,
+      xp: isMonsterAdd ? 100 : undefined,
       conditions: [],
     };
 
@@ -125,6 +129,7 @@ export function AddCombatantsPanel({
               <input
                 type="number"
                 value={customInit}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => setCustomInit(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
               />
@@ -134,6 +139,7 @@ export function AddCombatantsPanel({
               <input
                 type="number"
                 value={customHp}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => setCustomHp(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
               />
@@ -143,6 +149,7 @@ export function AddCombatantsPanel({
               <input
                 type="number"
                 value={customAc}
+                onFocus={(e) => e.target.select()}
                 onChange={(e) => setCustomAc(e.target.value)}
                 className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500 font-mono"
               />
@@ -161,6 +168,7 @@ export function AddCombatantsPanel({
             </label>
             <button
               type="submit"
+              data-testid="add-custom-combatant-submit-btn"
               className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm transition cursor-pointer"
             >
               Dodaj

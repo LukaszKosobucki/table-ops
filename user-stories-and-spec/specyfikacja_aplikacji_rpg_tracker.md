@@ -57,3 +57,12 @@ Osobna zakładka z pełnym kreatorem.
   * **Statusy:** Rozbudowane efekty ze zintegrowanym *odliczaniem tur*.
 * **Combat Log (Historia Akcji):** Rejestrowanie akcji w walce (kto otrzymał obrażenia, kto dostał status).
 * **Zakończenie Walki (Autozapis):** Zapis aktualnego HP i zużytych zasobów bohaterów, wypchnięcie logu na Prawą Kolumnę Dashboardu.
+
+## 7. Podręczny Rzutnik Kości (Dice Tray & Roller)
+
+Podręczne narzędzie do rzutów kośćmi dostępne z każdego miejsca sesji:
+
+* **Pływające Okno (Draggable Floating Window):** Wywoływane przyciskiem w nagłówku sesji lub globalnym skrótem klawiszowym `D`. Możliwość przesuwania w granicach ekranu, z pamięcią pozycji i stanu minimalizacji w `localStorage`.
+* **Kompilator Rzutu:** Intuicyjny wybór kości wielościennych (d4, d6, d8, d10, d12, d20, d100) ze stałymi kolorami, modyfikatory numeryczne (-99 do +99), obsługa mechaniki Advantage/Disadvantage dla k20 oraz przycisk zerowania (`Clear` / `C`).
+* **Symulacja Fizyczna 3D i Szybki Wynik:** Warstwa Canvas z modelami 3D (ładowana leniwie, fallback lekki/matematyczny) z natychmiastowym podsumowaniem sumarycznym i rozbiciem w nagłówku oraz możliwością pominięcia animacji kliknięciem.
+* **Integracja z Osią Czasu i Kokpitem:** Automatyczne logowanie rzutów do Osi Czasu Sesji, obsługa rzutów ukrytych (`GM Secret Roll`), historia ostatnich 20 rzutów z opcją `Reroll` oraz wyzwalanie rzutu d20 + modyfikator bezpośrednio z kart postaci i potworów.

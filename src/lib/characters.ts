@@ -46,6 +46,7 @@ export interface CreateCharacterInput {
   traits?: string[] | null;
   inventory?: string[] | null;
   spells?: CharacterSpells | null;
+  avatarUrl?: string | null;
 }
 
 export interface UpdateCharacterInput {
@@ -63,6 +64,7 @@ export interface UpdateCharacterInput {
   traits?: string[] | null;
   inventory?: string[] | null;
   spells?: CharacterSpells | null;
+  avatarUrl?: string | null;
 }
 
 export interface UpdateCharacterHpPayload {
@@ -162,6 +164,7 @@ export function validateCharacterInput(input: unknown): CharacterValidationResul
       traits: (raw.traits as string[]) || null,
       inventory: (raw.inventory as string[]) || null,
       spells: (raw.spells as CharacterSpells) || null,
+      avatarUrl: typeof raw.avatarUrl === 'string' ? raw.avatarUrl.trim() : null,
     },
   };
 }
@@ -259,6 +262,7 @@ export async function createCharacter(
       traits: (data.traits || []) as unknown as Prisma.InputJsonValue,
       inventory: (data.inventory || []) as unknown as Prisma.InputJsonValue,
       spells: (spellsPayload || {}) as unknown as Prisma.InputJsonValue,
+      avatarUrl: data.avatarUrl || null,
     },
   });
 }
@@ -310,6 +314,10 @@ export async function updateCharacter(
 
   if (data.spells !== undefined) {
     updateData.spells = data.spells as unknown as Prisma.InputJsonValue;
+  }
+
+  if (data.avatarUrl !== undefined) {
+    updateData.avatarUrl = data.avatarUrl ? data.avatarUrl.trim() : null;
   }
 
   return client.character.update({

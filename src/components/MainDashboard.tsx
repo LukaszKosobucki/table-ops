@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getClientGuestId } from '@/lib/guest';
 import type { MonsterData } from '@/lib/monsters';
 import { useAuth } from './auth/useAuth';
@@ -93,8 +93,14 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
   const [activeTab, setActiveTab] = useState('sessions');
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [activeSession, setActiveSession] = useState<SessionItem | null>(null);
+  const activeSessionRef = useRef<SessionItem | null>(null);
   const [sessionCharacters, setSessionCharacters] = useState<DashboardCharacter[] | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+
+  const setAndTrackActiveSession = useCallback((session: SessionItem | null) => {
+    activeSessionRef.current = session;
+    setActiveSession(session);
+  }, []);
 
   // Fetch sessions on mount and resolve active session
   const fetchSessions = useCallback(async () => {
@@ -108,7 +114,12 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
       if (res.ok) {
         const data = await res.json();
         if (data.success && Array.isArray(data.sessions)) {
-          setSessions(data.sessions);
+          const currentActive = activeSessionRef.current;
+          let sessionsList: SessionItem[] = data.sessions;
+          if (currentActive && !sessionsList.some((s: SessionItem) => s.id === currentActive.id)) {
+            sessionsList = [currentActive, ...sessionsList];
+          }
+          setSessions(sessionsList);
 
           // Check URL query parameters first, then localStorage
           const params =
@@ -118,7 +129,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
 
           let resolvedSession: SessionItem | null = null;
           if (urlSessionId) {
-            resolvedSession = data.sessions.find((s: SessionItem) => s.id === urlSessionId) || null;
+            resolvedSession = sessionsList.find((s: SessionItem) => s.id === urlSessionId) || null;
           }
 
           if (!resolvedSession) {
@@ -127,18 +138,20 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
                 ? localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY)
                 : null;
             if (savedId) {
-              resolvedSession = data.sessions.find((s: SessionItem) => s.id === savedId) || null;
+              resolvedSession = sessionsList.find((s: SessionItem) => s.id === savedId) || null;
             }
           }
 
           if (resolvedSession) {
-            setActiveSession(resolvedSession);
+            setAndTrackActiveSession(resolvedSession);
             const targetTab = urlTab && urlTab !== 'sessions' ? urlTab : 'dashboard';
             setActiveTab(targetTab);
             syncUrlParams(resolvedSession, targetTab);
+          } else if (activeSessionRef.current) {
+            // Keep the active session that was set while fetch was in flight
           } else {
             // Strictly enforce: no session -> no access to other tabs
-            setActiveSession(null);
+            setAndTrackActiveSession(null);
             setActiveTab('sessions');
             syncUrlParams(null, 'sessions');
           }
@@ -149,15 +162,15 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
       // Offline fallback: check localStorage
       const savedId =
         typeof window !== 'undefined' ? localStorage.getItem(ACTIVE_SESSION_STORAGE_KEY) : null;
-      if (!savedId) {
-        setActiveSession(null);
+      if (!savedId && !activeSessionRef.current) {
+        setAndTrackActiveSession(null);
         setActiveTab('sessions');
         syncUrlParams(null, 'sessions');
       }
     } finally {
       setIsLoadingSessions(false);
     }
-  }, []);
+  }, [setAndTrackActiveSession]);
 
   useEffect(() => {
     fetchSessions();
@@ -171,13 +184,13 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
 
   const handleSignOut = useCallback(async () => {
     await signOut();
-    setActiveSession(null);
+    setAndTrackActiveSession(null);
     if (typeof window !== 'undefined') {
       localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
     }
     syncUrlParams(null, 'sessions');
     fetchSessions();
-  }, [signOut, fetchSessions]);
+  }, [signOut, fetchSessions, setAndTrackActiveSession]);
 
   // Handle browser back/forward buttons
   useEffect(() => {
@@ -188,17 +201,17 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
       const tabParam = params.get('tab');
 
       if (!sessionParam) {
-        setActiveSession(null);
+        setAndTrackActiveSession(null);
         setActiveTab('sessions');
         return;
       }
 
       const found = sessions.find((s) => s.id === sessionParam);
       if (found) {
-        setActiveSession(found);
+        setAndTrackActiveSession(found);
         setActiveTab(tabParam || 'dashboard');
       } else {
-        setActiveSession(null);
+        setAndTrackActiveSession(null);
         setActiveTab('sessions');
         syncUrlParams(null, 'sessions');
       }
@@ -206,7 +219,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [sessions]);
+  }, [sessions, setAndTrackActiveSession]);
 
   // Routing guard for tab switching
   const handleTabChange = (targetTab: string) => {
@@ -222,7 +235,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
   };
 
   const handleSelectSession = (session: SessionItem) => {
-    setActiveSession(session);
+    setAndTrackActiveSession(session);
     setSessionCharacters(null);
     if (typeof window !== 'undefined') {
       localStorage.setItem(ACTIVE_SESSION_STORAGE_KEY, session.id);
@@ -286,7 +299,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
             prev.map((s) => (s.id === id ? { ...s, name: data.session.name } : s))
           );
           if (activeSession?.id === id) {
-            setActiveSession((prev) => (prev ? { ...prev, name: data.session.name } : null));
+            setAndTrackActiveSession({ ...activeSession, name: data.session.name });
           }
           return true;
         }
@@ -295,7 +308,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
       console.error('Failed to update session:', err);
       setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, name } : s)));
       if (activeSession?.id === id) {
-        setActiveSession((prev) => (prev ? { ...prev, name } : null));
+        setAndTrackActiveSession({ ...activeSession, name });
       }
       return true;
     }
@@ -310,7 +323,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
 
     setSessions((prev) => prev.filter((s) => s.id !== id));
     if (activeSession?.id === id) {
-      setActiveSession(null);
+      setAndTrackActiveSession(null);
       setSessionCharacters(null);
       if (typeof window !== 'undefined') {
         localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
@@ -374,31 +387,26 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
 
   const handleGmCharactersLoaded = useCallback((chars: DashboardCharacter[]) => {
     setSessionCharacters((prev) => {
-      if (prev && prev.length === chars.length) {
+      if (!prev) return chars;
+      const charIds = new Set(chars.map((c) => c.id));
+      const preserved = prev.filter((p) => !charIds.has(p.id));
+      const merged = [...chars, ...preserved];
+      if (prev.length === merged.length) {
         const isSame = prev.every(
           (p, i) =>
-            p.id === chars[i]?.id &&
-            p.currentHp === chars[i]?.currentHp &&
-            p.maxHp === chars[i]?.maxHp
+            p.id === merged[i]?.id &&
+            p.currentHp === merged[i]?.currentHp &&
+            p.maxHp === merged[i]?.maxHp
         );
         if (isSame) return prev;
       }
-      return chars;
+      return merged;
     });
   }, []);
 
   const handleWizardCharactersLoaded = useCallback((chars: Character[]) => {
     setSessionCharacters((prev) => {
-      if (prev && prev.length === chars.length) {
-        const isSame = prev.every(
-          (p, i) =>
-            p.id === chars[i]?.id &&
-            p.currentHp === (chars[i]?.currentHp ?? chars[i]?.hp) &&
-            p.maxHp === chars[i]?.maxHp
-        );
-        if (isSame) return prev;
-      }
-      return chars.map((c) => ({
+      const mapped: DashboardCharacter[] = chars.map((c) => ({
         id: c.id,
         sessionId: c.sessionId,
         name: c.name,
@@ -415,6 +423,20 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
         inventory: c.inventory,
         spells: c.spells,
       }));
+      if (!prev) return mapped;
+      const mappedIds = new Set(mapped.map((m) => m.id));
+      const preserved = prev.filter((p) => !mappedIds.has(p.id));
+      const merged = [...mapped, ...preserved];
+      if (prev.length === merged.length) {
+        const isSame = prev.every(
+          (p, i) =>
+            p.id === merged[i]?.id &&
+            p.currentHp === merged[i]?.currentHp &&
+            p.maxHp === merged[i]?.maxHp
+        );
+        if (isSame) return prev;
+      }
+      return merged;
     });
   }, []);
 
@@ -490,15 +512,16 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
           />
         ) : (
           <>
-            {activeTab === 'dashboard' && (
+            <div className={activeTab === 'dashboard' ? 'block' : 'hidden'}>
               <GmDashboard
+                key={activeSession.id}
                 sessionId={activeSession.id}
                 sessionName={activeSession.name}
                 initialMonsters={initialMonsters}
                 initialCharacters={sessionCharacters || undefined}
                 onCharactersLoaded={handleGmCharactersLoaded}
               />
-            )}
+            </div>
             {activeTab === 'bestiary' && (
               <Bestiary
                 initialMonsters={initialMonsters}

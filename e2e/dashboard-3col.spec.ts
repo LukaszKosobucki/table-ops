@@ -27,8 +27,7 @@ test.describe('GM 3-Column Cockpit Dashboard (Chunk 2.2)', () => {
     // 5. Verify Center Column default view (Initiative Tracker)
     await expect(workspaceCol.locator('text=Kolejność Inicjatywy')).toBeVisible();
 
-    // 6. Verify Right Column (Quick Dice & Notes & Timeline)
-    await expect(timelineCol.locator('text=Szybkie Rzuty Kośćmi')).toBeVisible();
+    // 6. Verify Right Column (Notes & Timeline)
     await expect(timelineCol.locator('text=Podręczne Notatki GM-a')).toBeVisible();
     await expect(timelineCol.locator('text=Oś Czasu Sesji')).toBeVisible();
 
@@ -47,9 +46,11 @@ test.describe('GM 3-Column Cockpit Dashboard (Chunk 2.2)', () => {
       await expect(workspaceCol.locator('text=Kolejność Inicjatywy')).toBeVisible();
     }
 
-    // 8. Quick Dice roll in timeline
-    await timelineCol.locator('button:has-text("D20!")').click();
-    await expect(timelineCol.locator('text=d20:')).toBeVisible();
+    // 8. Right column tab switching (Timeline -> Tactics -> Timeline)
+    await timelineCol.locator('[data-testid="sidebar-tab-tactics"]').click();
+    await expect(timelineCol.locator('text=Dodaj z Bestiariusza')).toBeVisible();
+    await timelineCol.locator('[data-testid="sidebar-tab-timeline"]').click();
+    await expect(timelineCol.locator('text=Oś Czasu Sesji')).toBeVisible();
   });
 
   test('collapses to responsive tabs on Mobile (375x667) and allows seamless tab switching', async ({

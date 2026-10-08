@@ -15,6 +15,7 @@ interface StepSummaryProps {
   calculatedHp: number;
   calculatedAc: number;
   calculatedPassivePerception: number;
+  avatarUrl?: string;
   isSaving?: boolean;
   onPrev: () => void;
   onFinish: () => void;
@@ -32,6 +33,7 @@ export function StepSummary({
   calculatedHp,
   calculatedAc,
   calculatedPassivePerception,
+  avatarUrl,
   isSaving = false,
   onPrev,
   onFinish,
@@ -47,22 +49,31 @@ export function StepSummary({
 
       <div className="glass-card p-5 rounded-2xl border border-slate-800 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-2xl font-bold text-slate-100">{charName}</h3>
-              <span
-                className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                  type === 'HERO'
-                    ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
-                    : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
-                }`}
-              >
-                {type === 'HERO' ? 'Bohater Gracza' : 'NPC'}
-              </span>
+          <div className="flex items-center gap-3">
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={charName}
+                className="w-14 h-14 rounded-2xl object-cover border border-amber-500/30 shrink-0"
+              />
+            ) : null}
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-2xl font-bold text-slate-100">{charName}</h3>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                    type === 'HERO'
+                      ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                      : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                  }`}
+                >
+                  {type === 'HERO' ? 'Bohater Gracza' : 'NPC'}
+                </span>
+              </div>
+              <p className="text-sm text-amber-400 font-medium">
+                Poziom {level} • {selectedRace} • {selectedClass}
+              </p>
             </div>
-            <p className="text-sm text-amber-400 font-medium">
-              Poziom {level} • {selectedRace} • {selectedClass}
-            </p>
           </div>
           <div className="bg-emerald-950/80 border border-emerald-600 px-3 py-1.5 rounded-xl text-emerald-300 text-xs font-bold flex items-center gap-1.5 self-start sm:self-auto">
             <CheckCircle2 className="w-4 h-4" />

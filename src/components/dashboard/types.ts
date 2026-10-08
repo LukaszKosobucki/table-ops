@@ -12,6 +12,7 @@ export interface DashboardCharacter {
   maxHp: number;
   ac: number;
   passivePerception: number;
+  avatarUrl?: string | null;
   stats?: {
     str?: number;
     dex?: number;

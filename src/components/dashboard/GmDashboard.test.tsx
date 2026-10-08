@@ -242,4 +242,192 @@ describe('GmDashboard Component (Chunk 2.2)', () => {
       expect(screen.getByText(/Drużyna ukończyła Długi Odpoczynek \(8h\)/i)).toBeInTheDocument();
     });
   });
+
+  it('records spell cast from character card into timeline and combat logs', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input: string | URL | Request) => {
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes('/api/compendium/spells')) {
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            success: true,
+            spells: [
+              {
+                index: 'fire-bolt',
+                name: 'Ognisty Pocisk',
+                level: 0,
+                school: 'Evocation',
+                classes: ['Paladyn'],
+              },
+            ],
+          }),
+        } as unknown as Response);
+      }
+      return Promise.resolve({
+        ok: true,
+        json: async () => ({
+          success: true,
+          session: { id: 'ses-1', name: 'Wrota Baldura' },
+          characters: [
+            {
+              id: 'char-1',
+              name: 'Valerius (Paladyn)',
+              type: 'HERO',
+              class: 'Paladyn',
+              level: 3,
+              currentHp: 20,
+              maxHp: 28,
+              ac: 18,
+              passivePerception: 13,
+              spells: {
+                slots: { 1: { max: 3, used: 0 } },
+                known: ['Ognisty Pocisk'],
+              },
+            },
+          ],
+          sessionLogs: [],
+        }),
+      } as unknown as Response);
+    });
+
+    render(<GmDashboard sessionId="ses-1" sessionName="Wrota Baldura" initialMonsters={[]} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Valerius (Paladyn)')).toBeInTheDocument();
+    });
+
+    // Inspect character
+    fireEvent.click(screen.getByText('Valerius (Paladyn)'));
+
+    // Wait for inspect card to mount and compendium spell to load
+    await waitFor(() => {
+      expect(screen.getByTestId('cast-spell-Ognisty Pocisk')).toBeInTheDocument();
+    });
+
+    // Cast the cantrip
+    fireEvent.click(screen.getByTestId('cast-spell-Ognisty Pocisk'));
+
+    // Should appear in timeline
+    await waitFor(() => {
+      expect(
+        screen.getByText(/Valerius \(Paladyn\) rzuca sztuczkę \(cantrip\): Ognisty Pocisk/i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('records custom combat action from tactics panel into combat and session timeline', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({
+          success: true,
+          session: { id: 'ses-1', name: 'Wrota Baldura' },
+          characters: [
+            {
+              id: 'char-1',
+              name: 'Valerius (Paladyn)',
+              type: 'HERO',
+              currentHp: 20,
+              maxHp: 28,
+              ac: 18,
+              initiative: 15,
+            },
+          ],
+          sessionLogs: [],
+        }),
+      } as unknown as Response)
+    );
+
+    render(<GmDashboard sessionId="ses-1" sessionName="Wrota Baldura" initialMonsters={[]} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Valerius (Paladyn)')).toBeInTheDocument();
+    });
+
+    // Switch to tactics tab in right column
+    const tacticsTab = screen.getByTestId('sidebar-tab-tactics');
+    fireEvent.click(tacticsTab);
+
+    // Fill in custom action
+    const actionInput = await screen.findByTestId('custom-action-input');
+    fireEvent.change(actionInput, { target: { value: 'Zasłania wejście do krypty' } });
+    fireEvent.click(screen.getByTestId('submit-custom-action-btn'));
+
+    // Check combat log entry appeared
+    await waitFor(() => {
+      expect(screen.getByText(/wykonuje akcję: Zasłania wejście do krypty/i)).toBeInTheDocument();
+    });
+  });
+
+  it('clears combatants queue completely when combat ends, enabling loading party for next combat', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        json: async () => ({
+          success: true,
+          session: { id: 'ses-1', name: 'Wrota Baldura' },
+          characters: [
+            {
+              id: 'char-1',
+              name: 'Valerius (Paladyn)',
+              type: 'HERO',
+              currentHp: 20,
+              maxHp: 28,
+              ac: 18,
+              initiative: 15,
+            },
+          ],
+          sessionLogs: [],
+        }),
+      } as unknown as Response)
+    );
+
+    render(<GmDashboard sessionId="ses-1" sessionName="Wrota Baldura" initialMonsters={[]} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Valerius (Paladyn)')).toBeInTheDocument();
+    });
+
+    // 1. Load party into combat
+    const addPartyBtn = screen.getByTestId('add-party-to-combat-btn');
+    fireEvent.click(addPartyBtn);
+
+    // Character is now in combat queue
+    await waitFor(() => {
+      expect(screen.getByTestId('combatant-card-char-1')).toBeInTheDocument();
+    });
+
+    // 2. Start combat
+    const startCombatBtn = screen.getByTestId('start-combat-btn');
+    fireEvent.click(startCombatBtn);
+
+    // 3. End combat
+    const endCombatBtn = await screen.findByTestId('end-combat-btn');
+    fireEvent.click(endCombatBtn);
+
+    // Check if warning modal appears (only if alive monsters; here no monsters, so ends immediately)
+    const confirmBtn = screen.queryByTestId('confirm-end-combat-btn');
+    if (confirmBtn) {
+      fireEvent.click(confirmBtn);
+    }
+
+    // 4. Center tracker should show empty state: "Brak postaci w walce"
+    await waitFor(() => {
+      expect(screen.getByText(/Brak postaci w walce/i)).toBeInTheDocument();
+      expect(screen.queryByTestId('combatant-card-char-1')).not.toBeInTheDocument();
+    });
+
+    // 5. In PartySidebar, character does NOT have "W walce" badge anymore
+    expect(screen.queryByTestId('in-combat-badge-char-1')).not.toBeInTheDocument();
+
+    // 6. "Załaduj Drużynę do Walki" is enabled and clickable again
+    expect(screen.getByTestId('add-party-to-combat-btn')).toBeEnabled();
+
+    // 7. Click to load party again for the next encounter
+    fireEvent.click(screen.getByTestId('add-party-to-combat-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('combatant-card-char-1')).toBeInTheDocument();
+    });
+  });
 });

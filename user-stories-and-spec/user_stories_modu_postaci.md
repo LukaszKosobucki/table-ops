@@ -37,8 +37,8 @@
 **Aby** dostosowywać księgę czarów magów i kapłanów po udanej nauce lub medytacji.
 
 **Jako** Mistrz Gry  
-**Chcę** móc rzucać testy atrybutów i rzuty obronne d20 bezpośrednio z karty postaci jednym kliknięciem  
-**Aby** natychmiast otrzymać wynik z uwzględnieniem modyfikatorów cechy w czasie gry przy stole.
+**Chcę** móc rzucać testy atrybutów i rzuty obronne d20 bezpośrednio z karty postaci jednym kliknięciem, co automatycznie otwiera podręczny rzutnik kości z przygotowaną pulą 1k20 i wyliczonym modyfikatorem  
+**Aby** natychmiast otrzymać wynik z uwzględnieniem modyfikatorów cechy w czasie gry przy stole bez konieczności ręcznego konfigurowania rzutu.
 
 ---
 
@@ -83,3 +83,23 @@
 **Jako** Mistrz Gry  
 **Chcę**, aby po zatwierdzeniu awansu wszystkie statystyki pochodne (nowe Max HP, AC, Percepcja Pasywna, modyfikatory) przeliczyły się automatycznie, a na Osi Czasu Sesji pojawiła się pamiątkowa notatka o awansie  
 **Aby** stan sesji był w 100% zsynchronizowany, a historia kampanii wzbogacona o kamień milowy bohaterów.
+
+---
+
+## 5. Awatary Postaci i Rzucanie Zaklęć (In-Game & Utility)
+
+**Jako** Mistrz Gry i Gracz  
+**Chcę** móc wybrać awatar dla mojej postaci z gotowej galerii estetycznych portretów klas/ras lub wkleić bezpośredni link URL do zewnętrznego obrazka  
+**Aby** postacie były natychmiast rozpoznawalne na liście drużyny, w kolejce inicjatywy oraz w kronice walki.
+
+**Jako** Mistrz Gry  
+**Chcę** móc rzucić dowolne zaklęcie bezpośrednio z podglądu karty postaci przyciskiem `Rzuć` zarówno podczas walki, jak i poza nią (czary użytkowe i cantripy)  
+**Aby** aplikacja automatycznie zużyła odpowiednią komórkę czarów (dla zaklęć 1. kręgu wzwyż) oraz odnotowała użycie magii w historii sesji / kronice walki.
+
+**Jako** Mistrz Gry  
+**Chcę**, aby rzucenie cantripu (sztuczki) nie zużywało komórek czarów, lecz było odnotowywane jako darmowa akcja magiczna  
+**Aby** mechanika zaklęć poziomu 0 działała zgodnie z oficjalnymi zasadami D&D 5e bez marnowania cennych slotów.
+
+**Jako** Mistrz Gry  
+**Chcę**, aby w przypadku wyczerpania komórek czarów bazowego kręgu danego zaklęcia system umożliwiał rzucenie go przy użyciu najniższego dostępnego wyższego kręgu (Upcasting, np. zaklęcie 2. kręgu rzucone za slot 3. kręgu)  
+**Aby** postacie czarujące mogły swobodnie korzystać ze swoich zaklęć zgodnie z zasadami rzucania czarów wyższego poziomu w D&D 5e.

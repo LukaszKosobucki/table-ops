@@ -59,6 +59,7 @@ model Character {
   traits            Json?
   inventory         Json?
   spells            Json?
+  avatarUrl         String?           @map("avatar_url")
   encounterMembers  EncounterMember[]
   combatants        Combatant[]
   createdAt         DateTime          @default(now()) @map("created_at")

@@ -78,6 +78,7 @@ export function CharacterWizard({
   const [selectedClass, setSelectedClass] = useState(CLASSES[0].name);
   const [level, setLevel] = useState(1);
   const [traits, setTraits] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [inventory, setInventory] = useState<string[]>(() =>
     getDefaultClassEquipment(CLASSES[0].name)
   );
@@ -211,6 +212,7 @@ export function CharacterWizard({
       stats: { ...stats, tempHp: 0 },
       traits: traits.trim() ? [traits.trim()] : [],
       inventory,
+      avatarUrl: avatarUrl.trim() || null,
       spells:
         hasSpells || knownSpells.length > 0
           ? { slots: spellSlots, known: knownSpells, prepared: [] }
@@ -249,6 +251,7 @@ export function CharacterWizard({
             stats: (data.character.stats as CharacterStats) || stats,
             traits: (data.character.traits as string[]) || (traits ? [traits] : []),
             inventory: data.character.inventory || inventory,
+            avatarUrl: data.character.avatarUrl || avatarUrl.trim() || null,
             spells:
               data.character.spells ||
               (knownSpells.length > 0
@@ -266,6 +269,7 @@ export function CharacterWizard({
       setStep(1);
       setCharName('');
       setTraits('');
+      setAvatarUrl('');
       setInventory(getDefaultClassEquipment(CLASSES[0].name));
       setKnownSpells([]);
     }
@@ -358,6 +362,8 @@ export function CharacterWizard({
             onTypeChange={setCharType}
             traits={traits}
             onTraitsChange={setTraits}
+            avatarUrl={avatarUrl}
+            onAvatarUrlChange={setAvatarUrl}
             onPrev={() => setStep(2)}
             onNext={() => setStep(4)}
           />
@@ -391,6 +397,7 @@ export function CharacterWizard({
             calculatedHp={calculateHp()}
             calculatedAc={calculateAc()}
             calculatedPassivePerception={calculatePassive()}
+            avatarUrl={avatarUrl}
             isSaving={isSaving}
             onPrev={() => setStep(4)}
             onFinish={handleFinishWizard}

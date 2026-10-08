@@ -37,6 +37,7 @@ interface CharacterInspectionCardProps {
   onCharacterUpdate?: (updated: DashboardCharacter) => void;
   onAddToCombat?: (character: DashboardCharacter) => void;
   isInCombat?: boolean;
+  onCastSpell?: (spellName: string, level: number, characterName: string) => void;
 }
 
 function calculateModifier(score = 10): { num: number; str: string } {
@@ -51,6 +52,7 @@ export function CharacterInspectionCard({
   onCharacterUpdate,
   onAddToCombat,
   isInCombat = false,
+  onCastSpell,
 }: CharacterInspectionCardProps) {
   // Local HP state for instant response
   const [currentHp, setCurrentHp] = useState(character.currentHp);
@@ -82,6 +84,11 @@ export function CharacterInspectionCard({
   const [compendiumSpells, setCompendiumSpells] = useState<CompendiumSpell[]>([]);
   const [selectedSpellToAdd, setSelectedSpellToAdd] = useState('');
   const [customSpellInput, setCustomSpellInput] = useState('');
+  const [castFeedback, setCastFeedback] = useState<{
+    spellName: string;
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   // EXP and Level Up state
   const [isLevelUpModalOpen, setIsLevelUpModalOpen] = useState(false);
@@ -142,9 +149,9 @@ export function CharacterInspectionCard({
     }
   };
 
-  // Fetch compendium spells if add modal is toggled
+  // Fetch compendium spells for level resolution and adding
   useEffect(() => {
-    if (!isAddingSpell || compendiumSpells.length > 0) return;
+    if (compendiumSpells.length > 0) return;
     let mounted = true;
     fetch('/api/compendium/spells')
       .then((res) => (res.ok ? res.json() : null))
@@ -157,15 +164,17 @@ export function CharacterInspectionCard({
     return () => {
       mounted = false;
     };
-  }, [isAddingSpell, compendiumSpells.length]);
+  }, [compendiumSpells.length]);
 
   const canonicalClass = getCanonicalClassName(character.class ?? undefined);
   const maxSpellLvl = getMaxSpellLevel(character.class ?? undefined, character.level || 1);
 
   // Available spells filtered by class and max level
   const classFilteredSpells = compendiumSpells.filter((s) => {
-    const matchesClass = s.classes.some((c) => c.toLowerCase() === canonicalClass.toLowerCase());
-    const matchesLevel = s.level <= maxSpellLvl;
+    const matchesClass = Array.isArray(s.classes)
+      ? s.classes.some((c) => c.toLowerCase() === canonicalClass.toLowerCase())
+      : true;
+    const matchesLevel = typeof s.level === 'number' ? s.level <= maxSpellLvl : true;
     const notAlreadyKnown = !(character.spells?.known || []).includes(s.name);
     return matchesClass && matchesLevel && notAlreadyKnown;
   });
@@ -399,6 +408,124 @@ export function CharacterInspectionCard({
     }
   };
 
+  // Helper to determine spell level
+  const getSpellLevel = (spellName: string): number => {
+    const found = compendiumSpells.find(
+      (s) => s.name.toLowerCase() === spellName.trim().toLowerCase()
+    );
+    if (found) return found.level;
+    const lower = spellName.toLowerCase();
+    if (lower.includes('cantrip') || lower.includes('sztuczka')) return 0;
+    return 1;
+  };
+
+  // Spell cast handler with upcasting support
+  const handleCastSpell = async (spellName: string, chosenLevel?: number) => {
+    const baseLevel = getSpellLevel(spellName);
+    let levelToUse = chosenLevel ?? baseLevel;
+
+    if (baseLevel > 0) {
+      // If base level slot is exhausted and no specific level was chosen, find the lowest available higher slot
+      if (!chosenLevel) {
+        const baseSlot = spellSlots[baseLevel];
+        if (!baseSlot || baseSlot.used >= baseSlot.max) {
+          const higher = Object.keys(spellSlots)
+            .map(Number)
+            .filter(
+              (lvl) =>
+                lvl > baseLevel && spellSlots[lvl] && spellSlots[lvl].used < spellSlots[lvl].max
+            )
+            .sort((a, b) => a - b)[0];
+          if (higher) {
+            levelToUse = higher;
+          }
+        }
+      }
+
+      const slot = spellSlots[levelToUse];
+      if (!slot || slot.used >= slot.max) {
+        setCastFeedback({
+          spellName,
+          success: false,
+          message: `Brak wolnych komórek (min. ${baseLevel}. krąg)!`,
+        });
+        setTimeout(() => setCastFeedback(null), 3500);
+        return;
+      }
+
+      // Consume one slot of levelToUse
+      const nextUsed = Math.min(slot.max, slot.used + 1);
+      const updatedSlots: CharacterSpellSlots = {
+        ...spellSlots,
+        [levelToUse]: {
+          ...slot,
+          used: nextUsed,
+        },
+      };
+
+      setSpellSlots(updatedSlots);
+
+      const updatedChar: DashboardCharacter = {
+        ...character,
+        spells: {
+          ...character.spells,
+          slots: updatedSlots,
+        },
+      };
+      onCharacterUpdate?.(updatedChar);
+
+      if (character.id && !character.id.startsWith('char-default')) {
+        fetch(`/api/characters/${character.id}/slots`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slotLevel: levelToUse, action: 'use' }),
+        }).catch(() => {});
+      }
+    }
+
+    const isUpcast = baseLevel > 0 && levelToUse > baseLevel;
+    const feedbackMsg =
+      baseLevel === 0
+        ? `Rzucono sztuczkę: ${spellName}!`
+        : isUpcast
+          ? `Rzucono zaklęcie: ${spellName} (używając wyższego ${levelToUse}. kręgu)!`
+          : `Rzucono zaklęcie: ${spellName} (${levelToUse}. krąg)!`;
+
+    setCastFeedback({
+      spellName,
+      success: true,
+      message: feedbackMsg,
+    });
+    setTimeout(() => setCastFeedback(null), 3500);
+
+    onCastSpell?.(spellName, levelToUse, character.name);
+
+    if (character.sessionId) {
+      fetch(`/api/sessions/${character.sessionId}/logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          logType: 'SPELL_CAST',
+          description:
+            baseLevel === 0
+              ? `${character.name} rzuca sztuczkę (cantrip): ${spellName}`
+              : isUpcast
+                ? `${character.name} rzuca zaklęcie: ${spellName} (używając wyższego ${levelToUse}. kręgu)`
+                : `${character.name} rzuca zaklęcie (${levelToUse}. krąg): ${spellName}`,
+          metadata: {
+            spellName,
+            baseLevel,
+            usedLevel: levelToUse,
+            isUpcast,
+            characterId: character.id,
+            characterName: character.name,
+            inCombat: isInCombat,
+          },
+        }),
+      }).catch(() => {});
+    }
+  };
+
   // Attribute roll handler
   const handleRollAttribute = (label: string, score: number, isSavingThrow = false) => {
     const { num: modifier } = calculateModifier(score);
@@ -466,15 +593,25 @@ export function CharacterInspectionCard({
       {/* Header: Name and details */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div
-            className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold border shadow-lg ${
-              character.type === 'HERO'
-                ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 shadow-emerald-950/30'
-                : 'bg-amber-500/15 text-amber-300 border-amber-500/40 shadow-amber-950/30'
-            }`}
-          >
-            {character.name.charAt(0).toUpperCase()}
-          </div>
+          {character.avatarUrl ? (
+            <img
+              src={character.avatarUrl}
+              alt={character.name}
+              data-testid="inspection-card-avatar"
+              className="w-14 h-14 rounded-2xl object-cover border border-slate-700 shadow-lg shadow-slate-950/50 shrink-0"
+            />
+          ) : (
+            <div
+              data-testid="inspection-card-avatar-fallback"
+              className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-bold border shadow-lg shrink-0 ${
+                character.type === 'HERO'
+                  ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40 shadow-emerald-950/30'
+                  : 'bg-amber-500/15 text-amber-300 border-amber-500/40 shadow-amber-950/30'
+              }`}
+            >
+              {character.name.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-100">{character.name}</h2>
             <p className="text-xs sm:text-sm text-slate-400">
@@ -890,27 +1027,109 @@ export function CharacterInspectionCard({
             </div>
           )}
 
+          {/* Cast Feedback Notification */}
+          {castFeedback && (
+            <div
+              data-testid="spell-cast-feedback"
+              className={`p-2.5 rounded-xl border text-xs flex items-center justify-between animate-fadeIn ${
+                castFeedback.success
+                  ? 'bg-sky-500/10 border-sky-500/30 text-sky-200'
+                  : 'bg-rose-500/10 border-rose-500/30 text-rose-200'
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <Wand2 className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+                <span>{castFeedback.message}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setCastFeedback(null)}
+                className="text-slate-400 hover:text-white transition cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
           {character.spells?.known && character.spells.known.length > 0 ? (
             <div className="flex flex-wrap gap-2 pt-1">
-              {character.spells.known.map((spellName) => (
-                <span
-                  key={spellName}
-                  data-testid={`known-spell-${spellName}`}
-                  className="group/spell px-2.5 py-1 rounded-xl bg-indigo-950/60 border border-indigo-500/30 text-indigo-200 text-xs font-medium flex items-center gap-1.5 shadow-sm"
-                >
-                  <Wand2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                  <span>{spellName}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveSpell(spellName)}
-                    data-testid={`remove-spell-${spellName}`}
-                    title={`Usuń zaklęcie ${spellName}`}
-                    className="p-0.5 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 transition cursor-pointer"
+              {character.spells.known.map((spellName) => {
+                const spellLvl = getSpellLevel(spellName);
+                const baseSlot = spellSlots[spellLvl];
+                const baseAvailable = spellLvl === 0 || (baseSlot && baseSlot.used < baseSlot.max);
+
+                // Find lowest available higher slot if base slot is exhausted
+                const higherSlotLevel =
+                  !baseAvailable && spellLvl > 0
+                    ? Object.keys(spellSlots)
+                        .map(Number)
+                        .filter(
+                          (lvl) =>
+                            lvl > spellLvl &&
+                            spellSlots[lvl] &&
+                            spellSlots[lvl].used < spellSlots[lvl].max
+                        )
+                        .sort((a, b) => a - b)[0]
+                    : undefined;
+
+                const effectiveSlotLevel = baseAvailable ? spellLvl : higherSlotLevel;
+                const canCast = spellLvl === 0 || baseAvailable || !!higherSlotLevel;
+                const isUpcast = !baseAvailable && !!higherSlotLevel;
+
+                return (
+                  <span
+                    key={spellName}
+                    data-testid={`known-spell-${spellName}`}
+                    className="group/spell px-2.5 py-1.5 rounded-xl bg-indigo-950/60 border border-indigo-500/30 text-indigo-200 text-xs font-medium flex items-center gap-2 shadow-sm"
                   >
-                    <X className="w-3 h-3" />
-                  </button>
-                </span>
-              ))}
+                    <Wand2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                    <span>{spellName}</span>
+
+                    {/* Spell Cast Button */}
+                    <button
+                      type="button"
+                      data-testid={`cast-spell-${spellName}`}
+                      onClick={() => handleCastSpell(spellName, effectiveSlotLevel)}
+                      disabled={!canCast}
+                      title={
+                        spellLvl === 0
+                          ? 'Rzuć sztuczkę (nie zużywa komórek)'
+                          : baseAvailable
+                            ? `Rzuć za 1 komórkę (${spellLvl}. krąg)`
+                            : isUpcast
+                              ? `Brak komórek ${spellLvl}. kręgu – rzucenie za pomocą wolnej komórki ${effectiveSlotLevel}. kręgu`
+                              : `Brak wolnych komórek (min. ${spellLvl}. krąg)`
+                      }
+                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition flex items-center gap-1 cursor-pointer ${
+                        spellLvl === 0
+                          ? 'bg-sky-600 hover:bg-sky-500 text-white shadow-sm shadow-sky-600/30'
+                          : isUpcast
+                            ? 'bg-amber-600 hover:bg-amber-500 text-white shadow-sm shadow-amber-600/30 ring-1 ring-amber-400/50'
+                            : canCast
+                              ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-sm shadow-indigo-600/30'
+                              : 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-60'
+                      }`}
+                    >
+                      {spellLvl === 0
+                        ? '✨ Rzuć'
+                        : isUpcast
+                          ? `⚡ Rzuć (K.${effectiveSlotLevel})`
+                          : `⚡ Rzuć (K.${spellLvl})`}
+                    </button>
+
+                    {/* Delete Spell Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSpell(spellName)}
+                      data-testid={`remove-spell-${spellName}`}
+                      title={`Usuń zaklęcie ${spellName}`}
+                      className="p-0.5 rounded hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 transition cursor-pointer"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </span>
+                );
+              })}
             </div>
           ) : (
             <p className="text-xs text-slate-500 italic">

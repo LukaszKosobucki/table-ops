@@ -1,9 +1,23 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Combatant, CombatLogEntry, CombatPhase, CombatStatusItem } from './types';
+import type {
+  Combatant,
+  CombatLogEntry,
+  CombatPhase,
+  CombatStatusItem,
+  DeathSaveState,
+} from './types';
 
 export const DEFAULT_COMBATANTS: Combatant[] = [];
+
+function isCombatantInactive(c?: Combatant | null): boolean {
+  if (!c) return true;
+  if (c.isMonster) {
+    return c.currentHp <= 0 || !!c.isFled;
+  }
+  return c.deathSaves?.isDead === true || c.conditions?.includes('Martwy');
+}
 
 function getFormattedTime(): string {
   const d = new Date();
@@ -18,7 +32,11 @@ export interface UseCombatEngineOptions {
   initialPhase?: CombatPhase;
   externalCombatants?: Combatant[];
   onCombatantsChange?: React.Dispatch<React.SetStateAction<Combatant[]>>;
-  onCombatEnd?: (updatedCharactersHp: { characterId: string; hp: number }[]) => void;
+  onCombatEnd?: (
+    updatedCharactersHp: { characterId: string; hp: number }[],
+    summaryText?: string,
+    metadata?: Record<string, unknown>
+  ) => void;
   externalCombatLog?: CombatLogEntry[];
   onAddLog?: (entry: CombatLogEntry) => void;
   onClearLog?: () => void;
@@ -90,6 +108,8 @@ export function useCombatEngine({
     setCurrentTurnIndex(initialTurnIndex);
   }, [initialTurnIndex]);
 
+  const usedSpellsByCharacterRef = useRef<Record<string, Record<number, number>>>({});
+
   const [internalCombatLog, setInternalCombatLog] = useState<CombatLogEntry[]>([
     {
       id: 'log-init-1',
@@ -102,12 +122,29 @@ export function useCombatEngine({
   const activeCombatLog = externalCombatLog ?? internalCombatLog;
 
   const addLogEntry = useCallback(
-    (text: string, type: CombatLogEntry['type'] = 'system') => {
+    (text: string, type: CombatLogEntry['type'] = 'system', meta?: Partial<CombatLogEntry>) => {
+      // Track leveled spell usage by character in combat
+      if (
+        type === 'spell' &&
+        meta?.actorName &&
+        meta?.spellLevel !== undefined &&
+        meta.spellLevel > 0
+      ) {
+        const actor = meta.actorName;
+        const lvl = meta.spellLevel;
+        if (!usedSpellsByCharacterRef.current[actor]) {
+          usedSpellsByCharacterRef.current[actor] = {};
+        }
+        usedSpellsByCharacterRef.current[actor][lvl] =
+          (usedSpellsByCharacterRef.current[actor][lvl] || 0) + 1;
+      }
+
       const entry: CombatLogEntry = {
         id: `c-log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         timestamp: getFormattedTime(),
         text,
         type,
+        ...meta,
       };
       if (onAddLog) {
         onAddLog(entry);
@@ -116,6 +153,15 @@ export function useCombatEngine({
     },
     [onAddLog]
   );
+
+  const handleTrackSpellCast = useCallback((characterName: string, slotLevel: number) => {
+    if (slotLevel <= 0) return;
+    if (!usedSpellsByCharacterRef.current[characterName]) {
+      usedSpellsByCharacterRef.current[characterName] = {};
+    }
+    usedSpellsByCharacterRef.current[characterName][slotLevel] =
+      (usedSpellsByCharacterRef.current[characterName][slotLevel] || 0) + 1;
+  }, []);
 
   const handleClearCombatLog = useCallback(() => {
     if (onClearLog) {
@@ -215,19 +261,40 @@ export function useCombatEngine({
   const handleNextTurn = useCallback(async () => {
     if (combatants.length === 0) return;
 
-    let nextTurnIdx = currentTurnIndex + 1;
+    let targetIdx = -1;
+    let nextTurnIdx = currentTurnIndex;
     let nextRound = round;
 
-    if (nextTurnIdx >= combatants.length) {
-      nextTurnIdx = 0;
-      nextRound += 1;
-      setRound(nextRound);
+    // Search for next active combatant (skipping dead monsters, fled monsters, and dead heroes)
+    for (let step = 0; step < combatants.length; step++) {
+      nextTurnIdx++;
+      if (nextTurnIdx >= combatants.length) {
+        nextTurnIdx = 0;
+        nextRound += 1;
+      }
+      if (!isCombatantInactive(combatants[nextTurnIdx])) {
+        targetIdx = nextTurnIdx;
+        break;
+      }
     }
-    setCurrentTurnIndex(nextTurnIdx);
 
-    const activeCombatant = combatants[nextTurnIdx];
+    if (targetIdx === -1) {
+      targetIdx = (currentTurnIndex + 1) % combatants.length;
+      if (currentTurnIndex + 1 >= combatants.length) {
+        nextRound = round + 1;
+      }
+    }
+
+    setRound(nextRound);
+    setCurrentTurnIndex(targetIdx);
+
+    const activeCombatant = combatants[targetIdx];
     if (activeCombatant) {
-      addLogEntry(`Runda ${nextRound}: Rozpoczęto turę ${activeCombatant.name}.`, 'turn');
+      addLogEntry(`Runda ${nextRound}: Rozpoczęto turę ${activeCombatant.name}.`, 'turn', {
+        actorName: activeCombatant.name,
+        actorAvatar: activeCombatant.avatarUrl ?? undefined,
+        actorIsMonster: activeCombatant.isMonster,
+      });
 
       // Decrement timed statuses for the combatant whose turn is starting
       if (activeCombatant.statuses && activeCombatant.statuses.length > 0) {
@@ -276,7 +343,6 @@ export function useCombatEngine({
   const handleEndCombat = async () => {
     setCombatPhase('FINISHED');
     onPhaseChange?.('FINISHED');
-    addLogEntry(`Starcie zakończone po ${round} rundach.`, 'system');
 
     // Cancel all pending debounce timers so they don't fire after combat ends
     for (const { timeoutId } of pendingHpDebounceMap.current.values()) {
@@ -289,8 +355,8 @@ export function useCombatEngine({
       return pending ? { ...c, currentHp: pending.targetHp } : c;
     });
     pendingHpDebounceMap.current.clear();
-
-    setCombatants(latestCombatants);
+    // Clear all combatants (both enemies and heroes) from the combat queue upon combat conclusion
+    setCombatants([]);
 
     // Collect hero HP to synchronize
     const heroUpdates = latestCombatants
@@ -300,16 +366,100 @@ export function useCombatEngine({
         hp: c.currentHp,
       }));
 
-    if (heroUpdates.length > 0) {
-      onCombatEnd?.(heroUpdates);
+    // Collect stats for combat conclusion
+    const defeatedMonsters = latestCombatants.filter(
+      (c) => c.isMonster && !c.isFled && c.currentHp <= 0
+    );
+    const fledMonsters = latestCombatants.filter((c) => c.isMonster && c.isFled);
+    const deadHeroes = latestCombatants.filter(
+      (c) => !c.isMonster && (c.deathSaves?.isDead || c.conditions?.includes('Martwy'))
+    );
+    const unconsciousHeroes = latestCombatants.filter(
+      (c) =>
+        !c.isMonster &&
+        c.currentHp <= 0 &&
+        !c.deathSaves?.isDead &&
+        !c.conditions?.includes('Martwy')
+    );
+
+    // Calculate XP: 100% for defeated, 50% for fled
+    const totalDefeatedXp = defeatedMonsters.reduce((acc, c) => acc + (c.xp ?? 100), 0);
+    const totalFledXp = fledMonsters.reduce((acc, c) => acc + Math.floor((c.xp ?? 100) * 0.5), 0);
+    const totalXp = totalDefeatedXp + totalFledXp;
+
+    // Narrative summary lines
+    const summaryLines: string[] = [
+      `Starcie zakończone po ${round} ${round === 1 ? 'rundzie' : round < 5 ? 'rundach' : 'rundach'}.`,
+    ];
+
+    if (defeatedMonsters.length > 0 || fledMonsters.length > 0) {
+      const parts: string[] = [];
+      if (defeatedMonsters.length > 0) {
+        parts.push(`Pokonano: ${defeatedMonsters.map((c) => c.name).join(', ')}`);
+      }
+      if (fledMonsters.length > 0) {
+        parts.push(`Uciekli: ${fledMonsters.map((c) => c.name).join(', ')} (50% PD)`);
+      }
+      summaryLines.push(`⚔️ Wynik: ${parts.join(' | ')}. Przyznano ${totalXp} PD.`);
     }
+
+    if (deadHeroes.length > 0) {
+      summaryLines.push(`💀 Polegli bohaterowie: ${deadHeroes.map((c) => c.name).join(', ')}.`);
+    }
+
+    if (unconsciousHeroes.length > 0) {
+      const uncNames = unconsciousHeroes.map((c) => {
+        const state = c.deathSaves?.isStabilized ? 'ustabilizowany' : '0 HP';
+        return `${c.name} (${state})`;
+      });
+      summaryLines.push(`🤕 Powaleni / Nieprzytomni bohaterowie: ${uncNames.join(', ')}.`);
+    }
+
+    const spellsUsed = usedSpellsByCharacterRef.current;
+    const spellSlotEntries = Object.entries(spellsUsed);
+    if (spellSlotEntries.length > 0) {
+      const spellsText = spellSlotEntries
+        .map(([charName, slots]) => {
+          const slotsText = Object.entries(slots)
+            .map(([lvl, count]) => `${count}x K.${lvl}`)
+            .join(', ');
+          return `${charName} (${slotsText})`;
+        })
+        .join('; ');
+      summaryLines.push(`✨ Zużyte komórki czarów: ${spellsText}.`);
+    }
+
+    const fullSummaryText = summaryLines.join('\n');
+    addLogEntry(fullSummaryText, 'system');
+
+    const summaryMetadata = {
+      rounds: round,
+      totalXp,
+      defeatedEnemies: defeatedMonsters.map((c) => ({ name: c.name, xp: c.xp ?? 100 })),
+      fledEnemies: fledMonsters.map((c) => ({
+        name: c.name,
+        xp: Math.floor((c.xp ?? 100) * 0.5),
+      })),
+      deadHeroes: deadHeroes.map((c) => c.name),
+      unconsciousHeroes: unconsciousHeroes.map((c) => ({
+        name: c.name,
+        isStabilized: !!c.deathSaves?.isStabilized,
+      })),
+      spellSlotsUsed: spellsUsed,
+    };
+
+    onCombatEnd?.(heroUpdates, fullSummaryText, summaryMetadata);
 
     if (combatId) {
       try {
         await fetch(`/api/combat/${combatId}/end`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ heroUpdates }),
+          body: JSON.stringify({
+            heroUpdates,
+            summaryText: fullSummaryText,
+            metadata: summaryMetadata,
+          }),
         });
       } catch (err) {
         console.warn('Could not end combat via API:', err);
@@ -323,6 +473,9 @@ export function useCombatEngine({
     setRound(1);
     setCurrentTurnIndex(0);
     setCombatId(null);
+    usedSpellsByCharacterRef.current = {};
+    // Ensure combat queue is cleared for next preparation
+    setCombatants([]);
     addLogEntry('Rozpoczęto nową fazę przygotowania starcia.', 'system');
   };
 
@@ -349,17 +502,38 @@ export function useCombatEngine({
 
     const nextHp = Math.max(0, Math.min(target.maxHp, currentEffectiveHp + delta));
 
+    const activeCombatant = combatantsRef.current[currentTurnIndex];
+    const actorName = activeCombatant?.name;
+    const actorAvatar = activeCombatant?.avatarUrl ?? undefined;
+    const actorIsMonster = activeCombatant?.isMonster;
+
     // 1. Emit single log entry outside state updater (pure React pattern)
     if (delta < 0) {
-      addLogEntry(
-        `${target.name} odnosi ${Math.abs(delta)} pkt obrażeń (${nextHp}/${target.maxHp} HP).`,
-        'damage'
-      );
+      const isAttackingOther = activeCombatant && activeCombatant.id !== target.id;
+      const text = isAttackingOther
+        ? `${activeCombatant.name} ➔ ${target.name}: ${Math.abs(delta)} pkt obrażeń (${nextHp}/${target.maxHp} HP).`
+        : `${target.name} odnosi ${Math.abs(delta)} pkt obrażeń (${nextHp}/${target.maxHp} HP).`;
+
+      addLogEntry(text, 'damage', {
+        actorName,
+        actorAvatar,
+        actorIsMonster,
+        targetName: target.name,
+        targetIsMonster: target.isMonster,
+      });
     } else if (delta > 0) {
-      addLogEntry(
-        `${target.name} odzyskuje ${delta} pkt życia (${nextHp}/${target.maxHp} HP).`,
-        'heal'
-      );
+      const isHealingOther = activeCombatant && activeCombatant.id !== target.id;
+      const text = isHealingOther
+        ? `${activeCombatant.name} leczy ${target.name} o ${delta} pkt życia (${nextHp}/${target.maxHp} HP).`
+        : `${target.name} odzyskuje ${delta} pkt życia (${nextHp}/${target.maxHp} HP).`;
+
+      addLogEntry(text, 'heal', {
+        actorName,
+        actorAvatar,
+        actorIsMonster,
+        targetName: target.name,
+        targetIsMonster: target.isMonster,
+      });
     }
 
     // 2. Pure state update for instantaneous optimistic UI feedback
@@ -514,6 +688,14 @@ export function useCombatEngine({
   };
 
   const handleAddCombatant = async (newCombatant: Combatant) => {
+    if (combatPhase === 'FINISHED') {
+      setCombatPhase('PREPARING');
+      onPhaseChange?.('PREPARING');
+      setRound(1);
+      setCurrentTurnIndex(0);
+      setCombatId(null);
+    }
+
     addLogEntry(
       `Do walki dołącza: ${newCombatant.name} (Inicjatywa: ${newCombatant.initiative}).`,
       'system'
@@ -556,9 +738,197 @@ export function useCombatEngine({
     }
   };
 
+  const handleAddCustomAction = useCallback(
+    (actionText: string, actorNameOverride?: string) => {
+      if (!actionText.trim()) return;
+      const active = combatantsRef.current[currentTurnIndex];
+      const actorName = actorNameOverride || active?.name || 'Mistrz Gry';
+      const actorIsMonster = actorNameOverride
+        ? combatantsRef.current.find((c) => c.name === actorNameOverride)?.isMonster
+        : active?.isMonster;
+      const actorAvatar = actorNameOverride
+        ? (combatantsRef.current.find((c) => c.name === actorNameOverride)?.avatarUrl ?? undefined)
+        : (active?.avatarUrl ?? undefined);
+
+      addLogEntry(`${actorName} wykonuje akcję: ${actionText.trim()}`, 'action', {
+        actorName,
+        actorIsMonster,
+        actorAvatar,
+      });
+    },
+    [currentTurnIndex, addLogEntry]
+  );
+
+  const handleCombatantFlee = useCallback(
+    (id: string) => {
+      const target = combatantsRef.current.find((c) => c.id === id);
+      if (!target?.isMonster || target.isFled) return;
+
+      addLogEntry(`${target.name} ucieka w popłochu z pola walki!`, 'flee', {
+        actorName: target.name,
+        actorAvatar: target.avatarUrl ?? undefined,
+        actorIsMonster: true,
+      });
+
+      setCombatants((prev) => prev.map((c) => (c.id === id ? { ...c, isFled: true } : c)));
+
+      // If it is currently this combatant's turn, advance turn immediately
+      if (combatantsRef.current[currentTurnIndex]?.id === id) {
+        handleNextTurn();
+      }
+    },
+    [currentTurnIndex, handleNextTurn, addLogEntry, setCombatants]
+  );
+
+  const handleRollDeathSave = useCallback(
+    (id: string) => {
+      const target = combatantsRef.current.find((c) => c.id === id);
+      if (!target || target.isMonster || target.currentHp > 0) return;
+
+      const curSaves = target.deathSaves || { successes: 0, failures: 0 };
+      if (curSaves.isDead || curSaves.isStabilized) return;
+
+      const d20 = Math.floor(Math.random() * 20) + 1;
+
+      if (d20 === 20) {
+        addLogEntry(
+          `🎲 ${target.name} wyrzuca Naturalne 20 w rzucie na śmierć! Odzyskuje 1 HP i wstaje!`,
+          'heal',
+          {
+            actorName: target.name,
+            actorAvatar: target.avatarUrl ?? undefined,
+            actorIsMonster: false,
+          }
+        );
+
+        setCombatants((prev) =>
+          prev.map((c) =>
+            c.id === id
+              ? {
+                  ...c,
+                  currentHp: 1,
+                  deathSaves: undefined,
+                  conditions: c.conditions.filter(
+                    (cond) => cond !== 'Powalony' && cond !== 'Martwy'
+                  ),
+                }
+              : c
+          )
+        );
+
+        if (combatId) {
+          fetch(`/api/combat/${combatId}/combatants/${id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ currentHp: 1 }),
+          }).catch(() => {});
+        }
+        return;
+      }
+
+      let newSuccesses = curSaves.successes;
+      let newFailures = curSaves.failures;
+
+      if (d20 === 1) {
+        newFailures = Math.min(3, newFailures + 2);
+      } else if (d20 >= 10) {
+        newSuccesses = Math.min(3, newSuccesses + 1);
+      } else {
+        newFailures = Math.min(3, newFailures + 1);
+      }
+
+      const isDead = newFailures >= 3;
+      const isStabilized = !isDead && newSuccesses >= 3;
+
+      let logText = '';
+      if (d20 === 1) {
+        logText = isDead
+          ? `🎲 ${target.name} wyrzuca 1 (PECH)! Otrzymuje 2 porażki (łącznie 3). Bohater PONOSI ŚMIERĆ.`
+          : `🎲 ${target.name} wyrzuca 1 (PECH)! Otrzymuje 2 porażki (${newSuccesses}/3 S, ${newFailures}/3 P).`;
+      } else if (d20 >= 10) {
+        logText = isStabilized
+          ? `🎲 ${target.name} wyrzuca ${d20} (Sukces)! Osiąga 3 sukcesy i zostaje USTABILIZOWANY.`
+          : `🎲 ${target.name} wyrzuca ${d20} (Sukces)! (${newSuccesses}/3 S, ${newFailures}/3 P).`;
+      } else {
+        logText = isDead
+          ? `🎲 ${target.name} wyrzuca ${d20} (Porażka). Osiąga 3 porażki i PONOSI ŚMIERĆ.`
+          : `🎲 ${target.name} wyrzuca ${d20} (Porażka)! (${newSuccesses}/3 S, ${newFailures}/3 P).`;
+      }
+
+      addLogEntry(logText, 'death_save', {
+        actorName: target.name,
+        actorAvatar: target.avatarUrl ?? undefined,
+        actorIsMonster: false,
+      });
+
+      const nextConditions = isDead
+        ? [...target.conditions.filter((cond) => cond !== 'Ustabilizowany'), 'Martwy']
+        : isStabilized
+          ? [...target.conditions.filter((cond) => cond !== 'Martwy'), 'Ustabilizowany']
+          : target.conditions;
+
+      setCombatants((prev) =>
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                conditions: nextConditions,
+                deathSaves: {
+                  successes: newSuccesses,
+                  failures: newFailures,
+                  isStabilized,
+                  isDead,
+                },
+              }
+            : c
+        )
+      );
+    },
+    [combatId, addLogEntry, setCombatants]
+  );
+
+  const handleUpdateDeathSaves = useCallback(
+    (id: string, saves: DeathSaveState) => {
+      setCombatants((prev) =>
+        prev.map((c) => {
+          if (c.id !== id) return c;
+          const isDead = saves.failures >= 3 || !!saves.isDead;
+          const isStabilized = !isDead && (saves.successes >= 3 || !!saves.isStabilized);
+          const nextConditions = isDead
+            ? [...c.conditions.filter((cond) => cond !== 'Ustabilizowany'), 'Martwy']
+            : isStabilized
+              ? [...c.conditions.filter((cond) => cond !== 'Martwy'), 'Ustabilizowany']
+              : c.conditions;
+          return {
+            ...c,
+            conditions: nextConditions,
+            deathSaves: {
+              ...saves,
+              isDead,
+              isStabilized,
+            },
+          };
+        })
+      );
+    },
+    [setCombatants]
+  );
+
   const activeCombatant = combatants[currentTurnIndex];
-  const nextCombatantIndex = combatants.length > 0 ? (currentTurnIndex + 1) % combatants.length : 0;
-  const nextCombatant = combatants.length > 1 ? combatants[nextCombatantIndex] : undefined;
+  let nextCombatant: Combatant | undefined;
+  if (combatants.length > 1) {
+    let peekIdx = currentTurnIndex;
+    for (let step = 0; step < combatants.length - 1; step++) {
+      peekIdx = (peekIdx + 1) % combatants.length;
+      if (!isCombatantInactive(combatants[peekIdx])) {
+        nextCombatant = combatants[peekIdx];
+        break;
+      }
+    }
+    if (!nextCombatant) {
+      nextCombatant = combatants[(currentTurnIndex + 1) % combatants.length];
+    }
+  }
 
   return {
     combatants,
@@ -582,5 +952,11 @@ export function useCombatEngine({
     handleRemoveCombatant,
     handleAddCombatant,
     handleClearCombatLog,
+    handleAddLogEntry: addLogEntry,
+    handleAddCustomAction,
+    handleCombatantFlee,
+    handleRollDeathSave,
+    handleUpdateDeathSaves,
+    handleTrackSpellCast,
   };
 }

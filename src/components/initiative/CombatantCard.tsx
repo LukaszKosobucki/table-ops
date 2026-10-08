@@ -1,10 +1,10 @@
 'use client';
 
-import { Heart, Shield, Skull, Sparkles, Swords, Trash2, User, X } from 'lucide-react';
+import { Flag, Heart, Shield, Skull, Sparkles, Swords, Trash2, User, X } from 'lucide-react';
 import { useState } from 'react';
 import { CombatantHpControls } from './CombatantHpControls';
 import { CombatantStatusModal } from './CombatantStatusModal';
-import type { Combatant, CombatPhase } from './types';
+import type { Combatant, CombatPhase, DeathSaveState } from './types';
 
 export interface CombatantCardProps {
   combatant: Combatant;
@@ -16,6 +16,9 @@ export interface CombatantCardProps {
   onRemoveStatus?: (statusId: string) => void;
   onInitiativeChange?: (initiative: number) => void;
   onRemove: () => void;
+  onFlee?: () => void;
+  onRollDeathSave?: () => void;
+  onUpdateDeathSaves?: (saves: DeathSaveState) => void;
 }
 
 export function CombatantCard({
@@ -28,10 +31,21 @@ export function CombatantCard({
   onRemoveStatus,
   onInitiativeChange,
   onRemove,
+  onFlee,
+  onRollDeathSave,
+  onUpdateDeathSaves,
 }: CombatantCardProps) {
-  const isDead = c.currentHp <= 0;
-  const hpPercent = c.maxHp > 0 ? Math.round((c.currentHp / c.maxHp) * 100) : 0;
+  const isMonsterDead = c.isMonster && c.currentHp <= 0;
+  const isFled = c.isMonster && !!c.isFled;
+  const isHeroDown = !c.isMonster && c.currentHp <= 0;
+  const isHeroDead =
+    !c.isMonster && (c.deathSaves?.isDead === true || c.conditions.includes('Martwy'));
+  const isHeroStabilized =
+    !c.isMonster &&
+    (c.deathSaves?.isStabilized === true || c.conditions.includes('Ustabilizowany'));
+  const isDeadOrInactive = isMonsterDead || isHeroDead || isFled;
 
+  const hpPercent = c.maxHp > 0 ? Math.round((c.currentHp / c.maxHp) * 100) : 0;
   const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
 
   const handleApplyStatus = (statusName: string, durationTurns: number) => {
@@ -48,9 +62,11 @@ export function CombatantCard({
       className={`relative rounded-2xl p-4 transition-all duration-300 ${
         isActiveTurn
           ? 'bg-gradient-to-r from-amber-950/40 via-slate-900 to-indigo-950/30 border-2 border-amber-500/90 shadow-xl shadow-amber-500/10'
-          : isDead
+          : isDeadOrInactive
             ? 'bg-slate-950/60 border border-red-900/40 opacity-60'
-            : 'glass-card hover:bg-slate-800/50'
+            : isHeroDown
+              ? 'bg-gradient-to-r from-red-950/30 via-slate-900 to-slate-950 border border-amber-600/40'
+              : 'glass-card hover:bg-slate-800/50'
       }`}
     >
       {/* Active turn marker bar */}
@@ -68,8 +84,13 @@ export function CombatantCard({
                 <input
                   type="number"
                   aria-label={`Inicjatywa ${c.name}`}
-                  value={c.initiative}
-                  onChange={(e) => onInitiativeChange(Number.parseInt(e.target.value, 10) || 0)}
+                  value={c.initiative === 0 ? '' : c.initiative}
+                  placeholder="0"
+                  onFocus={(e) => e.target.select()}
+                  onChange={(e) => {
+                    const val = e.target.value === '' ? 0 : Number.parseInt(e.target.value, 10);
+                    onInitiativeChange(Number.isNaN(val) ? 0 : val);
+                  }}
                   className="w-12 h-10 rounded-xl bg-slate-950 border border-amber-500/40 text-center font-bold text-amber-400 text-lg font-mono focus:ring-1 focus:ring-amber-400 focus:outline-none"
                   title="Edytuj inicjatywę"
                 />
@@ -92,13 +113,19 @@ export function CombatantCard({
 
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                {c.isMonster ? (
+                {c.avatarUrl ? (
+                  <img
+                    src={c.avatarUrl}
+                    alt={c.name}
+                    className="w-5 h-5 rounded-md object-cover border border-amber-500/30 shrink-0"
+                  />
+                ) : c.isMonster ? (
                   <Skull className="w-4 h-4 text-red-400 shrink-0" />
                 ) : (
                   <User className="w-4 h-4 text-indigo-400 shrink-0" />
                 )}
                 <span
-                  className={`font-bold text-base ${isDead ? 'line-through text-slate-500' : 'text-slate-100'}`}
+                  className={`font-bold text-base ${isDeadOrInactive ? 'line-through text-slate-500' : 'text-slate-100'}`}
                 >
                   {c.name}
                 </span>
@@ -116,9 +143,43 @@ export function CombatantCard({
                   </span>
                 )}
 
-                {isDead && (
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-950 text-red-400 border border-red-800 flex items-center gap-1">
+                {isFled && (
+                  <span
+                    data-testid="combatant-fled-badge"
+                    className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-950 text-amber-400 border border-amber-800 flex items-center gap-1"
+                  >
+                    <Flag className="w-3 h-3 text-amber-400" /> UCIEKŁ
+                  </span>
+                )}
+
+                {isMonsterDead && (
+                  <span
+                    data-testid="combatant-dead-badge"
+                    className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-950 text-red-400 border border-red-800 flex items-center gap-1"
+                  >
                     POKONANY
+                  </span>
+                )}
+
+                {isHeroDead && (
+                  <span
+                    data-testid="hero-dead-badge"
+                    className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-950 text-red-400 border border-red-800 flex items-center gap-1"
+                  >
+                    <Skull className="w-3 h-3 text-red-400" /> MARTWY
+                  </span>
+                )}
+
+                {isHeroDown && !isHeroDead && (
+                  <span
+                    data-testid="hero-down-badge"
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 ${
+                      isHeroStabilized
+                        ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                        : 'bg-amber-950 text-amber-400 border border-amber-800 animate-pulse'
+                    }`}
+                  >
+                    {isHeroStabilized ? 'USTABILIZOWANY' : 'POWALONY (0 HP)'}
                   </span>
                 )}
               </div>
@@ -185,7 +246,7 @@ export function CombatantCard({
             <div className="flex flex-col items-end gap-1">
               <span
                 className={`text-xs font-mono font-bold flex items-center gap-1 ${
-                  isDead ? 'text-red-500' : 'text-slate-300'
+                  isDeadOrInactive ? 'text-red-500' : 'text-slate-300'
                 }`}
               >
                 <Heart className="w-3 h-3 text-red-400" />
@@ -216,22 +277,129 @@ export function CombatantCard({
           </div>
         </div>
 
-        {/* Bottom Row: HP Quick Buttons & Custom Input & Status Button */}
-        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60">
-          <CombatantHpControls onHpChange={onHpChange} />
+        {/* Death Saving Throws Widget for Downed Heroes (HP = 0) */}
+        {isHeroDown && !isHeroDead && !isHeroStabilized && phase === 'ACTIVE' && (
+          <div
+            data-testid="death-saves-container"
+            className="p-3 rounded-xl bg-slate-950/90 border border-red-900/60 flex flex-wrap items-center justify-between gap-3 animate-fadeIn"
+          >
+            <div className="flex items-center gap-4 flex-wrap">
+              {/* Successes */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+                  Sukcesy:
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {[1, 2, 3].map((num) => {
+                    const checked = (c.deathSaves?.successes || 0) >= num;
+                    return (
+                      <button
+                        key={num}
+                        type="button"
+                        data-testid={`death-save-success-${num}`}
+                        onClick={() => {
+                          const next = checked ? num - 1 : num;
+                          onUpdateDeathSaves?.({
+                            successes: next,
+                            failures: c.deathSaves?.failures || 0,
+                            isStabilized: next >= 3,
+                            isDead: false,
+                          });
+                        }}
+                        className={`w-4 h-4 rounded-full border transition cursor-pointer flex items-center justify-center ${
+                          checked
+                            ? 'bg-emerald-500 border-emerald-400 shadow-sm shadow-emerald-500/50'
+                            : 'bg-slate-900 border-slate-700 hover:border-emerald-500/50'
+                        }`}
+                        title={`Sukces ${num} (kliknij aby przełączyć)`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
 
-          {/* Add Status Button */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowStatusModal((prev) => !prev)}
-              className="px-2.5 py-1 text-xs rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 transition cursor-pointer"
-            >
-              <Sparkles className="w-3 h-3 text-indigo-400" />
-              <span>+ Status czasowy</span>
-            </button>
+              {/* Failures */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] font-bold text-red-400 uppercase tracking-wider">
+                  Porażki:
+                </span>
+                <div className="flex items-center gap-1.5">
+                  {[1, 2, 3].map((num) => {
+                    const checked = (c.deathSaves?.failures || 0) >= num;
+                    return (
+                      <button
+                        key={num}
+                        type="button"
+                        data-testid={`death-save-failure-${num}`}
+                        onClick={() => {
+                          const next = checked ? num - 1 : num;
+                          onUpdateDeathSaves?.({
+                            successes: c.deathSaves?.successes || 0,
+                            failures: next,
+                            isStabilized: false,
+                            isDead: next >= 3,
+                          });
+                        }}
+                        className={`w-4 h-4 rounded-full border transition cursor-pointer flex items-center justify-center ${
+                          checked
+                            ? 'bg-red-600 border-red-500 shadow-sm shadow-red-600/50'
+                            : 'bg-slate-900 border-slate-700 hover:border-red-500/50'
+                        }`}
+                        title={`Porażka ${num} (kliknij aby przełączyć)`}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Roll Death Save Button */}
+            {onRollDeathSave && (
+              <button
+                type="button"
+                data-testid="roll-death-save-btn"
+                onClick={onRollDeathSave}
+                className="px-3 py-1 rounded-lg bg-gradient-to-r from-red-700 to-rose-700 hover:from-red-600 hover:to-rose-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-red-950/50 transition cursor-pointer"
+              >
+                <Skull className="w-3.5 h-3.5" />
+                <span>Rzuć na śmierć (k20)</span>
+              </button>
+            )}
           </div>
-        </div>
+        )}
+
+        {/* Bottom Row: HP Quick Buttons & Custom Input & Status Button */}
+        {!isFled && (
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/60">
+            <CombatantHpControls onHpChange={onHpChange} />
+
+            <div className="flex items-center gap-2">
+              {/* Flee button for monsters */}
+              {c.isMonster && phase === 'ACTIVE' && !c.isFled && c.currentHp > 0 && onFlee && (
+                <button
+                  type="button"
+                  data-testid="combatant-flee-btn"
+                  onClick={onFlee}
+                  className="px-2.5 py-1 text-xs rounded-lg bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-300 border border-yellow-500/30 flex items-center gap-1.5 transition cursor-pointer"
+                  title="Oznacz ucieczkę przeciwnika z pola walki (50% PD)"
+                >
+                  <Flag className="w-3 h-3 text-yellow-400" />
+                  <span>Ucieczka (50% PD)</span>
+                </button>
+              )}
+
+              {/* Add Status Button */}
+              <button
+                type="button"
+                onClick={() => setShowStatusModal((prev) => !prev)}
+                className="px-2.5 py-1 text-xs rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Sparkles className="w-3 h-3 text-indigo-400" />
+                <span>+ Status czasowy</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Timed Status Popover / Modal */}
         <CombatantStatusModal

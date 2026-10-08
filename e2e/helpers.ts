@@ -62,7 +62,14 @@ export async function createNewSession(page: Page, prefix = 'Sesja E2E') {
   await nameInput.fill(`${prefix} ${Date.now()}-${Math.random().toString(36).slice(2, 6)}`);
 
   const submitBtn = page.locator('button:has-text("Utwórz i rozpocznij")');
+  const createPromise = page.waitForResponse(
+    (res) =>
+      res.request().method() === 'POST' &&
+      res.url().includes('/api/sessions') &&
+      (res.status() === 200 || res.status() === 201)
+  );
   await submitBtn.click();
+  await createPromise;
 
-  await expect(gmTab).toBeEnabled({ timeout: 10000 });
+  await expect(gmTab).toBeEnabled({ timeout: 15000 });
 }

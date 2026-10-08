@@ -35,9 +35,10 @@ flowchart TD
     F3["Faza 3: Kreator i Zarządzanie Postaciami (Bohaterowie & NPC)"]
     F4["Faza 4: Grupy Potyczkowe (Encounter Builder)"]
     F5["Faza 5: Aktywna Potyczka (Combat Tracker & Cykl Tur)"]
-    F6["Faza 6: Oś Czasu, Historia i System Odpoczynków (Short/Long Rest)"]
-    F7["Faza 7: Rozbudowa Kompendium (Zaklęcia, Przedmioty & Proxy API)"]
-    F8["Faza 8: Integracja Real-time (Kości), Testy E2E & Polerowanie"]
+    F7["Faza 7: Oś Czasu, Historia i System Odpoczynków (Short/Long Rest)"]
+    F8["Faza 8: Kompendium, Ekwipunek, EXP, Awatary & Kronika (Chunk 8.1 - 8.5)"]
+    F9["Faza 9: Integracja Notatek Zewnętrznych (Google Docs / Smart Embed)"]
+    F10["Faza 10: Podręczny Rzutnik Kości 3D (Dice Tray & Roller), Testy E2E & CI"]
 
     K0 --> F1
     F1 --> F2
@@ -47,6 +48,8 @@ flowchart TD
     F5 --> F6
     F6 --> F7
     F7 --> F8
+    F8 --> F9
+    F9 --> F10
 ```
 
 ---
@@ -462,37 +465,157 @@ flowchart TD
   * [`e2e/characters.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/characters.spec.ts): test E2E Playwright weryfikujący tworzenie postaci, inspekcję na pulpicie GM, dodanie EXP, alokację ASI i awans na poziom 4.
   * Pełny zestaw testów: 343/343 testów Vitest (40 plików, 100% zielone), 0 błędów Biome linter (178 plików), czysty build Turbopack oraz 20/20 testów Playwright E2E zielone (100%).
 
+### Chunk 8.5: Zaawansowana Kronika Walki, Awatary, Rzucanie Zaklęć, Death Saves, Ucieczka i Raporty (✅ Zakończone)
+* **Wizualna Kronika Walki (Combat Log):**
+  * Rozszerzenie `CombatLogEntry` o pola relacji tury: `actorName?`, `actorIsMonster?`, `targetName?`, `targetIsMonster?`, `spellLevel?`.
+  * Wizualizacja relacji `[Aktor] ➔ [Cel]` z dedykowanymi ikonami (miecz, tarcza, magia, flaga, czaszka) i spójną kolorystyką w [`CombatLogWidget.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatLogWidget.tsx).
+* **Awatary Postaci i Potworów:**
+  * Dodanie pola `avatarUrl String?` w modelu `Character` w Prisma i bazie Supabase.
+  * Zestaw gotowych presetów portretów D&D dla ras i klas (`src/lib/avatars.ts`) oraz pole na własny zewnętrzny URL w kreatorze postaci ([`StepIdentity.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/StepIdentity.tsx)) i podglądzie karty.
+  * Wyświetlanie awatarów w lewym panelu drużyny ([`PartySidebar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/PartySidebar.tsx)), trackerze inicjatywy ([`CombatantCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantCard.tsx)) oraz w kronice walki.
+* **Rzucanie Zaklęć z Karty Postaci i Upcasting (W walce i Poza walką):**
+  * Dodanie akcji `Rzuć` przy znanych zaklęciach w [`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx).
+  * W walce: rejestracja rzucenia czaru w Kronice Walki (`CombatLogEntry`) i odjęcie komórki czarów (dla kręgów 1+, cantripy darmowe).
+  * Poza walką: rejestracja użycia magii na Osi Czasu Sesji (`SessionLog` z typem `SPELL_CAST`) i odjęcie slotu czaru.
+  * Mechanizm Upcastingu: przy wyczerpaniu slotów bazowych system automatycznie adaptuje przycisk do najniższego dostępnego wyższego kręgu (np. `⚡ Rzuć (K.3)` dla czaru 2. poziomu), konsumuje wyższy slot i odnotowuje upcasting w logu.
+* **Rejestrowanie Customowych Akcji w Turze:**
+  * Pasek szybkiej akcji dla aktywnej tury postaci w panelu taktycznym i kronice walki.
+* **Mechanika Ucieczki Przeciwników (Fleeing Enemies):**
+  * Przycisk `🏳️ Ucieczka (50% PD)` na karcie potwora oznaczający go statusem `UCIEKŁ` (`isFled: true`).
+  * Automatyczne przyznawanie dokładnie 50% bazowej puli PD za zbiegłego wroga i dedykowany wpis w kronice.
+* **Automatyczne Pomijanie Tur w Inicjatywie:**
+  * Pętla `handleNextTurn` w [`useCombatEngine.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/useCombatEngine.ts) automatycznie pomija przeciwników o 0 HP lub ze statusem `isFled` oraz definitywnie martwych bohaterów.
+  * Powaleni bohaterowie graczy (0 HP) nie są pomijani i zachowują turę na wykonanie rzutów obronnych przed śmiercią.
+* **Rzuty Obronne Przed Śmiercią (Death Saving Throws):**
+  * Zgodny z D&D 5e interaktywny widget na karcie powalonego bohatera (0 HP) z 3 polami sukcesów, 3 polami porażek oraz przyciskiem rzutu k20.
+  * Obsługa zasad krytycznych: nat 20 = natychmiastowe odzyskanie 1 HP i pobudka, nat 1 = 2 porażki, wynik >=10 = sukces, <10 = porażka.
+  * Automatyczne statusy `USTABILIZOWANY` (3 sukcesy) oraz `MARTWY` (3 porażki) z synchronizacją stanu.
+* **Ergonomia Pól Liczbowych i Inicjatywy:**
+  * Globalne usunięcie strzałek spinnerów ze wszystkich `input[type="number"]` w stylach [`globals.css`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/globals.css).
+  * Płynne wprowadzanie inicjatywy: zaznaczanie wartości przy fokusie (`select-on-focus`), placeholder `0`, brak problemu wiodących zer (np. „017”).
+* **Szczegółowy Raport Bitewny na Osi Czasu (`COMBAT_END`):**
+  * Wzbogacony zapis i interfejs w [`LogInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/LogInspectionCard.tsx) i [`combat.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/combat.ts).
+  * Prezentacja: sumaryczny XP z podziałem (100% pokonani, 50% uciekinierzy), lista imienna pokonanych i uciekających wrogów, polegli bohaterowie, powaleni/nieprzytomni bohaterowie oraz szczegółowe zestawienie zużytych komórek czarów w podziale na bohaterów i kręgi.
+* **Weryfikacja / Testy:**
+  * Testy jednostkowe i integracyjne: 366/366 testów Vitest (41 plików, 100% zielone).
+  * Linter: 0 błędów w Biome linter.
+  * Build: Czysty build Turbopack + TypeScript bez błędów typu.
+  * Testy E2E: 19/19 testów Playwright zielone (100%).
+
 ---
 
-## FAZA 9: Integracja Real-time (Kości), Testy E2E, Narzędzia Jakości i CI
+## FAZA 9: Integracja Notatek Zewnętrznych (Google Docs / Smart Embed) (Do wdrożenia)
+*User Stories:* [`user-stories-and-spec/user_stories_integracja_notatek_google_docs.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_integracja_notatek_google_docs.md)
 
-### Chunk 9.1: Narzędzia Rzutów Kośćmi w Kokpicie GM-a
-* **Frontend ([`src/components/dice/`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dice/)):**
-  * Integracja symulatora kości z akcjami w Dashboardzie:
-    * Kliknięcie atrybutu postaci (np. `STR 16 (+3)`) w karcie środkowej kolumny wykonuje rzut D20 + modyfikator w podręcznym rollerze.
-    * Opcja "Wyślij wynik rzutu do Osi Czasu Sesji".
+### Chunk 9.1: Model i Backend Linku do Google Docs w Sesji
+* **Prisma i Baza Danych:**
+  * Rozszerzenie modelu `Session` o pole `googleDocUrl String? @map("google_doc_url")`.
+  * Aktualizacja endpointu `PUT /api/sessions/[id]` oraz `src/lib/sessions.ts` o walidację i zapis adresu Google Docs / Google Drive.
 * **Testowanie:**
-  * Wykonanie rzutu z poziomu karty postaci – weryfikacja poprawności obliczenia modyfikatora i dodania wpisu do historii.
+  * Testy zapisu i odczytu linku URL sesji w `src/lib/sessions.test.ts` i `sessions-api.test.ts`.
 
-### Chunk 9.2: Zestaw Testów E2E & Unit Testów (Playwright & Vitest)
-* **Zestaw Testów:**
-  * **Testy jednostkowe (Vitest):** reguły D&D, logika rzutów kośćmi, wyliczanie inicjatywy, formatowanie modyfikatorów i komponenty UI.
-  * **Testy E2E (Playwright):**
-    1. Nawigacja aplikacji i przełączanie zakładek kokpitu.
-    2. Moduł Bestiariusza (wyszukiwanie, modal szczegółów, klonowanie homebrew).
-    3. Kreator postaci (przejście kroków, generowanie karty postaci).
-    4. Tracker inicjatywy (zarządzanie kolejką, kontrola rund i tur).
-    5. Symulator kości (zmiana modyfikatorów, rzuty i historia).
+### Chunk 9.2: Smart Embed Google Docs i Szybkie Narzędzia GM-a
+* **Frontend:**
+  * W prawym panelu Timeline / Podręcznych Notatkach GM-a dodanie sekcji „Notatki Google Docs / Drive”.
+  * Pole wklejenia i edycji linku URL do dokumentu.
+  * Przycisk bezpośredniego otwarcia w nowej karcie (`Otwórz w Google Docs ↗`).
+  * Tryb podglądu bezpośredniego w TableOps (Smart Embed via iframe w trybie `/preview` z możliwością zwijania/rozwijania).
+* **Testowanie:**
+  * Testy komponentu notatek i renderowania ramki podglądu.
 
-### Chunk 9.3: Narzędzia Jakości Kodu (Biome.js) & Pipeline CI ([`.github/workflows/ci.yml`](file:///Users/lukaszkosobucki/Documents/table-ops/.github/workflows/ci.yml))
-* **Biome.js (`@biomejs/biome`):**
-  * Zunifikowany linter i formatter zastępujący ESLint i Prettier.
-  * 0 podatności bezpieczeństwa w `npm audit`.
-  * Konfiguracja [`biome.json`](file:///Users/lukaszkosobucki/Documents/table-ops/biome.json) z dyrektywami Tailwind v4 (`css.parser.tailwindDirectives: true`) oraz automatycznym sortowaniem importów.
-* **Pipeline GitHub Actions (`ci.yml`):**
-  * **Job `lint-and-build`:** `npm run lint` + `npm run build` (Turbopack + TypeScript).
-  * **Job `unit-tests`:** `npm run test:coverage` (Vitest).
-  * **Job `e2e-tests`:** `npm run test:e2e` (Playwright).
+---
+
+## FAZA 10: Podręczny Rzutnik Kości 3D (Dice Tray & Roller), Testy E2E, Narzędzia Jakości i CI (Do wdrożenia)
+*User Stories:* [`user-stories-and-spec/user_stories_modu_kosci.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_modu_kosci.md) | [`docs/features/dice-roller/01-user-stories.md`](file:///Users/lukaszkosobucki/Documents/table-ops/docs/features/dice-roller/01-user-stories.md)  
+*Wymagania Funkcjonalne & Niefunkcjonalne:* [`docs/features/dice-roller/02-functional-requirements.md`](file:///Users/lukaszkosobucki/Documents/table-ops/docs/features/dice-roller/02-functional-requirements.md) | [`docs/features/dice-roller/03-non-functional-requirements.md`](file:///Users/lukaszkosobucki/Documents/table-ops/docs/features/dice-roller/03-non-functional-requirements.md)  
+*Architektura & Stack:* [`docs/features/dice-roller/04-tech-stack-and-architecture.md`](file:///Users/lukaszkosobucki/Documents/table-ops/docs/features/dice-roller/04-tech-stack-and-architecture.md)
+
+### Chunk 10.1: Silnik Matematyczny Kości, Determinizm Crypto i Modele Danych
+* **Architektura Domeny i Typy ([`src/lib/dice/`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dice/)):**
+  * Ścisłe typy domenowe TypeScript:
+    * `DiceType`: `'d4' | 'd6' | 'd8' | 'd10' | 'd12' | 'd20' | 'd100'`.
+    * `DiceGroup`: `{ type: DiceType; count: number }`.
+    * `RollRequest`: `{ id: string; dice: DiceGroup[]; modifier: number; advantageMode?: 'none' | 'advantage' | 'disadvantage'; isSecret: boolean; sourceContext?: { characterId?: string; actionName?: string } }`.
+    * `SingleDieResult`: `{ type: DiceType; value: number; ignored?: boolean }`.
+    * `RollResult`: `{ id: string; requestId: string; timestamp: string; diceResults: SingleDieResult[]; modifier: number; total: number; formula: string; isSecret: boolean; actorName: string }`.
+* **Generator Losowości i Determinizm (FR-04):**
+  * Silnik losujący bazujący wyłącznie na Web Crypto API (`window.crypto.getRandomValues()`) gwarantujący brak anomalii standardowego PRNG.
+  * Pełne deterministyczne wyliczenie wyników przed rozpoczęciem animacji (wylosowane ścianki przekazywane są jako docelowe stany dla symulacji fizycznej).
+  * Mechanika rzutów k20: obsługa trybów `advantage` (rzut dwoma k20, wybór wyższego wyniku, niższy oznaczony jako `ignored: true` i przekreślony) oraz `disadvantage` (rzut dwoma k20, wybór niższego wyniku, wyższy oznaczony jako `ignored: true`).
+  * Obsługa modyfikatorów numerycznych od `-99` do `+99`.
+  * Generowanie czytelnej formuły tekstowej (np. `"4d6 + 2d10 + 4"`) oraz sformatowanego rozbicia (np. `4k6 [4, 6, 2, 5] + 2k10 [7, 6] + 4 = 34`).
+* **Testowanie:**
+  * Testy jednostkowe Vitest ([`src/lib/dice/engine.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dice/engine.test.ts)): weryfikacja poprawności rozkładów kości k4–k100, kalkulacja sumy i modyfikatorów, zachowanie mechaniki Advantage/Disadvantage, determinizm kryptograficzny oraz formatowanie ciągów formuł.
+
+### Chunk 10.2: Pływający Kontener Rzutnika (Draggable Tray Modal), UI Selektora i Skróty Klawiszowe
+* **Pływające Okno Rzutnika (FR-01, FR-02, NFR-03, NFR-04):**
+  * Komponent pływającego okna ([`src/components/dice/DraggableDiceTray.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dice/DraggableDiceTray.tsx)) w warstwie wierzchniej (`position: fixed`, `z-index: 1000`).
+  * Obsługa przemieszczania przez uchwyt paska tytułowego (`drag handle`) z ograniczeniem do widoku okna (`bounds: "window"` / viewport clamping).
+  * Wykorzystanie biblioteki `@neodrag/react` lub `react-rnd` ze sprzętową akceleracją stylów `transform: translate3d(...)` eliminującą zjawisko *layout thrashing*.
+  * Persystencja stanu: zapamiętywanie współrzędnych (`x`, `y`) oraz stanu zminimalizowania w `localStorage` dla aktywnej sesji GM-a.
+  * Dostępność i ergonomia klawiatury (NFR-03):
+    * Stały przycisk akcji w prawym górnym rogu nagłówka sesji.
+    * Globalny nasłuchiwacz skrótu `D` przełączający widoczność okna (toggle, ignorowany w polach tekstowych `input`/`textarea`).
+    * Skrót `Enter` wyzwalający rzut ze skompletowanej puli kości.
+    * Skrót `Esc` zamykający okno lub przerywający przeciąganie.
+    * Skrót `C` czyszczący bufor kości.
+  * Responsywność (NFR-04): poniżej szerokości ekranu 1024px rzutnik płynnie przełącza się z pływającego okna na wyśrodkowany arkusz dolny (`bottom-sheet`) lub pełnoekranowy modal.
+* **Kompilator i Selektor Puli Kości (FR-03, US-02):**
+  * Kafelkowy selektor kości: `d4`, `d6`, `d8`, `d10`, `d12`, `d20`, `d100` ze stałymi tokenami kolorystycznymi:
+    * `d4`: błękitny / cyjan (`#06b6d4` / `tableops-azure`)
+    * `d6`: szmaragdowy / zielony (`#22c55e` / `tableops-emerald`)
+    * `d8`: fioletowy (`#a855f7` / `tableops-amethyst`)
+    * `d10`: żółty / złoty (`#eab308` / `tableops-gold`)
+    * `d12`: pomarańczowy (`#f97316`)
+    * `d20`: karmazynowy / czerwony (`#ef4444` / `tableops-crimson`)
+    * `d100`: grafitowy / stalowy (`#64748b`)
+  * Inkrementacja liczników kliknięciem, manualne pole modyfikatora numerycznego (`+/- X`), przycisk `Reset / Wyczyść`.
+  * Przełącznik mechaniki k20: *Standard*, *Advantage*, *Disadvantage*.
+  * Natychmiastowe podsumowanie sumaryczne i rozbicie kości w nagłówku okna rzutnika (US-03).
+* **Testowanie:**
+  * Testy komponentu Vitest ([`src/components/dice/DraggableDiceTray.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dice/DraggableDiceTray.test.tsx)): weryfikacja otwierania i zamykania przyciskiem i klawiszem `D`, kompozycji puli, modyfikatorów, zapisu pozycji w `localStorage` oraz zachowania responsywnego.
+
+### Chunk 10.3: Warstwa Symulacji Fizycznej 3D Canvas (Lazy Loading, Wydajność 55 FPS & Fallback)
+* **Silnik Symulacji 3D Canvas (FR-05, NFR-01, NFR-02):**
+  * Komponent Canvas ([`src/components/dice/Dice3DCanvas.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dice/Dice3DCanvas.tsx)) integrujący `@3d-dice/dice-box` (lub Three.js + cannon-es).
+  * Trójwymiarowe modele wielościanów d4–d100 w przypisanych kolorach z cyframi spełniającymi kontrast WCAG 2.1 AA (min. 4.5:1).
+  * Przekazywanie deterministycznych wartości numerycznych z `window.crypto` jako celów ułożenia ścianek w symulacji.
+  * Natychmiastowe pominięcie animacji (*skip*): kliknięcie w dowolne miejsce Canvas natychmiast zatrzymuje fizykę i stabilizuje kości na wylosowanych wartościach.
+* **Optymalizacja Paczki i Bundle Splitting (NFR-02):**
+  * Dynamiczny import (`next/dynamic` z `{ ssr: false }`): moduł Canvas i silnik 3D nie wchodzą w skład `initial bundle` aplikacji i są pobierane z sieci dopiero przy pierwszym otwarciu rzutnika kości.
+* **Wydajność i Matematyczny Tryb Lekki (NFR-01):**
+  * Zagwarantowanie płynności minimum 55 FPS w głównym wątku UI.
+  * Automatyczna detekcja braku WebGL lub obciążenia CPU z płynnym fallbackiem do trybu lekkiego (błyskawiczny rzut matematyczny bez animacji 3D).
+  * Opcja w ustawieniach rzutnika: *„Wyłącz fizykę 3D (szybkie rzuty matematyczne)”*.
+* **Testowanie:**
+  * Testy komponentu Vitest ([`src/components/dice/Dice3DCanvas.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dice/Dice3DCanvas.test.tsx)): testy mockujące WebGL/Canvas, weryfikacja logiki pomijania animacji kliknięciem oraz automatycznego fallbacku przy braku WebGL.
+
+### Chunk 10.4: Integracja z Osią Czasu Sesji, Rzuty Ukryte (Secret Rolls) i Dashboard GM-a
+* **Rejestracja w Historii i Osi Czasu Sesji (FR-06, US-04):**
+  * Publikacja wyliczonego obiektu `RollResult` do Osi Czasu Sesji (`SessionLog` z typem `DICE_ROLL`) i persystencja w bazie PostgreSQL.
+  * Sygnatura czasowa, pełna formuła rzutu, rozbicie na poszczególne kości, modyfikator i autor rzutu.
+  * Tryb `Rzut ukryty (GM Secret Roll)`: przypisanie flagi `isSecret: true`, wizualna plakietka „Tylko dla GM” oraz wykluczenie wpisu z widoku graczy.
+  * Podręczny rejestr ostatnich 20 rzutów wewnątrz okna rzutnika z przyciskiem ponownego wywołania danej formuły (`Reroll`).
+* **Integracja z Kokpitem GM-a (Środkowa Kolumna i Tracker Walki):**
+  * Karta Podglądu Bohatera ([`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx)): kliknięcie w dowolny atrybut (`STR`, `DEX`, `CON`, `INT`, `WIS`, `CHA`), test umiejętności lub rzut obronny automatycznie otwiera rzutnik z przygotowaną pulą 1k20 i wyliczonym modyfikatorem cechy postaci.
+  * Tracker Inicjatywy ([`CombatantCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantCard.tsx)): akcje ataków potworów i rzuty obrażeń bezpośrednio ładują parametry do rzutnika kości.
+* **Testowanie:**
+  * Testy integracyjne Vitest ([`src/components/dice/DiceIntegration.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dice/DiceIntegration.test.tsx)): weryfikacja dispatchu zdarzenia rzutu do Osi Czasu, obsługa flagi `isSecret`, odtwarzanie rzutów z historii (Reroll) oraz wywoływanie rzutnika z karty postaci.
+
+### Chunk 10.5: Testy E2E (Playwright), Narzędzia Jakości Kodu (Biome.js) & Pipeline CI
+* **Zestaw Testów E2E (Playwright) ([`e2e/dice-roller.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/dice-roller.spec.ts)):**
+  1. Otwarcie i zamknięcie rzutnika przyciskiem w nagłówku sesji oraz skrótem `D`.
+  2. Kompozycja mieszanej puli (np. 3k6 + 1k20), zmiana modyfikatora numerycznego, wykonanie rzutu klawiszem `Enter` lub przyciskiem UI.
+  3. Sprawdzenie natychmiastowej prezentacji sumy i rozbicia kości w nagłówku oraz natychmiastowego pominięcia animacji po kliknięciu Canvas.
+  4. Weryfikacja zapamiętywania pozycji przeciągniętego okna w `localStorage`.
+  5. Wykonanie rzutu ukrytego (`GM Secret Roll`) i weryfikacja pojawienia się wpisu z etykietą „Tylko dla GM” na Osi Czasu Sesji.
+  6. Szybki rzut z karty postaci (kliknięcie testu cechy) i sprawdzenie zgodności załadowanego modyfikatora.
+* **Narzędzia Jakości Kodu (Biome.js) & Pipeline CI ([`.github/workflows/ci.yml`](file:///Users/lukaszkosobucki/Documents/table-ops/.github/workflows/ci.yml)):**
+  * Zunifikowany linter i formatter Biome (`@biomejs/biome`) z konfiguracją [`biome.json`](file:///Users/lukaszkosobucki/Documents/table-ops/biome.json) pod Tailwind v4 (`css.parser.tailwindDirectives: true`) oraz automatycznym sortowaniem importów.
+  * Pipeline GitHub Actions (`ci.yml`):
+    * **Job `lint-and-build`:** `npm run lint` + `npm run build` (Turbopack + TypeScript).
+    * **Job `unit-tests`:** `npm run test:coverage` (Vitest).
+    * **Job `e2e-tests`:** `npm run test:e2e` (Playwright).
 
 ---
 
@@ -508,5 +631,6 @@ flowchart TD
 | **Faza 5** | Combat Tracker (Maszyna stanów, tury, statusy, HP) | Faza 4 | 2 chunki |
 | **Faza 6** | Autentykacja (Login/Hasło + Google OAuth) i Izolacja Sesji | Faza 5 | 2 chunki |
 | **Faza 7** | Oś Czasu, Historia i System Odpoczynków | Faza 6 | 2 chunki |
-| **Faza 8** | Kompendium, Ekwipunek, EXP & Awans Postaci | Faza 3 | 4 chunki |
-| **Faza 9** | Integracja rzutów kośćmi, weryfikacja E2E & CI | Faza 1-8 | 3 chunki |
+| **Faza 8** | Kompendium, Ekwipunek, EXP & Awans Postaci (w tym Chunk 8.5) | Faza 3 | 5 chunków |
+| **Faza 9** | Integracja Notatek Zewnętrznych (Google Docs / Smart Embed) | Faza 1, 7 | 2 chunki |
+| **Faza 10** | Podręczny Rzutnik Kości 3D (Dice Tray & Roller), weryfikacja E2E & CI | Faza 1-9 | 5 chunków |

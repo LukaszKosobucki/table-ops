@@ -13,6 +13,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 This repository defines guidelines and workflows for AI coding agents operating on the **TableOps** codebase — a modern Virtual Tabletop (VTT) and D&D companion application built with Next.js 16 (App Router + Turbopack), React 19, Tailwind CSS v4, Supabase (PostgreSQL) + Prisma, and TypeScript.
 
 The instructions below integrate the capabilities and principles of the active skill suite installed in `.agents/skills/`:
+
 - **`react-best-practices`**: Vercel engineering performance optimization guidelines
 - **`improve-codebase-architecture`**: Deep module design, locality, and architectural refactoring
 - **`tdd`**: Test-driven development (red-green loop, pre-agreed seams, vertical slicing, anti-pattern avoidance)
@@ -104,17 +105,20 @@ When building new features, business rules, or fixing bugs, apply the **Red → 
 Follow Vercel's 70 performance rules prioritized by impact:
 
 ### Priority 1: Eliminating Waterfalls (CRITICAL)
+
 - **`async-parallel`**: Use `Promise.all()` or parallel execution for independent data fetching operations.
 - **`async-defer-await`**: Do not await promises at the top of a function if their result is only needed inside a conditional branch.
 - **`async-cheap-condition-before-await`**: Evaluate synchronous or cheap conditions (e.g. auth checks, cache hit, feature flags) before awaiting expensive remote calls.
 - **`async-suspense-boundaries`**: Use `<Suspense>` boundaries to stream slow UI components rather than blocking entire page renders.
 
 ### Priority 2: Bundle Size Optimization (CRITICAL)
+
 - **`bundle-barrel-imports`**: Avoid re-exporting everything through large barrel files (`index.ts`). Import components and utilities directly from their defining files.
 - **`bundle-dynamic-imports`**: Lazy-load heavy, conditionally rendered components (e.g. dice 3D canvases, large modals, rich text editors) via `next/dynamic`.
 - **`bundle-analyzable-paths`**: Keep import paths statically analyzable to support tree-shaking and Turbopack bundler optimizations.
 
 ### Priority 3: Server & Client Data Management (HIGH)
+
 - **`server-cache-react`**: Use `React.cache()` for per-request deduplication of data fetching in Server Components.
 - **`server-auth-actions`**: Validate inputs and authenticate user identity in every Server Action and Route Handler.
 - **Client State**:
@@ -169,10 +173,10 @@ Follow Vercel's 70 performance rules prioritized by impact:
 ## 8. Verification & Quality Gates
 
 Before concluding any implementation task:
+
 1. **Lint Check**: Run `npm run lint` and ensure 0 errors (Biome).
 2. **Unit & Integration Tests**: Run `npm test` and ensure all tests pass (Vitest).
 3. **E2E Tests**: Run `npm run test:e2e` when touching user-facing flows or navigation (Playwright).
 4. **Build Check**: Run `npm run build` to verify Turbopack and TypeScript type correctness.
 5. **Database & Schema**: Ensure Prisma schema changes are reflected with `npx prisma generate` and migrations.
 6. **Documentation**: Keep [`PLAN.md`](./PLAN.md) updated when tasks/chunks are completed.
-

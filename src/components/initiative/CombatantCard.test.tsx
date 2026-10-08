@@ -147,4 +147,178 @@ describe('CombatantCard Component', () => {
     fireEvent.change(initInput, { target: { value: '22' } });
     expect(handleInitChange).toHaveBeenCalledWith(22);
   });
+
+  it('renders flee button for active monsters and triggers onFlee callback', () => {
+    const handleFlee = vi.fn();
+    const mockMonster: Combatant = {
+      id: 'm-1',
+      name: 'Goblin Łucznik',
+      initiative: 12,
+      currentHp: 7,
+      maxHp: 7,
+      ac: 14,
+      isMonster: true,
+      conditions: [],
+      statuses: [],
+    };
+
+    render(
+      <CombatantCard
+        combatant={mockMonster}
+        phase="ACTIVE"
+        isActiveTurn={false}
+        onHpChange={vi.fn()}
+        onFlee={handleFlee}
+        onRemove={vi.fn()}
+      />
+    );
+
+    const fleeBtn = screen.getByTestId('combatant-flee-btn');
+    expect(fleeBtn).toBeInTheDocument();
+    expect(fleeBtn).toHaveTextContent(/Ucieczka \(50% PD\)/i);
+
+    fireEvent.click(fleeBtn);
+    expect(handleFlee).toHaveBeenCalledTimes(1);
+  });
+
+  it('displays UCIEKŁ badge when monster has isFled true', () => {
+    const fledMonster: Combatant = {
+      id: 'm-fled',
+      name: 'Zbiegły Ork',
+      initiative: 10,
+      currentHp: 15,
+      maxHp: 15,
+      ac: 13,
+      isMonster: true,
+      isFled: true,
+      conditions: [],
+      statuses: [],
+    };
+
+    render(
+      <CombatantCard
+        combatant={fledMonster}
+        isActiveTurn={false}
+        onHpChange={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('UCIEKŁ')).toBeInTheDocument();
+  });
+
+  it('renders Death Saves widget and roll button when player hero is at 0 HP', () => {
+    const handleRollDeathSave = vi.fn();
+    const handleUpdateDeathSaves = vi.fn();
+
+    const downedHero: Combatant = {
+      id: 'char-downed',
+      name: 'Rannik (Łotrzyk)',
+      initiative: 15,
+      currentHp: 0,
+      maxHp: 22,
+      ac: 15,
+      isMonster: false,
+      conditions: [],
+      statuses: [],
+      deathSaves: {
+        successes: 1,
+        failures: 1,
+        isStabilized: false,
+        isDead: false,
+      },
+    };
+
+    render(
+      <CombatantCard
+        combatant={downedHero}
+        isActiveTurn={true}
+        onHpChange={vi.fn()}
+        onRollDeathSave={handleRollDeathSave}
+        onUpdateDeathSaves={handleUpdateDeathSaves}
+        onRemove={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/POWALONY \(0 HP\)/i)).toBeInTheDocument();
+    expect(screen.getByTestId('death-saves-container')).toBeInTheDocument();
+
+    const rollBtn = screen.getByTestId('roll-death-save-btn');
+    expect(rollBtn).toBeInTheDocument();
+
+    fireEvent.click(rollBtn);
+    expect(handleRollDeathSave).toHaveBeenCalledTimes(1);
+
+    // Toggle success circle 2
+    const successBtn2 = screen.getByTestId('death-save-success-2');
+    fireEvent.click(successBtn2);
+    expect(handleUpdateDeathSaves).toHaveBeenCalledWith({
+      successes: 2,
+      failures: 1,
+      isStabilized: false,
+      isDead: false,
+    });
+  });
+
+  it('displays USTABILIZOWANY status when deathSaves isStabilized is true', () => {
+    const stabilizedHero: Combatant = {
+      id: 'char-stab',
+      name: 'Kleryk Donald',
+      initiative: 8,
+      currentHp: 0,
+      maxHp: 25,
+      ac: 16,
+      isMonster: false,
+      conditions: [],
+      statuses: [],
+      deathSaves: {
+        successes: 3,
+        failures: 0,
+        isStabilized: true,
+        isDead: false,
+      },
+    };
+
+    render(
+      <CombatantCard
+        combatant={stabilizedHero}
+        isActiveTurn={false}
+        onHpChange={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('USTABILIZOWANY')).toBeInTheDocument();
+  });
+
+  it('displays MARTWY status when deathSaves isDead is true', () => {
+    const deadHero: Combatant = {
+      id: 'char-dead',
+      name: 'Biedny Mag',
+      initiative: 5,
+      currentHp: 0,
+      maxHp: 18,
+      ac: 12,
+      isMonster: false,
+      conditions: [],
+      statuses: [],
+      deathSaves: {
+        successes: 0,
+        failures: 3,
+        isStabilized: false,
+        isDead: true,
+      },
+    };
+
+    render(
+      <CombatantCard
+        combatant={deadHero}
+        isActiveTurn={false}
+        onHpChange={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('MARTWY')).toBeInTheDocument();
+  });
 });

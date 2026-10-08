@@ -2,7 +2,6 @@
 
 import {
   Clock,
-  Dices,
   FileText,
   Filter,
   Flame,
@@ -13,7 +12,7 @@ import {
   Swords,
   Wand2,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { MonsterData } from '@/lib/monsters';
 import { AddCombatantsPanel } from '../initiative/AddCombatantsPanel';
 import { CombatLogWidget } from '../initiative/CombatLogWidget';
@@ -42,13 +41,16 @@ interface TimelineSidebarProps {
   combatantsCountForType?: (type: string) => number;
   combatLogEntries?: CombatLogEntry[];
   onClearCombatLog?: () => void;
+  activeCombatantName?: string;
+  onAddCustomAction?: (text: string) => void;
   sessionId?: string;
   heroes?: DashboardCharacter[];
   onRestComplete?: (updatedCharacters: DashboardCharacter[], newLog: DashboardLog) => void;
   onAddSessionLog?: (newLog: DashboardLog) => void;
+  isLoading?: boolean;
 }
 
-export type SidebarTab = 'all' | 'timeline' | 'tactics';
+export type SidebarTab = 'timeline' | 'tactics';
 
 export function TimelineSidebar({
   logs,
@@ -62,26 +64,27 @@ export function TimelineSidebar({
   combatantsCountForType,
   combatLogEntries,
   onClearCombatLog,
+  activeCombatantName,
+  onAddCustomAction,
   sessionId,
   heroes = [],
   onRestComplete,
   onAddSessionLog,
+  isLoading = false,
 }: TimelineSidebarProps) {
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('all');
-  const [quickRollResult, setQuickRollResult] = useState<{
-    die: string;
-    result: number;
-  } | null>(null);
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>('timeline');
+
+  // Automatically reset to timeline if workspace changes away from combat
+  useEffect(() => {
+    if (activeWorkspace !== 'combat' && sidebarTab === 'tactics') {
+      setSidebarTab('timeline');
+    }
+  }, [activeWorkspace, sidebarTab]);
 
   const [activeFilter, setActiveFilter] = useState<TimelineFilter>('all');
   const [isLongRestOpen, setIsLongRestOpen] = useState(false);
   const [isShortRestOpen, setIsShortRestOpen] = useState(false);
   const [isAddNoteOpen, setIsAddNoteOpen] = useState(false);
-
-  const handleQuickRoll = (sides: number) => {
-    const result = Math.floor(Math.random() * sides) + 1;
-    setQuickRollResult({ die: `d${sides}`, result });
-  };
 
   const getLogBadge = (type: SessionLogType) => {
     switch (type) {
@@ -188,84 +191,30 @@ export function TimelineSidebar({
             <span>Taktyka Walki</span>
           </button>
         )}
-
-        <button
-          type="button"
-          data-testid="sidebar-tab-all"
-          onClick={() => setSidebarTab('all')}
-          className={`py-1.5 px-2.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1 transition cursor-pointer ${
-            sidebarTab === 'all'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-          title="Pokaż wszystkie sekcje w jednym panelu"
-        >
-          <span>Wszystko</span>
-        </button>
       </div>
 
-      {/* 1. Quick Dice Roller Section */}
-      {(sidebarTab === 'all' || sidebarTab === 'tactics') && (
-        <div className="space-y-2.5 pb-4 border-b border-slate-800/80 shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
-                <Dices className="w-3.5 h-3.5" />
-              </div>
-              <h2 className="text-xs font-bold text-slate-100 uppercase tracking-wider font-mono">
-                Szybkie Rzuty Kośćmi
-              </h2>
-            </div>
-            {quickRollResult && (
-              <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
-                {quickRollResult.die}: {quickRollResult.result}
-              </span>
-            )}
-          </div>
+      {/* 1. Combat Tactics: Add Combatants & Combat Chronicle (when in combat workspace and tactics tab) */}
+      {sidebarTab === 'tactics' && activeWorkspace === 'combat' && onAddCombatant && monsters && (
+        <div className="space-y-4 pb-4 border-b border-slate-800/80 shrink-0">
+          <AddCombatantsPanel
+            monsters={monsters}
+            onAddCombatant={onAddCombatant}
+            existingCombatantCountForType={combatantsCountForType ?? (() => 0)}
+          />
 
-          <div className="grid grid-cols-4 gap-1.5 font-mono text-xs">
-            {[4, 6, 8, 10, 12, 20, 100].map((sides) => (
-              <button
-                key={sides}
-                type="button"
-                onClick={() => handleQuickRoll(sides)}
-                className="py-1.5 rounded-lg bg-slate-900/80 hover:bg-slate-800 border border-slate-800 hover:border-amber-500/40 text-slate-300 hover:text-amber-300 font-bold transition-all text-center active:scale-95 cursor-pointer"
-              >
-                d{sides}
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={() => handleQuickRoll(20)}
-              className="py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/40 text-amber-300 font-bold transition-all text-center active:scale-95 cursor-pointer"
-              title="Szybki test ataku lub cechy (d20)"
-            >
-              D20!
-            </button>
-          </div>
+          {combatLogEntries && (
+            <CombatLogWidget
+              entries={combatLogEntries}
+              onClear={onClearCombatLog}
+              activeCombatantName={activeCombatantName}
+              onAddCustomAction={onAddCustomAction}
+            />
+          )}
         </div>
       )}
 
-      {/* 2. Combat Tactics: Add Combatants & Combat Chronicle (when in combat workspace) */}
-      {(sidebarTab === 'all' || sidebarTab === 'tactics') &&
-        activeWorkspace === 'combat' &&
-        onAddCombatant &&
-        monsters && (
-          <div className="space-y-4 pb-4 border-b border-slate-800/80 shrink-0">
-            <AddCombatantsPanel
-              monsters={monsters}
-              onAddCombatant={onAddCombatant}
-              existingCombatantCountForType={combatantsCountForType ?? (() => 0)}
-            />
-
-            {combatLogEntries && (
-              <CombatLogWidget entries={combatLogEntries} onClear={onClearCombatLog} />
-            )}
-          </div>
-        )}
-
-      {/* 3. GM Notes Section */}
-      {(sidebarTab === 'all' || sidebarTab === 'timeline') && (
+      {/* 2. GM Notes Section */}
+      {sidebarTab === 'timeline' && (
         <div className="space-y-2 pb-4 border-b border-slate-800/80 shrink-0">
           <div className="flex items-center gap-2">
             <FileText className="w-3.5 h-3.5 text-slate-400" />
@@ -283,8 +232,8 @@ export function TimelineSidebar({
         </div>
       )}
 
-      {/* 4. Session Timeline & Rest Actions (Chunk 7.2) */}
-      {(sidebarTab === 'all' || sidebarTab === 'timeline') && (
+      {/* 3. Session Timeline & Rest Actions (Chunk 7.2) */}
+      {sidebarTab === 'timeline' && (
         <div className="flex flex-col space-y-3 shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -297,18 +246,12 @@ export function TimelineSidebar({
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-slate-400 font-mono">
-                {filteredLogs.length > 0 ? `${filteredLogs.length} wpisów` : 'Pusta'}
+                {isLoading
+                  ? '...'
+                  : filteredLogs.length > 0
+                    ? `${filteredLogs.length} wpisów`
+                    : 'Pusta'}
               </span>
-              {sidebarTab === 'all' && (
-                <button
-                  type="button"
-                  onClick={() => setSidebarTab('timeline')}
-                  className="text-[10px] text-indigo-400 hover:text-indigo-300 font-medium hover:underline cursor-pointer"
-                  title="Rozwiń na pełny widok osi czasu"
-                >
-                  Tylko oś ➔
-                </button>
-              )}
             </div>
           </div>
 
@@ -378,7 +321,26 @@ export function TimelineSidebar({
           </div>
 
           {/* Logs List */}
-          {filteredLogs.length === 0 ? (
+          {isLoading ? (
+            <div
+              data-testid="timeline-sidebar-skeleton"
+              className="space-y-2 pr-1 animate-pulse min-h-[220px]"
+            >
+              {[1, 2, 3, 4].map((i) => (
+                <div
+                  key={`timeline-skel-${i}`}
+                  className="p-2.5 rounded-xl border border-slate-800 bg-slate-900/40 space-y-2"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="h-4 bg-slate-800 rounded w-20" />
+                    <div className="h-3 bg-slate-800/60 rounded w-12" />
+                  </div>
+                  <div className="h-3.5 bg-slate-800/80 rounded w-3/4" />
+                  <div className="h-2.5 bg-slate-800/50 rounded w-1/2" />
+                </div>
+              ))}
+            </div>
+          ) : filteredLogs.length === 0 ? (
             <div className="glass-card rounded-xl p-4 text-center text-slate-400 space-y-1 my-auto">
               <Clock className="w-6 h-6 mx-auto text-slate-600" />
               <p className="text-xs font-medium">Brak zdarzeń na osi czasu.</p>
@@ -389,13 +351,7 @@ export function TimelineSidebar({
               </p>
             </div>
           ) : (
-            <div
-              className={`space-y-2 pr-1 overflow-y-auto ${
-                sidebarTab === 'timeline'
-                  ? 'max-h-[calc(100vh-22rem)] min-h-[220px]'
-                  : 'max-h-80 min-h-[160px]'
-              }`}
-            >
+            <div className="space-y-2 pr-1 overflow-y-auto max-h-[calc(100vh-22rem)] min-h-[220px]">
               {filteredLogs.map((log) => {
                 const badge = getLogBadge(log.logType);
                 const Icon = badge.icon;

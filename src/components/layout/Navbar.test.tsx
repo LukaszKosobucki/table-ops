@@ -33,12 +33,11 @@ describe('Navbar Routing & Access Guard', () => {
     const dashboardBtn = screen.getByRole('button', { name: /ekran prowadzenia/i });
     const bestiaryBtn = screen.getByRole('button', { name: /bestiariusz/i });
     const charactersBtn = screen.getByRole('button', { name: /kreator i karty postaci/i });
-    const diceBtn = screen.getByRole('button', { name: /kości i real-time/i });
 
     expect(dashboardBtn).toBeDisabled();
     expect(bestiaryBtn).toBeDisabled();
     expect(charactersBtn).toBeDisabled();
-    expect(diceBtn).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /kości i real-time/i })).not.toBeInTheDocument();
 
     // Clicking disabled tab should NOT trigger setActiveTab
     await user.click(dashboardBtn);

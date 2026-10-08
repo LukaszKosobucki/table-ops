@@ -257,15 +257,23 @@ function CharacterCard({
         <div className="flex items-center justify-between gap-2 mb-1.5">
           <div className="flex items-center gap-2 min-w-0">
             {/* Avatar initial */}
-            <div
-              className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
-                character.type === 'HERO'
-                  ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                  : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
-              }`}
-            >
-              {character.name.charAt(0).toUpperCase()}
-            </div>
+            {character.avatarUrl ? (
+              <img
+                src={character.avatarUrl}
+                alt={character.name}
+                className="w-7 h-7 rounded-lg object-cover border border-amber-500/30 shrink-0"
+              />
+            ) : (
+              <div
+                className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                  character.type === 'HERO'
+                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
+                    : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                }`}
+              >
+                {character.name.charAt(0).toUpperCase()}
+              </div>
+            )}
 
             <div className="min-w-0">
               <h3 className="text-xs font-bold text-slate-100 truncate">{character.name}</h3>

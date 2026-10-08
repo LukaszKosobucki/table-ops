@@ -2,10 +2,13 @@ import { expect, type Page, test } from '@playwright/test';
 import { createNewSession } from './helpers';
 
 async function addCustomCombatant(page: Page, name: string) {
+  const tacticsTab = page.locator('[data-testid="sidebar-tab-tactics"]');
+  await expect(tacticsTab).toBeVisible();
+  await tacticsTab.click();
   const nameInput = page.locator('input[placeholder="np. Garrok Barbarzyńca"]');
   await expect(nameInput).toBeVisible();
   await nameInput.fill(name);
-  const submitBtn = page.locator('form button:has-text("Dodaj")');
+  const submitBtn = page.locator('button[data-testid="add-custom-combatant-submit-btn"]');
   await submitBtn.click();
   await expect(page.locator(`[data-testid^="combatant-card-"]:has-text("${name}")`)).toBeVisible();
 }
@@ -60,19 +63,7 @@ test.describe('Initiative Tracker Module', () => {
   });
 
   test('adds a custom combatant to the initiative queue', async ({ page }) => {
-    // Fill custom combatant form
-    const nameInput = page.locator('input[placeholder="np. Garrok Barbarzyńca"]');
-    await expect(nameInput).toBeVisible();
-    await nameInput.fill('Bohater Testowy');
-
-    // Submit form by clicking the "Dodaj" button in the custom combatant card
-    const submitBtn = page.locator('form button:has-text("Dodaj")');
-    await submitBtn.click();
-
-    // Verify new combatant appears in the list
-    await expect(
-      page.locator('[data-testid^="combatant-card-"]:has-text("Bohater Testowy")')
-    ).toBeVisible();
+    await addCustomCombatant(page, 'Bohater Testowy');
   });
 
   test('opens encounter builder and returns to combat scene', async ({ page }) => {
@@ -129,6 +120,10 @@ test.describe('Initiative Tracker Module', () => {
       .catch(() => null);
     const endCombatBtn = page.locator('button[data-testid="end-combat-btn"]');
     await endCombatBtn.click();
+    const confirmModalBtn = page.locator('button[data-testid="confirm-end-combat-btn"]');
+    if (await confirmModalBtn.isVisible().catch(() => false)) {
+      await confirmModalBtn.click();
+    }
     await endPromise;
 
     // Verify victory summary banner and reset button
@@ -189,6 +184,10 @@ test.describe('Initiative Tracker Module', () => {
     );
     const endCombatBtn = page.locator('button[data-testid="end-combat-btn"]');
     await endCombatBtn.click();
+    const confirmModalBtn = page.locator('button[data-testid="confirm-end-combat-btn"]');
+    if (await confirmModalBtn.isVisible().catch(() => false)) {
+      await confirmModalBtn.click();
+    }
     await endPromise;
     await expect(page.locator('text=Starcie Zakończone!')).toBeVisible();
 
@@ -372,12 +371,15 @@ test.describe('Initiative Tracker Module', () => {
     await endCombatBtn.click();
     await endPromise;
 
-    // 8. Verify victory summary banner
+    // 8. Verify victory summary banner and that combat queue is cleared
     await expect(page.locator('text=Starcie Zakończone!')).toBeVisible();
+    await expect(combatantCard).not.toBeVisible();
+    await expect(page.locator('text=Brak postaci w walce')).toBeVisible();
 
-    // 9. In PartySidebar, the hero should already show 6/10 HP
+    // 9. In PartySidebar, the hero should already show 6/10 HP and be ready to re-add
     const heroCard = page.locator('[data-testid^="party-card-"]:has-text("Wojownik Szybki")');
     await expect(heroCard.locator('text=6/10')).toBeVisible();
+    await expect(heroCard.locator('button:has-text("Do walki")')).toBeVisible();
 
     // 10. Reload page (F5) to verify database persistence from PostgreSQL
     await page.reload();
@@ -477,5 +479,59 @@ test.describe('Initiative Tracker Module', () => {
     }
 
     await expect(page.locator('text=Drużyna rozbiła obóz pod prastarym dębem.')).toBeVisible();
+  });
+
+  test('disables monster roll in active combat and warns before ending combat with alive monsters', async ({
+    page,
+  }) => {
+    await expect(page.getByText('Initiative Tracker GM')).toBeVisible();
+
+    // 1. Add monster from bestiary dropdown
+    const tacticsTab = page.locator('[data-testid="sidebar-tab-tactics"]');
+    await expect(tacticsTab).toBeVisible();
+    await tacticsTab.click();
+
+    const monsterSelect = page.locator('select');
+    await monsterSelect.selectOption({ label: 'Goblin (CR 0.25, HP 7, AC 15)' });
+    const addMonsterBtn = page.locator('button:has-text("+ Dodaj")');
+    await addMonsterBtn.click();
+
+    await expect(page.locator('[data-testid^="combatant-card-"]:has-text("Goblin")')).toBeVisible();
+
+    // Start combat
+    const startCombatBtn = page.locator('button[data-testid="start-combat-btn"]');
+    await expect(startCombatBtn).toBeEnabled();
+    await startCombatBtn.click();
+
+    // 2. Verify "Losuj Inicjatywę Potworów" is disabled in ACTIVE combat
+    const rollMonstersBtn = page.locator('button:has-text("Losuj Inicjatywę Potworów")');
+    await expect(rollMonstersBtn).toBeDisabled();
+
+    // 3. Click "Zakończ Walkę" while Goblin is alive (7/7 HP)
+    const endCombatBtn = page.locator('button[data-testid="end-combat-btn"]');
+    await endCombatBtn.click();
+
+    // 4. Verify warning modal appears with alive monster info
+    const warningModal = page.locator('[data-testid="end-combat-warning-modal"]');
+    await expect(warningModal).toBeVisible();
+    await expect(warningModal.locator('text=Goblin')).toBeVisible();
+
+    // 5. Cancel warning modal -> combat remains active
+    const cancelBtn = page.locator('button[data-testid="cancel-end-combat-btn"]');
+    await cancelBtn.click();
+    await expect(warningModal).not.toBeVisible();
+    await expect(page.locator('button[data-testid="next-turn-btn"]')).toBeVisible();
+
+    // 6. Click end combat again and confirm
+    await endCombatBtn.click();
+    await expect(warningModal).toBeVisible();
+    const confirmBtn = page.locator('button[data-testid="confirm-end-combat-btn"]');
+    await confirmBtn.click();
+
+    // 7. Verify victory screen and that Goblin disappeared from the queue
+    await expect(page.locator('text=Starcie Zakończone!')).toBeVisible();
+    await expect(
+      page.locator('[data-testid^="combatant-card-"]:has-text("Goblin")')
+    ).not.toBeVisible();
   });
 });
