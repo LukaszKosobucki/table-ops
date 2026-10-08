@@ -20,6 +20,7 @@ export interface DashboardCharacter {
     wis?: number;
     cha?: number;
     tempHp?: number;
+    xp?: number;
   } | null;
   traits?: string[] | null;
   inventory?: string[] | null;

@@ -42,4 +42,63 @@ test.describe('Character Wizard Module', () => {
     // 6. Verify newly created character appears in the party list
     await expect(page.locator('h3:has-text("Gildor Strażnik Lasu")')).toBeVisible();
   });
+
+  test('inspects a character, adds EXP, opens level up modal, and levels up', async ({ page }) => {
+    // 1. Create a Level 3 character first in the wizard
+    await page.locator('div:has-text("Krasnolud (Dwarf)")').last().click();
+    await page.locator('div:has-text("Wojownik (Fighter)")').last().click();
+    await page.locator('button:has-text("Dalej: Przypisanie Atrybutów")').click();
+
+    await expect(page.locator('text=Krok 2: Statystyki i Cechy Bazowe')).toBeVisible();
+    await page.locator('button:has-text("Rzuć 4d6 (Drop Lowest)")').click();
+    await page.locator('button:has-text("Dalej: Nazwa i Poziom")').click();
+
+    await expect(page.locator('text=Krok 3: Tożsamość i Poziom Postaci')).toBeVisible();
+    const nameInput = page.locator('input[placeholder="np. Thorin Dębowa Tarcza"]');
+    await nameInput.fill('Valerius z Ostrej Bieli');
+    const levelInput = page.locator('input[type="number"]');
+    await levelInput.fill('3');
+
+    await page.locator('button:has-text("Dalej: Ekwipunek i Zaklęcia")').click();
+    await expect(page.locator('text=Krok 4: Ekwipunek Początkowy i Zaklęcia')).toBeVisible();
+    await page.locator('button:has-text("Dalej: Podsumowanie")').click();
+
+    await expect(page.locator('text=Krok 5: Podsumowanie Wygenerowanej Karty')).toBeVisible();
+    await page.locator('button:has-text("Zapisz Kartę Postaci")').click();
+    await expect(page.locator('h3:has-text("Valerius z Ostrej Bieli")')).toBeVisible();
+
+    // 2. Navigate back to Ekran Prowadzenia (GM)
+    await page.click('button:has-text("Ekran Prowadzenia (GM)")');
+    await expect(page.locator('text=Drużyna & NPC')).toBeVisible();
+
+    // 3. Select character from party list
+    await page.locator('text=Valerius z Ostrej Bieli').click();
+    await expect(page.locator('h2:has-text("Valerius z Ostrej Bieli")')).toBeVisible();
+
+    // 4. Verify EXP section is visible
+    await expect(page.locator('text=Doświadczenie & Poziom')).toBeVisible();
+
+    // 5. Add EXP
+    await page.locator('button[data-testid="open-add-xp-btn"]').click();
+    await page.locator('input[data-testid="add-xp-input"]').fill('3000');
+    await page.locator('button[data-testid="confirm-add-xp-btn"]').click();
+
+    // 6. Open level up modal
+    await page.locator('button[data-testid="milestone-level-up-btn"]').click();
+
+    // 7. LevelUpModal opens
+    await expect(page.locator('div[data-testid="level-up-modal"]')).toBeVisible();
+
+    // 8. Allocate 2 ASI points for Fighter level 4
+    const plusStr = page.locator('button[data-testid="asi-plus-str"]');
+    await plusStr.click();
+    await plusStr.click();
+
+    // 9. Confirm level up
+    await page.locator('button[data-testid="level-up-confirm-btn"]').click();
+
+    // 10. Modal closes and level is updated
+    await expect(page.locator('div[data-testid="level-up-modal"]')).not.toBeVisible();
+    await expect(page.locator('text=Poziom 4').first()).toBeVisible();
+  });
 });

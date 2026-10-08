@@ -338,4 +338,88 @@ describe('CharacterInspectionCard Component (Chunk 3.2)', () => {
       })
     );
   });
+
+  it('renders EXP progress and allows adding XP with API synchronization', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    } as Response);
+
+    const onUpdate = vi.fn();
+    render(
+      <CharacterInspectionCard
+        character={mockCharacter}
+        onBackToCombat={vi.fn()}
+        onCharacterUpdate={onUpdate}
+      />
+    );
+
+    // Initial XP progress is visible (level 3: 900 to 2,700)
+    expect(screen.getByTestId('xp-progress-text')).toHaveTextContent(/900 \/ 2,700 XP/i);
+
+    // Open add XP input
+    fireEvent.click(screen.getByTestId('open-add-xp-btn'));
+    const xpInput = screen.getByTestId('add-xp-input');
+    fireEvent.change(xpInput, { target: { value: '500' } });
+    fireEvent.click(screen.getByTestId('confirm-add-xp-btn'));
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          stats: expect.objectContaining({ xp: 1400 }),
+        })
+      );
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/characters/char-test-1',
+      expect.objectContaining({
+        method: 'PUT',
+        body: expect.stringContaining('1400'),
+      })
+    );
+  });
+
+  it('opens LevelUpModal on milestone button click and handles level up flow', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    } as Response);
+
+    const onUpdate = vi.fn();
+    render(
+      <CharacterInspectionCard
+        character={mockCharacter}
+        onBackToCombat={vi.fn()}
+        onCharacterUpdate={onUpdate}
+      />
+    );
+
+    // Click milestone level up button
+    fireEvent.click(screen.getByTestId('milestone-level-up-btn'));
+
+    // Modal opens
+    expect(screen.getByTestId('level-up-modal')).toBeInTheDocument();
+    expect(screen.getAllByText(/Awans na Poziom 4/i).length).toBeGreaterThan(0);
+
+    // Allocate 2 ASI points to enable confirmation
+    const plusStr = screen.getByTestId('asi-plus-str');
+    fireEvent.click(plusStr);
+    fireEvent.click(plusStr);
+
+    // Confirm level up
+    fireEvent.click(screen.getByTestId('level-up-confirm-btn'));
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          level: 4,
+          maxHp: 25, // 20 + 5 (avg 4 + CON 1)
+          stats: expect.objectContaining({
+            str: 10, // 8 + 2
+          }),
+        })
+      );
+    });
+  });
 });

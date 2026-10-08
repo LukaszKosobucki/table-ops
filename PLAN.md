@@ -430,6 +430,38 @@ flowchart TD
   * [`e2e/characters.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/characters.spec.ts): test E2E Playwright przechodzący pełen 5-krokowy proces kreatora postaci.
   * Pełny zestaw testów: 327/327 testów Vitest (39 plików, 100% zielone), 0 błędów Biome, czysty build Turbopack oraz 19/19 testów Playwright E2E zielone.
 
+### Chunk 8.4: System EXP i Awansu Postaci (Level Up & Progression) (✅ Zakończone)
+* **Domena i Reguły D&D 5e ([`src/lib/dnd-rules.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.ts)):**
+  * Tabela oficjalnych progów EXP (poziomy 1-20 wg D&D 5e PHB).
+  * `getXpForLevel(level)` oraz `getLevelFromXp(xp)`: wyliczanie poziomu na podstawie zgromadzonych punktów doświadczenia.
+  * `getNextLevelXpThreshold(currentXp)`: postęp EXP, brakujące punkty i procent paska postępu.
+  * `isAsiLevel(className, targetLevel)`: identyfikacja poziomów zwiększenia cech (4, 8, 12, 16, 19 dla większości klas, dodatkowo 6 i 14 dla Wojownika, 10 dla Łotrzyka).
+  * `getClassHitDieAverage(className)`: oficjalna średnia wartość kości życia (d6 -> 4, d8 -> 5, d10 -> 6, d12 -> 7).
+  * `calculateLevelUpHpGain(className, conMod, method, rolledVal)`: przyrost HP z uwzględnieniem średniej klasy lub rzutu kością Hit Die (min. 1 HP).
+  * `calculateProficiencyBonus(level)`: wyliczanie PB (+2 do +6).
+  * `applyLevelUp(character, options)`: czysta funkcja aplikująca awans ze wszystkimi przeliczeniami pochodnymi (HP, AC, PP, Spell Slots, ASI z limitem 20).
+* **Backend i API ([`src/lib/characters.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/characters.ts)):**
+  * Rozszerzenie typów `CharacterStats` i `DashboardCharacter` o pole `xp?: number`.
+  * Aktualizacja endpointu `PUT /api/characters/:id` i walidacji `validateCharacterInput`.
+* **Frontend – Kreator Awansu i Zarządzanie EXP:**
+  * Modal [`src/components/characters/LevelUpModal.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/LevelUpModal.tsx):
+    * Krok 1: Wytrzymałość (HP) – średnia klasy lub losowanie kością Hit Die + CON mod.
+    * Krok 2 (gdy poziom ASI): Przydział 2 punktów cech (+2 lub 2x +1, max 20) z natychmiastowym podglądem modyfikatorów.
+    * Krok 3 (jeśli czarujący): Wybór nowych zaklęć z Kompendium dla odblokowanego kręgu.
+    * Krok 4: Podsumowanie, zatwierdzenie i automatyczna synchronizacja przez `PUT /api/characters/:id` oraz wpis na Osi Czasu Sesji.
+  * Karta Podglądu Bohatera ([`src/components/dashboard/CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx)):
+    * Pasek postępu EXP z progiem do następnego poziomu.
+    * Przycisk `+ EXP` oraz przycisk *"Awansuj (Milestone)"*.
+    * Pulsujący złoty przycisk *"Awans Dostępny! ✨"* przy osiągnięciu progu.
+  * Grupowe rozdzielanie EXP na drużynę w panelu drużyny ([`src/components/dashboard/PartySidebar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/PartySidebar.tsx)) z natychmiastową synchronizacją i wpisem w osi czasu sesji.
+* **Testowanie:**
+  * [`src/lib/dnd-rules.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.test.ts): 48 testów jednostkowych reguł D&D 5e (w tym 9 testów progów EXP, wyliczania poziomu, ASI i awansu).
+  * [`src/components/characters/LevelUpModal.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/LevelUpModal.test.tsx): 4 testy procesu awansu (wybór metody HP, alokacja 2 punktów ASI, nauka czarów, zapis i logi).
+  * [`src/components/dashboard/CharacterInspectionCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.test.tsx): 11 testów (pasek postępu EXP, dodawanie doświadczenia, przycisk milestone, integracja z modalem).
+  * [`src/components/dashboard/PartySidebar.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/PartySidebar.test.tsx): 8 testów (w tym grupowe rozdzielanie punktów EXP drużynie).
+  * [`e2e/characters.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/characters.spec.ts): test E2E Playwright weryfikujący tworzenie postaci, inspekcję na pulpicie GM, dodanie EXP, alokację ASI i awans na poziom 4.
+  * Pełny zestaw testów: 343/343 testów Vitest (40 plików, 100% zielone), 0 błędów Biome linter (178 plików), czysty build Turbopack oraz 20/20 testów Playwright E2E zielone (100%).
+
 ---
 
 ## FAZA 9: Integracja Real-time (Kości), Testy E2E, Narzędzia Jakości i CI
@@ -476,5 +508,5 @@ flowchart TD
 | **Faza 5** | Combat Tracker (Maszyna stanów, tury, statusy, HP) | Faza 4 | 2 chunki |
 | **Faza 6** | Autentykacja (Login/Hasło + Google OAuth) i Izolacja Sesji | Faza 5 | 2 chunki |
 | **Faza 7** | Oś Czasu, Historia i System Odpoczynków | Faza 6 | 2 chunki |
-| **Faza 8** | Kompendium & Kreator (Zaklęcia, Ekwipunek, Cantripy, Seed) (✅ Zakończone) | Faza 3 | 3 chunki |
+| **Faza 8** | Kompendium, Ekwipunek, EXP & Awans Postaci | Faza 3 | 4 chunki |
 | **Faza 9** | Integracja rzutów kośćmi, weryfikacja E2E & CI | Faza 1-8 | 3 chunki |

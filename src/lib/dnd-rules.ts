@@ -353,6 +353,69 @@ export function getRecommendedCantripsCount(className?: string, level: number = 
   return 0;
 }
 
+export type SpellcasterType = 'spellbook' | 'known' | 'prepared' | 'none';
+
+/**
+ * Returns the spellcasting method type for a given class:
+ * - 'spellbook': Wizard (adds 2 spells per level up to spellbook)
+ * - 'known': Sorcerer, Bard, Warlock, Ranger (learns fixed spells from a restricted list)
+ * - 'prepared': Cleric, Druid, Paladin (knows all class spells, prepares daily)
+ * - 'none': Non-casters
+ */
+export function getSpellcasterType(className?: string): SpellcasterType {
+  const canonical = getCanonicalClassName(className);
+  if (canonical === 'Wizard') return 'spellbook';
+  if (['Sorcerer', 'Bard', 'Warlock', 'Ranger'].includes(canonical)) return 'known';
+  if (['Cleric', 'Druid', 'Paladin'].includes(canonical)) return 'prepared';
+  return 'none';
+}
+
+/**
+ * Returns the recommended number of new spells learned upon leveling up according to D&D 5e PHB rules.
+ * - Wizard: 2 spells per level up.
+ * - Sorcerer: 1 spell per level up (levels 2-17), 0 on 18-20.
+ * - Bard: 1 spell per level up (levels 2-9, 11, 13, 15, 17), 2 on Magical Secrets levels (10, 14, 18), 0 on 12, 16, 19, 20.
+ * - Warlock: 1 spell per level up (levels 2-9, 11, 13, 15, 17, 19), 0 on others.
+ * - Ranger: 2 at level 2, 1 on odd levels (3, 5, 7, 9, 11, 13, 15, 17, 19), 0 on even levels.
+ * - Prepared casters (Cleric, Druid, Paladin): 0 (know all class spells automatically, prepare daily).
+ * - Non-casters: 0.
+ */
+export function getRecommendedLevelUpSpellsCount(
+  className?: string,
+  targetLevel: number = 2
+): number {
+  const canonical = getCanonicalClassName(className);
+  const lvl = Math.max(1, Math.min(20, Math.floor(targetLevel)));
+
+  if (canonical === 'Wizard') {
+    return 2;
+  }
+
+  if (canonical === 'Sorcerer') {
+    return lvl <= 17 ? 1 : 0;
+  }
+
+  if (canonical === 'Bard') {
+    if ([10, 14, 18].includes(lvl)) return 2;
+    if ([12, 16, 19, 20].includes(lvl)) return 0;
+    return 1;
+  }
+
+  if (canonical === 'Warlock') {
+    if (lvl <= 9) return 1;
+    if ([11, 13, 15, 17, 19].includes(lvl)) return 1;
+    return 0;
+  }
+
+  if (canonical === 'Ranger') {
+    if (lvl === 2) return 2;
+    if (lvl % 2 === 1) return 1;
+    return 0;
+  }
+
+  return 0;
+}
+
 /**
  * Returns canonical starting equipment package for a class according to D&D 5e rules.
  */
@@ -713,4 +776,267 @@ export function getMonsterXp(monster?: { xp?: number; challengeRating?: number }
     return matched;
   }
   return 10;
+}
+
+/**
+ * Standard D&D 5e Character Level XP Thresholds (Levels 1 to 20).
+ */
+export const XP_LEVEL_THRESHOLDS: readonly number[] = [
+  0, // Level 1
+  300, // Level 2
+  900, // Level 3
+  2700, // Level 4
+  6500, // Level 5
+  14000, // Level 6
+  23000, // Level 7
+  34000, // Level 8
+  48000, // Level 9
+  64000, // Level 10
+  85000, // Level 11
+  100000, // Level 12
+  120000, // Level 13
+  140000, // Level 14
+  165000, // Level 15
+  195000, // Level 16
+  225000, // Level 17
+  265000, // Level 18
+  305000, // Level 19
+  355000, // Level 20
+];
+
+/**
+ * Returns minimum XP required to reach a specific character level (1-20).
+ */
+export function getXpForLevel(level: number): number {
+  const clamped = Math.max(1, Math.min(20, Math.floor(level)));
+  return XP_LEVEL_THRESHOLDS[clamped - 1];
+}
+
+/**
+ * Calculates current character level (1-20) based on accumulated XP.
+ */
+export function getLevelFromXp(xp: number): number {
+  const safeXp = Math.max(0, Math.floor(xp || 0));
+  for (let lvl = 20; lvl >= 1; lvl--) {
+    if (safeXp >= XP_LEVEL_THRESHOLDS[lvl - 1]) {
+      return lvl;
+    }
+  }
+  return 1;
+}
+
+/**
+ * Calculates XP progress details towards the next level.
+ */
+export function getNextLevelXpThreshold(currentXp: number): {
+  currentLevel: number;
+  nextLevel: number;
+  currentLevelXp: number;
+  nextLevelXp: number;
+  remainingXp: number;
+  progressPercent: number;
+} {
+  const safeXp = Math.max(0, Math.floor(currentXp || 0));
+  const currentLevel = getLevelFromXp(safeXp);
+
+  if (currentLevel >= 20) {
+    const maxLvlXp = XP_LEVEL_THRESHOLDS[19];
+    return {
+      currentLevel: 20,
+      nextLevel: 20,
+      currentLevelXp: maxLvlXp,
+      nextLevelXp: maxLvlXp,
+      remainingXp: 0,
+      progressPercent: 100,
+    };
+  }
+
+  const nextLevel = currentLevel + 1;
+  const currentLevelXp = XP_LEVEL_THRESHOLDS[currentLevel - 1];
+  const nextLevelXp = XP_LEVEL_THRESHOLDS[nextLevel - 1];
+  const span = nextLevelXp - currentLevelXp;
+  const earned = Math.max(0, safeXp - currentLevelXp);
+  const remainingXp = Math.max(0, nextLevelXp - safeXp);
+  const progressPercent = span > 0 ? Math.min(100, Math.round((earned / span) * 100)) : 100;
+
+  return {
+    currentLevel,
+    nextLevel,
+    currentLevelXp,
+    nextLevelXp,
+    remainingXp,
+    progressPercent,
+  };
+}
+
+/**
+ * Checks whether the target level provides an Ability Score Improvement (ASI).
+ * Standard: 4, 8, 12, 16, 19
+ * Fighter (Wojownik): additionally 6, 14
+ * Rogue (Łotrzyk): additionally 10
+ */
+export function isAsiLevel(className?: string, targetLevel: number = 4): boolean {
+  const canonical = getCanonicalClassName(className);
+  if ([4, 8, 12, 16, 19].includes(targetLevel)) return true;
+  if (canonical === 'Fighter' && [6, 14].includes(targetLevel)) return true;
+  if (canonical === 'Rogue' && targetLevel === 10) return true;
+  return false;
+}
+
+/**
+ * Returns official D&D 5e average Hit Die value rounded up.
+ */
+export function getClassHitDieAverage(className?: string): number {
+  const die = getClassHitDie(className);
+  switch (die) {
+    case 6:
+      return 4;
+    case 8:
+      return 5;
+    case 10:
+      return 6;
+    case 12:
+      return 7;
+    default:
+      return 5;
+  }
+}
+
+/**
+ * Calculates HP gained upon leveling up (minimum 1 HP).
+ */
+export function calculateLevelUpHpGain(
+  className?: string,
+  conModifier: number = 0,
+  method: 'average' | 'roll' = 'average',
+  rolledDieValue?: number
+): number {
+  const base =
+    method === 'roll' && rolledDieValue !== undefined
+      ? rolledDieValue
+      : getClassHitDieAverage(className);
+  return Math.max(1, base + conModifier);
+}
+
+/**
+ * Calculates standard Proficiency Bonus (PB) based on character level.
+ */
+export function calculateProficiencyBonus(level: number = 1): number {
+  const clamped = Math.max(1, Math.min(20, Math.floor(level)));
+  if (clamped <= 4) return 2;
+  if (clamped <= 8) return 3;
+  if (clamped <= 12) return 4;
+  if (clamped <= 16) return 5;
+  return 6;
+}
+
+export interface LevelUpOptions {
+  hpGainMethod?: 'average' | 'roll';
+  rolledHpValue?: number;
+  abilityScoreImprovements?: {
+    str?: number;
+    dex?: number;
+    con?: number;
+    int?: number;
+    wis?: number;
+    cha?: number;
+  };
+  newSpells?: string[];
+}
+
+/**
+ * Pure domain function applying level up changes to character data.
+ */
+export function applyLevelUp<
+  T extends {
+    level?: number;
+    class?: string | null;
+    maxHp?: number;
+    currentHp?: number;
+    ac?: number;
+    passivePerception?: number;
+    stats?: {
+      str?: number;
+      dex?: number;
+      con?: number;
+      int?: number;
+      wis?: number;
+      cha?: number;
+      tempHp?: number;
+      xp?: number;
+    } | null;
+    spells?: {
+      slots?: CharacterSpellSlots;
+      known?: string[];
+      prepared?: string[];
+    } | null;
+  },
+>(character: T, options: LevelUpOptions = {}): T {
+  const currentLvl = character.level || 1;
+  const newLvl = Math.min(20, currentLvl + 1);
+
+  // Apply ASI improvements
+  const updatedStats = { ...(character.stats || {}) };
+  if (options.abilityScoreImprovements) {
+    const keys: Array<'str' | 'dex' | 'con' | 'int' | 'wis' | 'cha'> = [
+      'str',
+      'dex',
+      'con',
+      'int',
+      'wis',
+      'cha',
+    ];
+    for (const k of keys) {
+      const bonus = options.abilityScoreImprovements[k] || 0;
+      if (bonus > 0) {
+        const currentVal = updatedStats[k] ?? 10;
+        updatedStats[k] = Math.min(20, currentVal + bonus);
+      }
+    }
+  }
+
+  // Calculate HP gain
+  const conMod = getAbilityModifier(updatedStats.con ?? 10);
+  const hpGain = calculateLevelUpHpGain(
+    character.class || undefined,
+    conMod,
+    options.hpGainMethod ?? 'average',
+    options.rolledHpValue
+  );
+
+  const newMaxHp = (character.maxHp || 10) + hpGain;
+  const newCurrentHp = (character.currentHp || 10) + hpGain;
+
+  // Recalculate AC (unarmored default)
+  const newAc = calculateUnarmoredAc(updatedStats.dex ?? 10);
+
+  // Recalculate Passive Perception
+  const newPp = calculatePassivePerception(updatedStats.wis ?? 10);
+
+  // Update spell slots and known spells
+  const newSlots = calculateSpellSlots(character.class || undefined, newLvl);
+  const currentKnown = character.spells?.known || [];
+  const nextKnown = [...currentKnown];
+  if (options.newSpells && options.newSpells.length > 0) {
+    for (const s of options.newSpells) {
+      if (!nextKnown.includes(s)) nextKnown.push(s);
+    }
+  }
+
+  const updatedSpells = {
+    ...(character.spells || {}),
+    slots: newSlots,
+    known: nextKnown,
+  };
+
+  return {
+    ...character,
+    level: newLvl,
+    maxHp: newMaxHp,
+    currentHp: newCurrentHp,
+    ac: newAc,
+    passivePerception: newPp,
+    stats: updatedStats,
+    spells: updatedSpells,
+  };
 }

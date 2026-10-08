@@ -2,25 +2,36 @@ import { describe, expect, it } from 'vitest';
 import {
   applyDamage,
   applyHealing,
+  applyLevelUp,
   applyTempHp,
   calculateEncounterDifficulty,
+  calculateLevelUpHpGain,
   calculateMaxHp,
   calculatePartyXpThresholds,
   calculatePassivePerception,
+  calculateProficiencyBonus,
   calculateSpellSlots,
   calculateUnarmoredAc,
   formatModifier,
   getAbilityModifier,
   getCanonicalClassName,
   getClassHitDie,
+  getClassHitDieAverage,
   getDefaultClassEquipment,
   getEncounterMultiplier,
+  getLevelFromXp,
   getMaxSpellLevel,
   getMonsterXp,
+  getNextLevelXpThreshold,
   getRecommendedCantripsCount,
+  getRecommendedLevelUpSpellsCount,
+  getSpellcasterType,
+  getXpForLevel,
+  isAsiLevel,
   isSpellcasterClass,
   modifySpellSlot,
   roll4d6DropLowest,
+  XP_LEVEL_THRESHOLDS,
 } from './dnd-rules';
 
 describe('dnd-rules - getAbilityModifier', () => {
@@ -490,6 +501,60 @@ describe('dnd-rules - getMaxSpellLevel & getRecommendedCantripsCount', () => {
   });
 });
 
+describe('dnd-rules - getSpellcasterType & getRecommendedLevelUpSpellsCount', () => {
+  it('correctly categorizes classes by spellcasting mechanism', () => {
+    expect(getSpellcasterType('Wizard')).toBe('spellbook');
+    expect(getSpellcasterType('Czarodziej (Wizard)')).toBe('spellbook');
+    expect(getSpellcasterType('Sorcerer')).toBe('known');
+    expect(getSpellcasterType('Bard')).toBe('known');
+    expect(getSpellcasterType('Warlock')).toBe('known');
+    expect(getSpellcasterType('Ranger')).toBe('known');
+    expect(getSpellcasterType('Cleric')).toBe('prepared');
+    expect(getSpellcasterType('Kleryk (Cleric)')).toBe('prepared');
+    expect(getSpellcasterType('Druid')).toBe('prepared');
+    expect(getSpellcasterType('Paladin')).toBe('prepared');
+    expect(getSpellcasterType('Fighter')).toBe('none');
+    expect(getSpellcasterType('Wojownik (Fighter)')).toBe('none');
+    expect(getSpellcasterType('Barbarzyńca')).toBe('none');
+  });
+
+  it('calculates recommended level up spells count for wizard (2 per level)', () => {
+    expect(getRecommendedLevelUpSpellsCount('Wizard', 2)).toBe(2);
+    expect(getRecommendedLevelUpSpellsCount('Wizard', 3)).toBe(2);
+    expect(getRecommendedLevelUpSpellsCount('Wizard', 10)).toBe(2);
+    expect(getRecommendedLevelUpSpellsCount('Czarodziej (Wizard)', 5)).toBe(2);
+  });
+
+  it('calculates recommended level up spells count for sorcerer, bard, warlock and ranger', () => {
+    // Sorcerer: 1 per level up to 17, 0 on 18-20
+    expect(getRecommendedLevelUpSpellsCount('Sorcerer', 2)).toBe(1);
+    expect(getRecommendedLevelUpSpellsCount('Sorcerer', 17)).toBe(1);
+    expect(getRecommendedLevelUpSpellsCount('Sorcerer', 18)).toBe(0);
+
+    // Bard: 1 standard, 2 on magical secrets (10, 14, 18), 0 on 12, 16, 19, 20
+    expect(getRecommendedLevelUpSpellsCount('Bard', 2)).toBe(1);
+    expect(getRecommendedLevelUpSpellsCount('Bard', 10)).toBe(2);
+    expect(getRecommendedLevelUpSpellsCount('Bard', 12)).toBe(0);
+
+    // Warlock: 1 on level 2-9, 11, etc.
+    expect(getRecommendedLevelUpSpellsCount('Warlock', 2)).toBe(1);
+    expect(getRecommendedLevelUpSpellsCount('Warlock', 10)).toBe(0);
+    expect(getRecommendedLevelUpSpellsCount('Warlock', 11)).toBe(1);
+
+    // Ranger: 2 on level 2, 1 on odd levels, 0 on even
+    expect(getRecommendedLevelUpSpellsCount('Ranger', 2)).toBe(2);
+    expect(getRecommendedLevelUpSpellsCount('Ranger', 3)).toBe(1);
+    expect(getRecommendedLevelUpSpellsCount('Ranger', 4)).toBe(0);
+  });
+
+  it('returns 0 recommended new spells for prepared casters and non-casters', () => {
+    expect(getRecommendedLevelUpSpellsCount('Cleric', 2)).toBe(0);
+    expect(getRecommendedLevelUpSpellsCount('Druid', 3)).toBe(0);
+    expect(getRecommendedLevelUpSpellsCount('Paladin', 2)).toBe(0);
+    expect(getRecommendedLevelUpSpellsCount('Fighter', 4)).toBe(0);
+  });
+});
+
 describe('dnd-rules - getDefaultClassEquipment', () => {
   it('returns appropriate starter equipment package for class', () => {
     const fighterEquip = getDefaultClassEquipment('Fighter');
@@ -502,5 +567,148 @@ describe('dnd-rules - getDefaultClassEquipment', () => {
 
     const clericEquip = getDefaultClassEquipment('Kleryk (Cleric)');
     expect(clericEquip).toContain('Święty symbol (Holy Symbol)');
+  });
+});
+
+describe('dnd-rules - XP thresholds and level calculation', () => {
+  it('correctly returns official D&D 5e XP thresholds for levels 1-20', () => {
+    expect(XP_LEVEL_THRESHOLDS).toHaveLength(20);
+    expect(getXpForLevel(1)).toBe(0);
+    expect(getXpForLevel(2)).toBe(300);
+    expect(getXpForLevel(3)).toBe(900);
+    expect(getXpForLevel(4)).toBe(2700);
+    expect(getXpForLevel(5)).toBe(6500);
+    expect(getXpForLevel(20)).toBe(355000);
+  });
+
+  it('calculates character level from total XP points', () => {
+    expect(getLevelFromXp(0)).toBe(1);
+    expect(getLevelFromXp(250)).toBe(1);
+    expect(getLevelFromXp(300)).toBe(2);
+    expect(getLevelFromXp(899)).toBe(2);
+    expect(getLevelFromXp(900)).toBe(3);
+    expect(getLevelFromXp(2700)).toBe(4);
+    expect(getLevelFromXp(6500)).toBe(5);
+    expect(getLevelFromXp(500000)).toBe(20);
+  });
+
+  it('calculates next level threshold, remaining XP and progress percentage', () => {
+    // At 600 XP (Level 2: 300 to 900) -> 300 earned of 600 span = 50%
+    const progress = getNextLevelXpThreshold(600);
+    expect(progress.currentLevel).toBe(2);
+    expect(progress.nextLevel).toBe(3);
+    expect(progress.currentLevelXp).toBe(300);
+    expect(progress.nextLevelXp).toBe(900);
+    expect(progress.remainingXp).toBe(300);
+    expect(progress.progressPercent).toBe(50);
+
+    // At Level 20
+    const maxProgress = getNextLevelXpThreshold(400000);
+    expect(maxProgress.currentLevel).toBe(20);
+    expect(maxProgress.nextLevel).toBe(20);
+    expect(maxProgress.remainingXp).toBe(0);
+    expect(maxProgress.progressPercent).toBe(100);
+  });
+});
+
+describe('dnd-rules - ASI, Hit Die Average, HP Gain and Proficiency Bonus', () => {
+  it('identifies Ability Score Improvement (ASI) levels for standard and special classes', () => {
+    // Wizard: 4, 8, 12, 16, 19
+    expect(isAsiLevel('Wizard', 4)).toBe(true);
+    expect(isAsiLevel('Wizard', 6)).toBe(false);
+    expect(isAsiLevel('Wizard', 8)).toBe(true);
+    expect(isAsiLevel('Wizard', 12)).toBe(true);
+
+    // Fighter: 4, 6, 8, 12, 14, 16, 19
+    expect(isAsiLevel('Fighter', 6)).toBe(true);
+    expect(isAsiLevel('Wojownik', 14)).toBe(true);
+    expect(isAsiLevel('Fighter', 5)).toBe(false);
+
+    // Rogue: 4, 8, 10, 12, 16, 19
+    expect(isAsiLevel('Rogue', 10)).toBe(true);
+    expect(isAsiLevel('Rogue', 6)).toBe(false);
+  });
+
+  it('returns canonical Hit Die average values', () => {
+    expect(getClassHitDieAverage('Wizard')).toBe(4); // d6 -> 4
+    expect(getClassHitDieAverage('Cleric')).toBe(5); // d8 -> 5
+    expect(getClassHitDieAverage('Fighter')).toBe(6); // d10 -> 6
+    expect(getClassHitDieAverage('Barbarian')).toBe(7); // d12 -> 7
+  });
+
+  it('calculates HP gain on level up with minimum of 1 HP', () => {
+    // Fighter (d10, avg 6) with CON +2 (+2 modifier)
+    expect(calculateLevelUpHpGain('Fighter', 2, 'average')).toBe(8);
+
+    // Wizard (d6, avg 4) with low CON -4 (-4 modifier) -> min 1 HP
+    expect(calculateLevelUpHpGain('Wizard', -4, 'average')).toBe(1);
+
+    // Rolled value: Barbarian rolls 10 with CON +3 -> 13 HP
+    expect(calculateLevelUpHpGain('Barbarian', 3, 'roll', 10)).toBe(13);
+  });
+
+  it('calculates proficiency bonus according to level tier', () => {
+    expect(calculateProficiencyBonus(1)).toBe(2);
+    expect(calculateProficiencyBonus(4)).toBe(2);
+    expect(calculateProficiencyBonus(5)).toBe(3);
+    expect(calculateProficiencyBonus(8)).toBe(3);
+    expect(calculateProficiencyBonus(9)).toBe(4);
+    expect(calculateProficiencyBonus(13)).toBe(5);
+    expect(calculateProficiencyBonus(17)).toBe(6);
+    expect(calculateProficiencyBonus(20)).toBe(6);
+  });
+});
+
+describe('dnd-rules - applyLevelUp', () => {
+  it('applies level up with ASI, HP increase and spell slot updates', () => {
+    const character = {
+      level: 3,
+      class: 'Czarodziej (Wizard)',
+      maxHp: 20,
+      currentHp: 18,
+      ac: 12,
+      passivePerception: 11,
+      stats: { str: 8, dex: 14, con: 12, int: 17, wis: 12, cha: 10 },
+      spells: {
+        slots: { 1: { max: 4, used: 1 }, 2: { max: 2, used: 0 } },
+        known: ['Magiczny Pocisk'],
+      },
+    };
+
+    // Level up to 4 (ASI level): +1 INT (17 -> 18), +1 CON (12 -> 13)
+    const updated = applyLevelUp(character, {
+      hpGainMethod: 'average', // Wizard avg 4 + CON mod +1 = +5 HP
+      abilityScoreImprovements: { int: 1, con: 1 },
+      newSpells: ['Kula Ognia'],
+    });
+
+    expect(updated.level).toBe(4);
+    expect(updated.maxHp).toBe(25);
+    expect(updated.currentHp).toBe(23);
+    expect(updated.stats.int).toBe(18);
+    expect(updated.stats.con).toBe(13);
+    // Spells: Wizard level 4 has 4 1st-level slots and 3 2nd-level slots
+    expect(updated.spells.slots[2].max).toBe(3);
+    expect(updated.spells.known).toContain('Kula Ognia');
+    expect(updated.spells.known).toContain('Magiczny Pocisk');
+  });
+
+  it('caps ability scores at 20 when applying ASI', () => {
+    const character = {
+      level: 3,
+      class: 'Wojownik (Fighter)',
+      maxHp: 30,
+      currentHp: 30,
+      ac: 14,
+      passivePerception: 10,
+      stats: { str: 19, dex: 14, con: 14, int: 10, wis: 10, cha: 8 },
+    };
+
+    const updated = applyLevelUp(character, {
+      hpGainMethod: 'average',
+      abilityScoreImprovements: { str: 2 }, // 19 + 2 would be 21, but caps at 20
+    });
+
+    expect(updated.stats.str).toBe(20);
   });
 });

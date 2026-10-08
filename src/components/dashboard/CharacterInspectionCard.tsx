@@ -16,6 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { LevelUpModal } from '@/components/characters/LevelUpModal';
 import type { CompendiumSpell } from '@/lib/compendium';
 import {
   applyDamage,
@@ -25,6 +26,8 @@ import {
   calculateSpellSlots,
   getCanonicalClassName,
   getMaxSpellLevel,
+  getNextLevelXpThreshold,
+  getXpForLevel,
 } from '@/lib/dnd-rules';
 import type { DashboardCharacter } from './types';
 
@@ -79,6 +82,65 @@ export function CharacterInspectionCard({
   const [compendiumSpells, setCompendiumSpells] = useState<CompendiumSpell[]>([]);
   const [selectedSpellToAdd, setSelectedSpellToAdd] = useState('');
   const [customSpellInput, setCustomSpellInput] = useState('');
+
+  // EXP and Level Up state
+  const [isLevelUpModalOpen, setIsLevelUpModalOpen] = useState(false);
+  const [isAddingXp, setIsAddingXp] = useState(false);
+  const [xpToAddInput, setXpToAddInput] = useState('');
+
+  const currentXp = character.stats?.xp ?? getXpForLevel(character.level || 1);
+  const xpProgress = getNextLevelXpThreshold(currentXp);
+  const isLevelUpAvailable = currentXp >= xpProgress.nextLevelXp && (character.level || 1) < 20;
+
+  const handleAddXp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const amount = parseInt(xpToAddInput, 10);
+    if (Number.isNaN(amount) || amount <= 0) return;
+    const nextXp = currentXp + amount;
+    const nextStats = { ...(character.stats || {}), xp: nextXp };
+    const updatedChar: DashboardCharacter = {
+      ...character,
+      stats: nextStats,
+    };
+    onCharacterUpdate?.(updatedChar);
+    setXpToAddInput('');
+    setIsAddingXp(false);
+
+    if (character.id && !character.id.startsWith('char-default')) {
+      try {
+        await fetch(`/api/characters/${character.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stats: nextStats }),
+        });
+      } catch {
+        // Optimistic UI state already updated
+      }
+    }
+  };
+
+  const handleApplyLevelUp = async (updatedChar: DashboardCharacter) => {
+    onCharacterUpdate?.(updatedChar);
+    if (updatedChar.id && !updatedChar.id.startsWith('char-default')) {
+      try {
+        await fetch(`/api/characters/${updatedChar.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            level: updatedChar.level,
+            maxHp: updatedChar.maxHp,
+            currentHp: updatedChar.currentHp,
+            ac: updatedChar.ac,
+            passivePerception: updatedChar.passivePerception,
+            stats: updatedChar.stats,
+            spells: updatedChar.spells,
+          }),
+        });
+      } catch {
+        // Optimistic UI state already updated
+      }
+    }
+  };
 
   // Fetch compendium spells if add modal is toggled
   useEffect(() => {
@@ -442,6 +504,95 @@ export function CharacterInspectionCard({
             <span className="text-base font-bold font-mono text-amber-400">
               {character.passivePerception} PP
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* EXP & Level Progression Card */}
+      <div className="glass-card p-4 rounded-xl border border-slate-800 space-y-2.5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider">
+            <Sparkles className="w-4 h-4 text-amber-400" />
+            <span>Doświadczenie & Poziom {character.level || 1}</span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {/* Quick Add EXP Button */}
+            <button
+              type="button"
+              data-testid="open-add-xp-btn"
+              onClick={() => setIsAddingXp(!isAddingXp)}
+              className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer"
+            >
+              + EXP
+            </button>
+
+            {/* Milestone Level Up Button */}
+            <button
+              type="button"
+              data-testid="milestone-level-up-btn"
+              onClick={() => setIsLevelUpModalOpen(true)}
+              className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-semibold text-slate-300 hover:text-white transition cursor-pointer"
+            >
+              Awansuj (Milestone)
+            </button>
+
+            {/* Ready to Level Up Badge Button */}
+            {isLevelUpAvailable && (
+              <button
+                type="button"
+                data-testid="ready-level-up-btn"
+                onClick={() => setIsLevelUpModalOpen(true)}
+                className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-md shadow-amber-500/20 transition cursor-pointer animate-pulse"
+              >
+                ✨ Dostępny Awans ({xpProgress.nextLevel})!
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Inline Add XP Form */}
+        {isAddingXp && (
+          <form onSubmit={handleAddXp} className="flex items-center gap-2 animate-fadeIn pt-1">
+            <input
+              type="number"
+              min={1}
+              data-testid="add-xp-input"
+              placeholder="Wpisz ilość EXP (np. 300)..."
+              value={xpToAddInput}
+              onChange={(e) => setXpToAddInput(e.target.value)}
+              className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+            />
+            <button
+              type="submit"
+              data-testid="confirm-add-xp-btn"
+              disabled={!xpToAddInput.trim()}
+              className="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 text-xs font-bold cursor-pointer transition"
+            >
+              Dodaj EXP
+            </button>
+          </form>
+        )}
+
+        {/* Visual EXP Progress Bar */}
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+            <span data-testid="xp-progress-text">
+              {currentXp.toLocaleString()} / {xpProgress.nextLevelXp.toLocaleString()} XP
+            </span>
+            <span>
+              {(character.level || 1) >= 20
+                ? 'Maksymalny Poziom'
+                : `Do Poziomu ${xpProgress.nextLevel}: ${xpProgress.remainingXp.toLocaleString()} XP`}
+            </span>
+          </div>
+
+          <div className="w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-800/80">
+            <div
+              className="h-full bg-gradient-to-r from-amber-500 to-indigo-500 transition-all duration-300"
+              style={{ width: `${xpProgress.progressPercent}%` }}
+              title={`Postęp: ${xpProgress.progressPercent}%`}
+            />
           </div>
         </div>
       </div>
@@ -934,6 +1085,17 @@ export function CharacterInspectionCard({
           )}
         </div>
       </div>
+
+      {/* Level Up Modal */}
+      {isLevelUpModalOpen && (
+        <LevelUpModal
+          character={character}
+          isOpen={isLevelUpModalOpen}
+          onClose={() => setIsLevelUpModalOpen(false)}
+          onApplyLevelUp={handleApplyLevelUp}
+          sessionId={character.sessionId || undefined}
+        />
+      )}
     </div>
   );
 }

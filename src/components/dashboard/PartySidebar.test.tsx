@@ -144,4 +144,30 @@ describe('PartySidebar Component (Chunk 2.2)', () => {
     expect(screen.getByTestId('in-combat-badge-char-1')).toBeInTheDocument();
     expect(screen.queryByTestId('add-to-combat-char-1')).not.toBeInTheDocument();
   });
+
+  it('allows toggling group EXP distribution and calls onDistributePartyXp', async () => {
+    const user = userEvent.setup();
+    const handleDistribute = vi.fn();
+
+    render(
+      <PartySidebar
+        characters={mockCharacters}
+        selectedCharacterId={null}
+        onSelectCharacter={vi.fn()}
+        onDistributePartyXp={handleDistribute}
+      />
+    );
+
+    const toggleBtn = screen.getByTestId('distribute-party-xp-toggle-btn');
+    expect(toggleBtn).toBeInTheDocument();
+    await user.click(toggleBtn);
+
+    const input = screen.getByTestId('party-xp-input');
+    await user.type(input, '400');
+
+    const submitBtn = screen.getByTestId('confirm-party-xp-btn');
+    await user.click(submitBtn);
+
+    expect(handleDistribute).toHaveBeenCalledWith(400);
+  });
 });

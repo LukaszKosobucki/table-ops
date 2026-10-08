@@ -1,6 +1,7 @@
 'use client';
 
-import { Eye, Shield, Skull, Swords, User, Users } from 'lucide-react';
+import { Eye, Shield, Skull, Sparkles, Swords, User, Users } from 'lucide-react';
+import { useState } from 'react';
 import type { DashboardCharacter, HealthStatus } from './types';
 
 interface PartySidebarProps {
@@ -11,6 +12,7 @@ interface PartySidebarProps {
   onAddPartyToCombat?: () => void;
   onAddCharacterToCombat?: (character: DashboardCharacter) => void;
   isCharacterInCombat?: (characterId: string) => boolean;
+  onDistributePartyXp?: (totalXp: number) => void;
 }
 
 export function getHealthStatus(currentHp: number, maxHp: number): HealthStatus {
@@ -29,7 +31,11 @@ export function PartySidebar({
   onAddPartyToCombat,
   onAddCharacterToCombat,
   isCharacterInCombat,
+  onDistributePartyXp,
 }: PartySidebarProps) {
+  const [isDistributingXp, setIsDistributingXp] = useState(false);
+  const [partyXpInput, setPartyXpInput] = useState('');
+
   const heroes = characters.filter((c) => c.type === 'HERO');
   const npcs = characters.filter((c) => c.type === 'NPC');
   const allHeroesInCombat =
@@ -79,6 +85,64 @@ export function PartySidebar({
             <Swords className="w-3.5 h-3.5" />
             <span>{allHeroesInCombat ? 'Drużyna w Walce' : 'Załaduj Drużynę do Walki'}</span>
           </button>
+        )}
+
+        {heroes.length > 0 && onDistributePartyXp && (
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              data-testid="distribute-party-xp-toggle-btn"
+              onClick={() => setIsDistributingXp(!isDistributingXp)}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-900/60 hover:bg-slate-800 text-xs font-semibold text-amber-400/90 hover:text-amber-300 transition cursor-pointer"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>{isDistributingXp ? 'Anuluj Rozdzielanie' : 'Rozdziel EXP Drużynie'}</span>
+            </button>
+
+            {isDistributingXp && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const total = parseInt(partyXpInput, 10);
+                  if (!Number.isNaN(total) && total > 0) {
+                    onDistributePartyXp(total);
+                    setPartyXpInput('');
+                    setIsDistributingXp(false);
+                  }
+                }}
+                className="p-2.5 rounded-xl bg-slate-950/80 border border-slate-800 space-y-2 animate-fadeIn"
+              >
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={1}
+                    data-testid="party-xp-input"
+                    placeholder="Suma EXP (np. 600)..."
+                    value={partyXpInput}
+                    onChange={(e) => setPartyXpInput(e.target.value)}
+                    className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                  />
+                  <button
+                    type="submit"
+                    data-testid="confirm-party-xp-btn"
+                    disabled={!partyXpInput.trim()}
+                    className="px-2.5 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 text-slate-950 font-bold text-xs cursor-pointer transition"
+                  >
+                    Rozdziel
+                  </button>
+                </div>
+                {parseInt(partyXpInput, 10) > 0 && heroes.length > 0 && (
+                  <p className="text-[10px] text-slate-400">
+                    Otrzymają po{' '}
+                    <strong className="text-amber-400">
+                      +{Math.floor(parseInt(partyXpInput, 10) / heroes.length)} XP
+                    </strong>{' '}
+                    na każdego z {heroes.length} bohaterów.
+                  </p>
+                )}
+              </form>
+            )}
+          </div>
         )}
       </div>
 

@@ -21,6 +21,7 @@ export interface CharacterStats {
   wis?: number;
   cha?: number;
   tempHp?: number;
+  xp?: number;
 }
 
 export interface CharacterSpells {

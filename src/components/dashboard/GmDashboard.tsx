@@ -5,6 +5,7 @@ import { useCallback, useState } from 'react';
 import { EncounterBuilder } from '@/components/encounters/EncounterBuilder';
 import { InitiativeTracker } from '@/components/initiative/InitiativeTracker';
 import type { Combatant, CombatLogEntry } from '@/components/initiative/types';
+import { getXpForLevel } from '@/lib/dnd-rules';
 import type { MonsterData } from '@/lib/monsters';
 import { CharacterInspectionCard } from './CharacterInspectionCard';
 import { LogInspectionCard } from './LogInspectionCard';
@@ -305,6 +306,58 @@ export function GmDashboard({
     [setCharacters]
   );
 
+  const handleDistributePartyXp = useCallback(
+    async (totalXp: number) => {
+      const heroes = characters.filter((c) => c.type === 'HERO');
+      if (heroes.length === 0 || totalXp <= 0) return;
+
+      const xpPerHero = Math.floor(totalXp / heroes.length);
+      if (xpPerHero <= 0) return;
+
+      const updatedList = characters.map((c) => {
+        if (c.type === 'HERO') {
+          const currentXp = c.stats?.xp ?? getXpForLevel(c.level || 1);
+          const nextStats = { ...(c.stats || {}), xp: currentXp + xpPerHero };
+          return { ...c, stats: nextStats };
+        }
+        return c;
+      });
+
+      setCharacters(updatedList);
+      if (selectedCharacter && selectedCharacter.type === 'HERO') {
+        const found = updatedList.find((c) => c.id === selectedCharacter.id);
+        if (found) setSelectedCharacter(found);
+      }
+
+      // Persist to backend for each hero
+      for (const hero of heroes) {
+        if (hero.id && !hero.id.startsWith('char-default')) {
+          const heroCurrentXp = hero.stats?.xp ?? getXpForLevel(hero.level || 1);
+          fetch(`/api/characters/${hero.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              stats: { ...(hero.stats || {}), xp: heroCurrentXp + xpPerHero },
+            }),
+          }).catch(() => {});
+        }
+      }
+
+      // Log event on timeline
+      if (sessionId) {
+        fetch(`/api/sessions/${sessionId}/logs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            logType: 'CUSTOM_NOTE',
+            description: `🎁 Nagroda EXP: Drużyna otrzymała łącznie ${totalXp} XP (+${xpPerHero} XP na każdego z ${heroes.length} bohaterów).`,
+          }),
+        }).catch(() => {});
+      }
+    },
+    [characters, selectedCharacter, sessionId, setCharacters]
+  );
+
   const handleSelectCharacter = (character: DashboardCharacter) => {
     setSelectedCharacter(character);
     setSelectedLog(null);
@@ -407,6 +460,7 @@ export function GmDashboard({
             onAddPartyToCombat={handleAddPartyToCombat}
             onAddCharacterToCombat={handleAddCharacterToCombat}
             isCharacterInCombat={isCharacterInCombat}
+            onDistributePartyXp={handleDistributePartyXp}
           />
         </div>
 
