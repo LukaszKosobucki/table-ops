@@ -452,4 +452,116 @@ describe('InitiativeTracker Component (Chunk 5.2)', () => {
     expect(screen.queryByTestId('end-combat-warning-modal')).not.toBeInTheDocument();
     expect(handleCombatEnd).toHaveBeenCalledTimes(1);
   });
+
+  it('tracks action economy and refreshes Action and Bonus Action upon advancing turn', () => {
+    render(
+      <InitiativeTracker
+        monsters={mockMonsters}
+        combatants={mockCombatants}
+        initialPhase="ACTIVE"
+      />
+    );
+
+    // Initial turn: Valerius (first combatant)
+    expect(screen.getByTestId(`action-economy-bar-${mockCombatants[0].id}`)).toBeInTheDocument();
+
+    const actionPip = screen.getByTestId('pip-action');
+    const bonusPip = screen.getByTestId('pip-bonus-action');
+
+    // Use Valerius's action and bonus action
+    fireEvent.click(actionPip);
+    fireEvent.click(bonusPip);
+
+    expect(actionPip).toHaveTextContent(/Zużyta/i);
+    expect(bonusPip).toHaveTextContent(/Zużyta/i);
+
+    // Click Next Turn -> now it's Goblin's turn
+    const nextTurnBtn = screen.getByRole('button', { name: /Następna Tura/i });
+    fireEvent.click(nextTurnBtn);
+
+    // Goblin's turn is active now and has freshly available action and bonus action
+    expect(screen.getByTestId(`action-economy-bar-${mockCombatants[1].id}`)).toBeInTheDocument();
+    const goblinActionPip = screen.getByTestId('pip-action');
+    const goblinBonusPip = screen.getByTestId('pip-bonus-action');
+
+    expect(goblinActionPip).toHaveTextContent(/Akcja Główna/i);
+    expect(goblinBonusPip).toHaveTextContent(/Bonus Action/i);
+  });
+
+  it('preserves Reaction used out of turn until that combatant turn starts', () => {
+    render(
+      <InitiativeTracker
+        monsters={mockMonsters}
+        combatants={mockCombatants}
+        initialPhase="ACTIVE"
+      />
+    );
+
+    // Currently it's Valerius's turn. Goblin is non-active, but uses their reaction on an opportunity attack!
+    const goblinReactionBadge = screen.getByTestId(`reaction-toggle-badge-${mockCombatants[1].id}`);
+    expect(goblinReactionBadge).toHaveTextContent(/Reakcja/i);
+    expect(goblinReactionBadge).not.toHaveTextContent(/zużyta/i);
+
+    // Goblin expends reaction out-of-turn
+    fireEvent.click(goblinReactionBadge);
+    expect(goblinReactionBadge).toHaveTextContent(/Reakcja zużyta/i);
+
+    // Next turn -> Now it becomes Goblin's turn!
+    const nextTurnBtn = screen.getByRole('button', { name: /Następna Tura/i });
+    fireEvent.click(nextTurnBtn);
+
+    // On Goblin's own turn start, their reaction refreshes!
+    const goblinPipReaction = screen.getByTestId('pip-reaction');
+    expect(goblinPipReaction).not.toHaveTextContent(/Zużyta/i);
+    expect(goblinPipReaction).toHaveTextContent(/^Reakcja$/);
+  });
+
+  it('allows multiattack toggles and extra action addition during active combat', () => {
+    const dragonCombatant: Combatant = {
+      id: 'm-dragon',
+      name: 'Adult Red Dragon',
+      initiative: 19,
+      currentHp: 256,
+      maxHp: 256,
+      ac: 19,
+      isMonster: true,
+      conditions: [],
+      rawActions: [
+        {
+          name: 'Multiattack',
+          desc: 'The dragon makes three attacks: one with its bite and two with its claws.',
+          actions: [
+            { action_name: 'Bite', count: 1 },
+            { action_name: 'Claw', count: 2 },
+          ],
+        },
+      ],
+    };
+
+    render(
+      <InitiativeTracker
+        monsters={mockMonsters}
+        combatants={[dragonCombatant]}
+        initialPhase="ACTIVE"
+      />
+    );
+
+    // Check Multiattack rendered
+    expect(screen.getByText(/MULTIATTACK/i)).toBeInTheDocument();
+    expect(screen.getByText('Ugryzienie')).toBeInTheDocument();
+    expect(screen.getByText('Pazur 1')).toBeInTheDocument();
+    expect(screen.getByText('Pazur 2')).toBeInTheDocument();
+    expect(screen.getByTestId('multiattack-remaining')).toHaveTextContent('(Pozostało: 3/3)');
+
+    // Click Bite attack segment
+    fireEvent.click(screen.getByTestId('attack-segment-atk-1'));
+    expect(screen.getByTestId('multiattack-remaining')).toHaveTextContent('(Pozostało: 2/3)');
+
+    // Add extra action (e.g. Action Surge or Legendary Action)
+    const addActionBtn = screen.getByTestId('add-extra-action-btn');
+    fireEvent.click(addActionBtn);
+
+    expect(screen.getByTestId('pip-extra-action-0')).toBeInTheDocument();
+    expect(screen.getByTestId('pip-extra-action-0')).toHaveTextContent(/Dodatkowa Akcja #1/i);
+  });
 });

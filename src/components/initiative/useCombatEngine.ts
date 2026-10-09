@@ -1,12 +1,21 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  addExtraAction,
+  consumeNextAttack,
+  initCombatantTurnResources,
+  resetTurnResourcesForNewTurn,
+  toggleAttackSegment,
+  toggleTurnAction,
+} from '@/lib/combat-actions';
 import type {
   Combatant,
   CombatLogEntry,
   CombatPhase,
   CombatStatusItem,
   DeathSaveState,
+  TurnActionType,
 } from './types';
 
 export const DEFAULT_COMBATANTS: Combatant[] = [];
@@ -175,7 +184,17 @@ export function useCombatEngine({
     if (combatants.length === 0) return;
 
     // Freeze and sort combatants by initiative descending
-    const sorted = [...combatants].sort((a, b) => b.initiative - a.initiative);
+    const sorted = [...combatants]
+      .sort((a, b) => b.initiative - a.initiative)
+      .map((c, idx) => {
+        const baseRes =
+          c.turnResources ??
+          initCombatantTurnResources({ actions: c.rawActions, className: c.type });
+        return {
+          ...c,
+          turnResources: idx === 0 ? resetTurnResourcesForNewTurn(baseRes, true) : baseRes,
+        };
+      });
     setCombatants(sorted);
     setCurrentTurnIndex(0);
     setRound(1);
@@ -297,10 +316,10 @@ export function useCombatEngine({
       });
 
       // Decrement timed statuses for the combatant whose turn is starting
-      if (activeCombatant.statuses && activeCombatant.statuses.length > 0) {
-        const remainingStatuses: CombatStatusItem[] = [];
-        const expiredStatusNames: string[] = [];
+      const remainingStatuses: CombatStatusItem[] = [];
+      const expiredStatusNames: string[] = [];
 
+      if (activeCombatant.statuses && activeCombatant.statuses.length > 0) {
         for (const st of activeCombatant.statuses) {
           const nextDur = st.durationTurns - 1;
           if (nextDur <= 0) {
@@ -313,22 +332,39 @@ export function useCombatEngine({
         for (const name of expiredStatusNames) {
           addLogEntry(`Efekt "${name}" na ${activeCombatant.name} wygasł.`, 'status');
         }
+      }
 
-        setCombatants((prev) =>
-          prev.map((c) => {
-            if (c.id !== activeCombatant.id || !c.statuses) return c;
+      setCombatants((prev) =>
+        prev.map((c, idx) => {
+          const isOwnTurnStarting = idx === targetIdx;
+          const currentRes =
+            c.turnResources ??
+            initCombatantTurnResources({ actions: c.rawActions, className: c.type });
+          const updatedRes = resetTurnResourcesForNewTurn(currentRes, isOwnTurnStarting);
+
+          if (
+            isOwnTurnStarting &&
+            activeCombatant.statuses &&
+            activeCombatant.statuses.length > 0
+          ) {
             const updatedConditions = c.conditions.filter(
               (cond) => !expiredStatusNames.includes(cond)
             );
 
             return {
               ...c,
+              turnResources: updatedRes,
               statuses: remainingStatuses,
               conditions: updatedConditions,
             };
-          })
-        );
-      }
+          }
+
+          return {
+            ...c,
+            turnResources: updatedRes,
+          };
+        })
+      );
     }
 
     if (combatId) {
@@ -700,8 +736,18 @@ export function useCombatEngine({
       `Do walki dołącza: ${newCombatant.name} (Inicjatywa: ${newCombatant.initiative}).`,
       'system'
     );
+    const combatantWithResources: Combatant = {
+      ...newCombatant,
+      turnResources:
+        newCombatant.turnResources ??
+        initCombatantTurnResources({
+          actions: newCombatant.rawActions,
+          className: newCombatant.type,
+        }),
+    };
+
     setCombatants((prev) => {
-      const updated = [...prev, newCombatant];
+      const updated = [...prev, combatantWithResources];
       return combatPhase === 'ACTIVE'
         ? updated // in active combat, append reinforcements at the end
         : updated.sort((a, b) => b.initiative - a.initiative);
@@ -914,6 +960,78 @@ export function useCombatEngine({
     [setCombatants]
   );
 
+  const handleToggleTurnAction = useCallback(
+    (combatantId: string, actionType: TurnActionType, extraIndex?: number) => {
+      setCombatants((prev) =>
+        prev.map((c) => {
+          if (c.id !== combatantId) return c;
+          const currentRes =
+            c.turnResources ??
+            initCombatantTurnResources({ actions: c.rawActions, className: c.type });
+          return {
+            ...c,
+            turnResources: toggleTurnAction(currentRes, actionType, extraIndex),
+          };
+        })
+      );
+    },
+    [setCombatants]
+  );
+
+  const handleAddExtraAction = useCallback(
+    (combatantId: string) => {
+      setCombatants((prev) =>
+        prev.map((c) => {
+          if (c.id !== combatantId) return c;
+          const currentRes =
+            c.turnResources ??
+            initCombatantTurnResources({ actions: c.rawActions, className: c.type });
+          return {
+            ...c,
+            turnResources: addExtraAction(currentRes),
+          };
+        })
+      );
+    },
+    [setCombatants]
+  );
+
+  const handleToggleAttackSegment = useCallback(
+    (combatantId: string, attackId: string) => {
+      setCombatants((prev) =>
+        prev.map((c) => {
+          if (c.id !== combatantId) return c;
+          const currentRes =
+            c.turnResources ??
+            initCombatantTurnResources({ actions: c.rawActions, className: c.type });
+          return {
+            ...c,
+            turnResources: toggleAttackSegment(currentRes, attackId),
+          };
+        })
+      );
+    },
+    [setCombatants]
+  );
+
+  const handleConsumeAttack = useCallback(
+    (combatantId: string) => {
+      setCombatants((prev) =>
+        prev.map((c) => {
+          if (c.id !== combatantId) return c;
+          const currentRes =
+            c.turnResources ??
+            initCombatantTurnResources({ actions: c.rawActions, className: c.type });
+          return {
+            ...c,
+            turnResources: consumeNextAttack(currentRes),
+          };
+        })
+      );
+    },
+    [setCombatants]
+  );
+
   const activeCombatant = combatants[currentTurnIndex];
   let nextCombatant: Combatant | undefined;
   if (combatants.length > 1) {
@@ -958,5 +1076,9 @@ export function useCombatEngine({
     handleRollDeathSave,
     handleUpdateDeathSaves,
     handleTrackSpellCast,
+    handleToggleTurnAction,
+    handleAddExtraAction,
+    handleToggleAttackSegment,
+    handleConsumeAttack,
   };
 }

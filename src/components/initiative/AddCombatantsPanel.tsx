@@ -3,6 +3,7 @@
 import { Plus, Skull } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { initCombatantTurnResources } from '@/lib/combat-actions';
 import type { MonsterData } from '@/lib/monsters';
 import type { Combatant } from './types';
 
@@ -45,6 +46,8 @@ export function AddCombatantsPanel({
         targetMonster.xp ||
         (targetMonster.challengeRating ? Math.round(targetMonster.challengeRating * 200) : 100),
       conditions: [],
+      rawActions: targetMonster.actions,
+      turnResources: initCombatantTurnResources({ actions: targetMonster.actions }),
     };
 
     onAddCombatant(newCombatant);

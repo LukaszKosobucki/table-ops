@@ -2,10 +2,12 @@
 
 import { Dices, Flag, Heart, Shield, Skull, Sparkles, Swords, Trash2, User, X } from 'lucide-react';
 import { useState } from 'react';
+import { initCombatantTurnResources } from '@/lib/combat-actions';
 import type { DiceGroup } from '@/lib/dice/types';
+import { ActionEconomyBar } from './ActionEconomyBar';
 import { CombatantHpControls } from './CombatantHpControls';
 import { CombatantStatusModal } from './CombatantStatusModal';
-import type { Combatant, CombatPhase, DeathSaveState } from './types';
+import type { Combatant, CombatPhase, DeathSaveState, TurnActionType } from './types';
 
 export interface CombatantCardProps {
   combatant: Combatant;
@@ -20,6 +22,10 @@ export interface CombatantCardProps {
   onFlee?: () => void;
   onRollDeathSave?: () => void;
   onUpdateDeathSaves?: (saves: DeathSaveState) => void;
+  onToggleTurnAction?: (type: TurnActionType, extraIndex?: number) => void;
+  onAddExtraAction?: () => void;
+  onToggleAttackSegment?: (attackId: string) => void;
+  onConsumeAttack?: () => void;
   onRequestDiceRoll?: (
     dice: DiceGroup[],
     modifier: number,
@@ -45,6 +51,10 @@ export function CombatantCard({
   onFlee,
   onRollDeathSave,
   onUpdateDeathSaves,
+  onToggleTurnAction,
+  onAddExtraAction,
+  onToggleAttackSegment,
+  onConsumeAttack,
   onRequestDiceRoll,
 }: CombatantCardProps) {
   const isMonsterDead = c.isMonster && c.currentHp <= 0;
@@ -56,6 +66,13 @@ export function CombatantCard({
     !c.isMonster &&
     (c.deathSaves?.isStabilized === true || c.conditions.includes('Ustabilizowany'));
   const isDeadOrInactive = isMonsterDead || isHeroDead || isFled;
+
+  const turnResources =
+    c.turnResources ??
+    initCombatantTurnResources({
+      actions: c.rawActions,
+      className: c.type,
+    });
 
   const hpPercent = c.maxHp > 0 ? Math.round((c.currentHp / c.maxHp) * 100) : 0;
   const [showStatusModal, setShowStatusModal] = useState<boolean>(false);
@@ -145,6 +162,31 @@ export function CombatantCard({
                 <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono inline-flex items-center gap-1">
                   <Shield className="w-3 h-3 text-slate-400" /> AC {c.ac}
                 </span>
+
+                {!isActiveTurn && phase === 'ACTIVE' && !isDeadOrInactive && onToggleTurnAction && (
+                  <button
+                    type="button"
+                    data-testid={`reaction-toggle-badge-${c.id}`}
+                    onClick={() => onToggleTurnAction('reaction')}
+                    className={`text-[11px] px-2 py-0.5 rounded font-mono inline-flex items-center gap-1 transition cursor-pointer border ${
+                      turnResources.reactionUsed
+                        ? 'bg-slate-900/60 text-slate-500 border-slate-800 line-through opacity-60 hover:opacity-100'
+                        : 'bg-emerald-950/40 text-emerald-300 border-emerald-800/60 hover:bg-emerald-900/40'
+                    }`}
+                    title={
+                      turnResources.reactionUsed
+                        ? 'Reakcja zużyta poza własną turą (odnawia się na początku tury)'
+                        : 'Reakcja dostępna (kliknij, aby zużyć np. na atak okazyjny)'
+                    }
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        turnResources.reactionUsed ? 'bg-slate-600' : 'bg-emerald-400'
+                      }`}
+                    />
+                    <span>{turnResources.reactionUsed ? 'Reakcja zużyta' : 'Reakcja'}</span>
+                  </button>
+                )}
 
                 {isActiveTurn && (
                   <span
@@ -391,14 +433,15 @@ export function CombatantCard({
                 <button
                   type="button"
                   data-testid={`combatant-roll-btn-${c.id}`}
-                  onClick={() =>
+                  onClick={() => {
+                    onConsumeAttack?.();
                     onRequestDiceRoll([{ type: 'd20', count: 1 }], 0, {
                       combatantId: c.id,
                       characterId: c.characterId ?? undefined,
                       characterName: c.name,
                       actionName: `Rzut: ${c.name}`,
-                    })
-                  }
+                    });
+                  }}
                   className="px-2.5 py-1 text-xs rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 transition cursor-pointer"
                   title="Otwórz rzutnik kości dla tej postaci"
                 >
@@ -432,6 +475,18 @@ export function CombatantCard({
               </button>
             </div>
           </div>
+        )}
+
+        {/* Action Economy & Multiattack Tracker for Active Combatant */}
+        {isActiveTurn && phase === 'ACTIVE' && !isDeadOrInactive && (
+          <ActionEconomyBar
+            combatantId={c.id}
+            resources={turnResources}
+            onToggleAction={(type, extraIdx) => onToggleTurnAction?.(type, extraIdx)}
+            onAddExtraAction={() => onAddExtraAction?.()}
+            onToggleAttackSegment={(attackId) => onToggleAttackSegment?.(attackId)}
+            isCurrentTurn={true}
+          />
         )}
 
         {/* Timed Status Popover / Modal */}

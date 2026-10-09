@@ -57,9 +57,9 @@ export function TurnControls({
 
   return (
     <div className="glass-panel rounded-2xl p-5 border border-indigo-500/20 bg-gradient-to-r from-slate-900/90 via-slate-900/80 to-indigo-950/40 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 shadow-xl">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 min-w-0 shrink-0">
         <div
-          className={`w-12 h-12 rounded-xl flex items-center justify-center border ${
+          className={`w-12 h-12 rounded-xl flex items-center justify-center border shrink-0 ${
             combatPhase === 'ACTIVE'
               ? 'bg-amber-500/20 border-amber-500/40 text-amber-400 animate-pulse'
               : combatPhase === 'PREPARING'
@@ -76,10 +76,10 @@ export function TurnControls({
           )}
         </div>
 
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 whitespace-nowrap">
             <span
-              className={`text-xs font-semibold uppercase tracking-wider ${
+              className={`text-xs font-semibold uppercase tracking-wider shrink-0 ${
                 combatPhase === 'ACTIVE'
                   ? 'text-amber-400'
                   : combatPhase === 'PREPARING'
@@ -93,12 +93,12 @@ export function TurnControls({
                   ? 'Faza Przygotowania'
                   : 'Starcie Zakończone'}
             </span>
-            <span className="text-xs px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono">
+            <span className="text-xs px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-mono shrink-0">
               Runda {round}
             </span>
           </div>
 
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
+          <h2 className="text-xl font-bold text-white flex items-center gap-2 whitespace-nowrap">
             <span>
               {combatPhase === 'FINISHED' ? 'Starcie Zakończone!' : 'Initiative Tracker GM'}
             </span>
@@ -106,7 +106,7 @@ export function TurnControls({
 
           {/* Turn status indicator */}
           {combatPhase === 'ACTIVE' && activeCombatantName && (
-            <p className="text-xs text-slate-300 mt-0.5">
+            <p className="text-xs text-slate-300 mt-0.5 whitespace-nowrap">
               Teraz tura:{' '}
               <strong className="text-amber-400 font-semibold">{activeCombatantName}</strong>
               {nextCombatantName && (
@@ -116,13 +116,13 @@ export function TurnControls({
           )}
 
           {combatPhase === 'PREPARING' && (
-            <p className="text-xs text-slate-400 mt-0.5">
+            <p className="text-xs text-slate-400 mt-0.5 whitespace-nowrap">
               Ustal inicjatywę graczy i potworów przed rozpoczęciem starcia.
             </p>
           )}
 
           {combatPhase === 'FINISHED' && (
-            <p className="text-xs text-emerald-400/90 mt-0.5">
+            <p className="text-xs text-emerald-400/90 mt-0.5 whitespace-nowrap">
               Walka zakończona. Zdrowie bohaterów zostało zsynchronizowane z ich kartami.
             </p>
           )}
@@ -170,18 +170,19 @@ export function TurnControls({
               type="button"
               disabled
               title="Inicjatywa potworów jest zablokowana po rozpoczęciu walki"
+              aria-label="Losuj Inicjatywę Potworów"
               data-testid="roll-monsters-init-disabled-btn"
-              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/40 text-slate-500 border border-slate-800 text-xs font-medium cursor-not-allowed opacity-50"
+              className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-800/40 text-slate-500 border border-slate-800 text-xs font-medium cursor-not-allowed opacity-50 shrink-0"
             >
-              <RotateCcw className="w-4 h-4 text-slate-600" />
-              <span>Losuj Inicjatywę Potworów</span>
+              <RotateCcw className="w-4 h-4 text-slate-600 shrink-0" />
+              <span className="hidden 2xl:inline">Losuj Inicjatywę Potworów</span>
             </button>
 
             <button
               type="button"
               data-testid="next-turn-btn"
               onClick={onNextTurn}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition transform active:scale-95 cursor-pointer"
+              className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 transition transform active:scale-95 cursor-pointer shrink-0"
             >
               <span>Następna Tura</span>
               <ChevronRight className="w-4 h-4" />
@@ -192,7 +193,7 @@ export function TurnControls({
                 type="button"
                 data-testid="end-combat-btn"
                 onClick={onEndCombat}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-950/60 hover:bg-red-900/60 border border-red-800 text-red-300 text-xs font-semibold transition cursor-pointer"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-950/60 hover:bg-red-900/60 border border-red-800 text-red-300 text-xs font-semibold transition cursor-pointer shrink-0"
                 title="Zakończ walkę i zapisz stan postaci"
               >
                 <Square className="w-3.5 h-3.5" />

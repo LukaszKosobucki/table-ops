@@ -3,6 +3,7 @@
 import { Plus, Skull, User, X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import { initCombatantTurnResources } from '@/lib/combat-actions';
 import { getAbilityModifier } from '@/lib/dnd-rules';
 import type { MonsterData } from '@/lib/monsters';
 import type { Combatant } from './types';
@@ -82,6 +83,8 @@ export function AddCombatantModal({
         isMonster: true,
         type: monster.type,
         conditions: [],
+        rawActions: monster.actions,
+        turnResources: initCombatantTurnResources({ actions: monster.actions }),
       });
     }
 

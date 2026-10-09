@@ -6,6 +6,7 @@ import { DraggableDiceTray } from '@/components/dice/DraggableDiceTray';
 import { EncounterBuilder } from '@/components/encounters/EncounterBuilder';
 import { InitiativeTracker } from '@/components/initiative/InitiativeTracker';
 import type { Combatant, CombatLogEntry } from '@/components/initiative/types';
+import { initCombatantTurnResources } from '@/lib/combat-actions';
 import type { DiceGroup, RollResult } from '@/lib/dice/types';
 import { getXpForLevel } from '@/lib/dnd-rules';
 import type { MonsterData } from '@/lib/monsters';
@@ -423,8 +424,13 @@ export function GmDashboard({
       maxHp: h.maxHp,
       ac: h.ac,
       isMonster: false,
+      type: h.class || undefined,
       conditions: [],
       statuses: [],
+      turnResources: initCombatantTurnResources({
+        className: h.class || undefined,
+        level: h.level,
+      }),
     }));
 
     const now = new Date();

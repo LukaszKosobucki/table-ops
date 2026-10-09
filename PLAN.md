@@ -644,34 +644,40 @@ flowchart TD
 
 *Kontekst:* Wdrożenie pełnego zestawu reguł mechanicznych D&D 5e w oparciu o zasilone w Kroku 1 oficjalne kompendium SRD 5.1 (334 potwory, 319 czarów, 599 przedmiotów). Rozszerzenie wiersza walki, kart postaci i ekwipunku o automatyczne wyliczenia i bezpośrednią integrację z szybkim rzutnikiem kości.
 
-### Chunk 11.1: Ekonomia Akcji i Wieloataki w Wierszu Walki (US-ACT-01, US-ACT-02)
+### Chunk 11.1: Ekonomia Akcji i Wieloataki w Wierszu Walki (US-ACT-01, US-ACT-02) (✅ Zakończone)
 * **User Stories & Wymagania:**
   * **US-ACT-01: Wizualne śledzenie akcji w turze (Action Pips)**
     * *Jako* Mistrz Gry (GM),
     * *Chcę* widzieć i przełączać stan Akcji Głównej, Bonusowej (Bonus Action) oraz Reakcji dla aktywnej jednostki,
     * *Aby* natychmiast kontrolować, czy potwór lub gracz może jeszcze wykonać ruch w danej rundzie.
     * *Kryteria Akceptacji:*
-      - Wewnątrz karty aktywnej tury (`CombatantCard`) renderowany jest dedykowany rząd żetonów akcji (`Action Pips`):
-        - `[● Akcja]` (domyślnie aktywny, odcień błękitny/indygo `tableops-azure`)
+      - Wewnątrz karty aktywnej tury (`CombatantCard`) renderowany jest dedykowany rząd żetonów akcji (`ActionEconomyBar`):
+        - `[● Akcja Główna]` (domyślnie aktywny, odcień błękitny `tableops-azure` / `sky-500`)
         - `[● Bonus Action]` (domyślnie aktywny, odcień bursztynowy `amber-500`)
         - `[● Reakcja]` (domyślnie aktywny, odcień szmaragdowy `tableops-emerald`)
-      - Kliknięcie żetonu przełącza jego stan na `Zużyty` (`[○ Zużyty]` – wyszarzone tło, przekreślony tekst, obniżona przezroczystość).
-      - Kliknięcie przycisku `Następna Tura >` w panelu potyczki automatycznie odświeża `Akcję` i `Bonus Action` dla nowo aktywnej jednostki.
-      - `Reakcja` resetuje się wyłącznie w momencie, gdy kolejka ponownie przechodzi na daną jednostkę (zgodnie z regułą D&D 5e: reakcję można zużyć poza własną turą, a odnawia się na początku własnej tury).
+      - Kliknięcie żetonu przełącza stan na `Zużyty` (`[○ Zużyty]` – wyszarzone tło, przekreślony tekst `line-through`, obniżona przezroczystość).
+      - Poza własną turą jednostki posiadają podręczny znacznik reakcji przy AC, umożliwiający oznaczenie ataku okazyjnego lub reakcji poza turą.
+      - Kliknięcie przycisku `Następna Tura >` automatycznie odświeża `Akcję` i `Bonus Action` nowo aktywnej jednostki.
+      - `Reakcja` resetuje się wyłącznie w momencie, gdy kolejka ponownie przechodzi na daną jednostkę (zgodnie z D&D 5e: reakcję można zużyć poza własną turą, a odnawia się na początku własnej tury).
   * **US-ACT-02: Licznik ataków wielokrotnych (Multiattack / Extra Attack)**
     * *Jako* Mistrz Gry,
     * *Chcę* mieć dynamiczny licznik wykonanych ataków w ramach jednej Akcji Ataku,
     * *Aby* nie gubić rachuby przy jednostkach wykonujących 2, 3 lub więcej uderzeń w turze.
     * *Kryteria Akceptacji:*
-      - Jeśli potwór posiada cechę `Multiattack` lub postać gracza posiada `Extra Attack`, w wierszu pojawia się segmentowy wskaźnik: `Ataki: [●] [○] [○] (Pozostało: X/Y)`.
-      - Kliknięcie rzutu ataku lub ręczne kliknięcie w segment odznacza atak jako wykonany (`[✓]`).
-      - Dostępny przycisk `+ Dodatkowa Akcja` (obsługujący np. Action Surge Wojownika, czar Haste lub akcje legendarne), dodający tymczasowy żeton do bieżącej tury.
+      - Wykrywanie cechy `Multiattack` potworów (z zachowaniem nazw segmentów, np. Ugryzienie + 2x Pazur dla smoka) oraz `Extra Attack` dla klas bitewnych (Wojownik, Barbarzyńca, Paladyn, Łowca, Mnich).
+      - Segmentowy wskaźnik ataków: `Ataki: [●] [○] [○]` z licznikiem pozostałych uderzeń: `(Pozostało: X/Y)`.
+      - Kliknięcie rzutu kością k20 (`Rzut`) lub bezpośrednie kliknięcie w segment odznacza atak jako wykonany (`[✓]`).
+      - Przycisk `+ Dodaj akcję` dodający dynamiczny żeton dodatkowej akcji do bieżącej tury (Action Surge, Haste, akcje legendarne).
 * **Architektura & Frontend:**
+  * Moduł domenowy [`src/lib/combat-actions.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/combat-actions.ts) z algorytmem parsowania i translacji nazw ataków, mechaniką tury oraz odnawiania reakcji.
   * Komponent [`src/components/initiative/ActionEconomyBar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/ActionEconomyBar.tsx) zintegrowany z [`CombatantCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantCard.tsx).
-  * Rozszerzenie modelu stanu tury w [`src/lib/combat.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/combat.ts): `turnResources: { actionUsed: boolean; bonusActionUsed: boolean; reactionUsed: boolean; attacksRemaining: number; totalAttacks: number; extraActions: number }`.
+  * Rozszerzenie silnika walki [`src/components/initiative/useCombatEngine.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/useCombatEngine.ts) o metody `handleToggleTurnAction`, `handleAddExtraAction`, `handleToggleAttackSegment`, `handleConsumeAttack` oraz automatyczny reset zasobów w `handleNextTurn`.
 * **Testowanie:**
-  * Testy jednostkowe cyklu tury i odnawiania reakcji w [`src/lib/combat.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/combat.test.ts).
-  * Testy komponentu w `src/components/initiative/ActionEconomyBar.test.tsx` (interakcja z żetonami, odznaczanie multiataku).
+  * [`src/lib/combat-actions.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/combat-actions.test.ts): 14 testów jednostkowych logiki domenowej (parsowanie wieloataków, odnawianie reakcji, cykl tury).
+  * [`src/components/initiative/ActionEconomyBar.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/ActionEconomyBar.test.tsx): 7 testów komponentu (interakcje, stylizacja zużytych akcji, liczniki multiataku).
+  * [`src/components/initiative/CombatantCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantCard.test.tsx): 15 testów (w tym testy paska akcji, reakcji poza turą i auto-konsumpcji ataku).
+  * [`src/components/initiative/InitiativeTracker.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/InitiativeTracker.test.tsx): 14 testów (w tym testy integracyjne odnawiania akcji i reakcji w cyklu walki).
+  * Kompletny zestaw testów: 472/472 testów Vitest (49 plików, 100% zielone), 0 błędów Biome linter, czysty produkcyjny build Next.js 16 (Turbopack) oraz 27/27 testów Playwright E2E zielone (100%).
 
 ### Chunk 11.2: Biegłości w 18 Umiejętnościach, Odporności i Zmysły w Kartach Postaci (US-CS-01, US-CS-02)
 * **User Stories & Wymagania:**

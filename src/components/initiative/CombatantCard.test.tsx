@@ -321,4 +321,75 @@ describe('CombatantCard Component', () => {
 
     expect(screen.getByText('MARTWY')).toBeInTheDocument();
   });
+
+  it('renders ActionEconomyBar on active turn and forwards action toggle callbacks', () => {
+    const handleToggleTurnAction = vi.fn();
+    const handleAddExtraAction = vi.fn();
+    const handleToggleAttack = vi.fn();
+
+    render(
+      <CombatantCard
+        combatant={mockHero}
+        isActiveTurn={true}
+        onHpChange={vi.fn()}
+        onRemove={vi.fn()}
+        onToggleTurnAction={handleToggleTurnAction}
+        onAddExtraAction={handleAddExtraAction}
+        onToggleAttackSegment={handleToggleAttack}
+      />
+    );
+
+    expect(screen.getByTestId(`action-economy-bar-${mockHero.id}`)).toBeInTheDocument();
+    expect(screen.getByTestId('pip-action')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('pip-action'));
+    expect(handleToggleTurnAction).toHaveBeenCalledWith('action', undefined);
+
+    fireEvent.click(screen.getByTestId('add-extra-action-btn'));
+    expect(handleAddExtraAction).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders reaction toggle badge on non-active card and toggles reaction', () => {
+    const handleToggleTurnAction = vi.fn();
+
+    render(
+      <CombatantCard
+        combatant={mockHero}
+        isActiveTurn={false}
+        phase="ACTIVE"
+        onHpChange={vi.fn()}
+        onRemove={vi.fn()}
+        onToggleTurnAction={handleToggleTurnAction}
+      />
+    );
+
+    const reactionBadge = screen.getByTestId(`reaction-toggle-badge-${mockHero.id}`);
+    expect(reactionBadge).toBeInTheDocument();
+    expect(reactionBadge).toHaveTextContent(/Reakcja/i);
+
+    fireEvent.click(reactionBadge);
+    expect(handleToggleTurnAction).toHaveBeenCalledWith('reaction');
+  });
+
+  it('auto-consumes attack when clicking quick dice roll button', () => {
+    const handleConsume = vi.fn();
+    const handleDiceRoll = vi.fn();
+
+    render(
+      <CombatantCard
+        combatant={mockHero}
+        isActiveTurn={true}
+        onHpChange={vi.fn()}
+        onRemove={vi.fn()}
+        onConsumeAttack={handleConsume}
+        onRequestDiceRoll={handleDiceRoll}
+      />
+    );
+
+    const rollBtn = screen.getByTestId(`combatant-roll-btn-${mockHero.id}`);
+    fireEvent.click(rollBtn);
+
+    expect(handleConsume).toHaveBeenCalledTimes(1);
+    expect(handleDiceRoll).toHaveBeenCalledTimes(1);
+  });
 });

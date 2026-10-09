@@ -13,6 +13,14 @@ export interface DeathSaveState {
   isDead?: boolean;
 }
 
+import type {
+  CombatantTurnResources,
+  MultiattackSegment,
+  TurnActionType,
+} from '@/lib/combat-actions';
+
+export type { CombatantTurnResources, MultiattackSegment, TurnActionType };
+
 export interface Combatant {
   id: string;
   characterId?: string | null;
@@ -32,6 +40,8 @@ export interface Combatant {
   xp?: number;
   isFled?: boolean;
   deathSaves?: DeathSaveState;
+  turnResources?: CombatantTurnResources;
+  rawActions?: Array<{ name: string; desc?: string; [key: string]: unknown }>;
 }
 
 export interface CombatLogEntry {

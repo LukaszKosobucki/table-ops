@@ -98,6 +98,10 @@ export function InitiativeTracker({
     handleCombatantFlee,
     handleRollDeathSave,
     handleUpdateDeathSaves,
+    handleToggleTurnAction,
+    handleAddExtraAction,
+    handleToggleAttackSegment,
+    handleConsumeAttack,
   } = useCombatEngine({
     sessionId,
     initialCombatId,
@@ -318,6 +322,12 @@ export function InitiativeTracker({
                     onFlee={() => handleCombatantFlee(c.id)}
                     onRollDeathSave={() => handleRollDeathSave(c.id)}
                     onUpdateDeathSaves={(saves) => handleUpdateDeathSaves(c.id, saves)}
+                    onToggleTurnAction={(type, extraIdx) =>
+                      handleToggleTurnAction(c.id, type, extraIdx)
+                    }
+                    onAddExtraAction={() => handleAddExtraAction(c.id)}
+                    onToggleAttackSegment={(attackId) => handleToggleAttackSegment(c.id, attackId)}
+                    onConsumeAttack={() => handleConsumeAttack(c.id)}
                     onRequestDiceRoll={onRequestDiceRoll}
                   />
                 ))}
@@ -432,6 +442,12 @@ export function InitiativeTracker({
                   onFlee={() => handleCombatantFlee(c.id)}
                   onRollDeathSave={() => handleRollDeathSave(c.id)}
                   onUpdateDeathSaves={(saves) => handleUpdateDeathSaves(c.id, saves)}
+                  onToggleTurnAction={(type, extraIdx) =>
+                    handleToggleTurnAction(c.id, type, extraIdx)
+                  }
+                  onAddExtraAction={() => handleAddExtraAction(c.id)}
+                  onToggleAttackSegment={(attackId) => handleToggleAttackSegment(c.id, attackId)}
+                  onConsumeAttack={() => handleConsumeAttack(c.id)}
                   onRequestDiceRoll={onRequestDiceRoll}
                 />
               ))}
