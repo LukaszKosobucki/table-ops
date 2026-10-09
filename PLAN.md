@@ -533,15 +533,15 @@ flowchart TD
   * Przycisk szybkiego wywołania zewnętrznych notatek w nagłówku podręcznych notatek GM-a w [`src/components/dashboard/TimelineSidebar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/TimelineSidebar.tsx).
   * Pełna synchronizacja stanu z bazą Supabase PostgreSQL poprzez `useSessionFullState.ts` z nagłówkiem `x-guest-id`.
 * **Testowanie:**
-  * [`src/components/dashboard/BottomDock.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/BottomDock.test.tsx): testy jednostkowe doku.
+  * [`src/components/dashboard/BottomDock.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/BottomDock.test.tsx): 3 testy jednostkowe doku.
   * [`src/components/dashboard/DraggableNotesWindow.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/DraggableNotesWindow.test.tsx): 7 testów okna pływającego, walidacji, przełączania widoków i embedu.
   * [`src/components/dashboard/GmDashboard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/GmDashboard.test.tsx): integracyjne testy otwarcia, minimalizacji do doku i przywracania.
   * [`e2e/notes.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/notes.spec.ts): pełny test E2E Playwright sprawdzający cykl życia zewnętrznych notatek, zapis w bazie, minimalizację do doku i trwałość po odświeżeniu strony (F5).
-  * Wszystkie testy jednostkowe Vitest (100% zielone), 0 błędów Biome linter, czysty build Turbopack oraz testy Playwright E2E zielone.
+  * Wszystkie 395 testów jednostkowych Vitest (43 pliki, 100% zielone), 0 błędów Biome linter, czysty build Turbopack oraz 21/21 testów Playwright E2E zielone.
 
 ---
 
-## FAZA 10: Podręczny Rzutnik Kości 3D (Dice Tray & Roller), Testy E2E, Narzędzia Jakości i CI (Do wdrożenia)
+## FAZA 10: Podręczny Rzutnik Kości 3D (Dice Tray & Roller), Testy E2E, Narzędzia Jakości i CI (Zrealizowane ✅)
 *User Stories:* [`user-stories-and-spec/user_stories_modu_kosci.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_modu_kosci.md) | [`docs/features/dice-roller/01-user-stories.md`](file:///Users/lukaszkosobucki/Documents/table-ops/docs/features/dice-roller/01-user-stories.md)  
 *Wymagania Funkcjonalne & Niefunkcjonalne:* [`docs/features/dice-roller/02-functional-requirements.md`](file:///Users/lukaszkosobucki/Documents/table-ops/docs/features/dice-roller/02-functional-requirements.md) | [`docs/features/dice-roller/03-non-functional-requirements.md`](file:///Users/lukaszkosobucki/Documents/table-ops/docs/features/dice-roller/03-non-functional-requirements.md)  
 *Architektura & Stack:* [`docs/features/dice-roller/04-tech-stack-and-architecture.md`](file:///Users/lukaszkosobucki/Documents/table-ops/docs/features/dice-roller/04-tech-stack-and-architecture.md)
@@ -632,6 +632,8 @@ flowchart TD
     * **Job `lint-and-build`:** `npm run lint` + `npm run build` (Turbopack + TypeScript).
     * **Job `unit-tests`:** `npm run test:coverage` (Vitest).
     * **Job `e2e-tests`:** `npm run test:e2e` (Playwright).
+* **Stan wdrożenia Fazy 10:**
+  * Wszystkie 438 testów jednostkowych i integracyjnych Vitest (47 plików, 100% zielone), 0 błędów Biome linter, czysty produkcyjny build Next.js 16 (Turbopack) oraz 25/25 testów Playwright E2E zielone (100%).
 
 ---
 

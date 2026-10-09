@@ -3,6 +3,7 @@
 import {
   ArrowLeft,
   Clock,
+  Dices,
   FileText,
   Flag,
   Flame,
@@ -29,6 +30,16 @@ interface CombatEndMetadata {
   deadHeroes?: string[];
   unconsciousHeroes?: Array<{ name: string; isStabilized?: boolean } | string>;
   spellSlotsUsed?: Record<string, Record<string | number, number>>;
+}
+
+interface DiceRollMetadata {
+  id?: string;
+  formula?: string;
+  total?: number;
+  modifier?: number;
+  actorName?: string;
+  isSecret?: boolean;
+  diceResults?: Array<{ type: string; value: number; ignored?: boolean }>;
 }
 
 export function LogInspectionCard({ log, onBackToCombat }: LogInspectionCardProps) {
@@ -74,6 +85,12 @@ export function LogInspectionCard({ log, onBackToCombat }: LogInspectionCardProp
           title: 'Wydarzenie Taktyczne w Walce',
           color: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
         };
+      case 'DICE_ROLL':
+        return {
+          icon: Dices,
+          title: 'Szczegóły Rzutu Kośćmi',
+          color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+        };
       default:
         return {
           icon: FileText,
@@ -89,6 +106,11 @@ export function LogInspectionCard({ log, onBackToCombat }: LogInspectionCardProp
   const combatEndMeta: CombatEndMetadata | null =
     log.logType === 'COMBAT_END' && log.metadata
       ? (log.metadata as unknown as CombatEndMetadata)
+      : null;
+
+  const diceRollMeta: DiceRollMetadata | null =
+    log.logType === 'DICE_ROLL' && log.metadata
+      ? (log.metadata as unknown as DiceRollMetadata)
       : null;
 
   return (
@@ -305,6 +327,79 @@ export function LogInspectionCard({ log, onBackToCombat }: LogInspectionCardProp
                 <p className="text-xs text-slate-400">Nie zużyto komórek czarów</p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dice Roll Breakdown View */}
+      {diceRollMeta && (
+        <div data-testid="dice-roll-inspection" className="space-y-4 pt-2">
+          <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider flex items-center gap-2">
+            <Dices className="w-4 h-4 text-emerald-400" />
+            <span>Parametry Wykonanego Rzutu</span>
+          </h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {/* Total Result Card */}
+            <div className="glass-card p-4 rounded-xl border border-emerald-500/30 bg-emerald-950/20 space-y-1">
+              <div className="flex items-center justify-between text-emerald-400 font-bold text-xs uppercase">
+                <span>Wynik Całkowity</span>
+                {diceRollMeta.isSecret && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-950 border border-amber-500/40 text-amber-300">
+                    Tylko GM
+                  </span>
+                )}
+              </div>
+              <div
+                data-testid="inspect-dice-total"
+                className="text-3xl font-black text-emerald-200 font-mono"
+              >
+                {diceRollMeta.total ?? '-'}
+              </div>
+              <p className="text-[11px] text-slate-400 font-mono">
+                Formuła: <span className="text-amber-300">{diceRollMeta.formula || '-'}</span>
+              </p>
+            </div>
+
+            {/* Author / Source Card */}
+            <div className="glass-card p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-1">
+              <div className="text-slate-400 font-bold text-xs uppercase">Autor Rzutu</div>
+              <div className="text-lg font-bold text-slate-100">
+                {diceRollMeta.actorName || 'Mistrz Gry'}
+              </div>
+              <p className="text-[11px] text-slate-400 font-mono">
+                Modyfikator:{' '}
+                <span className="text-indigo-300">
+                  {typeof diceRollMeta.modifier === 'number'
+                    ? diceRollMeta.modifier >= 0
+                      ? `+${diceRollMeta.modifier}`
+                      : `${diceRollMeta.modifier}`
+                    : '0'}
+                </span>
+              </p>
+            </div>
+
+            {/* Dice Components Card */}
+            {diceRollMeta.diceResults && diceRollMeta.diceResults.length > 0 && (
+              <div className="glass-card p-4 rounded-xl border border-slate-800 bg-slate-900/40 space-y-1 sm:col-span-2 lg:col-span-1">
+                <div className="text-slate-400 font-bold text-xs uppercase">Wyrzucone Kości</div>
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {diceRollMeta.diceResults.map((die, idx) => (
+                    <span
+                      // biome-ignore lint/suspicious/noArrayIndexKey: dice result index
+                      key={`die-inspect-${idx}`}
+                      className={`px-2 py-0.5 rounded text-xs font-mono font-bold border ${
+                        die.ignored
+                          ? 'bg-slate-900 border-slate-800 text-slate-600 line-through'
+                          : 'bg-emerald-950 border-emerald-500/40 text-emerald-300'
+                      }`}
+                    >
+                      {die.type}: {die.value}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

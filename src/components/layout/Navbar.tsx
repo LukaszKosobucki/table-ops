@@ -1,16 +1,6 @@
 'use client';
 
-import {
-  BookOpen,
-  FolderKanban,
-  Lock,
-  LogIn,
-  LogOut,
-  Shield,
-  Sparkles,
-  User,
-  UserPlus,
-} from 'lucide-react';
+import { BookOpen, Lock, LogIn, LogOut, Shield, Sparkles, User, UserPlus } from 'lucide-react';
 import Link from 'next/link';
 import { SessionSwitcher } from '../sessions/SessionSwitcher';
 import type { SessionItem } from '../sessions/types';
@@ -48,7 +38,6 @@ export function Navbar({
     { id: 'dashboard', label: 'Ekran Prowadzenia (GM)', icon: Shield },
     { id: 'characters', label: 'Kreator i Karty Postaci', icon: UserPlus },
     { id: 'bestiary', label: 'Bestiariusz', icon: BookOpen },
-    { id: 'sessions', label: 'Sesje', icon: FolderKanban },
   ];
 
   return (

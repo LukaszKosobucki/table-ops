@@ -1,7 +1,8 @@
 'use client';
 
-import { Flag, Heart, Shield, Skull, Sparkles, Swords, Trash2, User, X } from 'lucide-react';
+import { Dices, Flag, Heart, Shield, Skull, Sparkles, Swords, Trash2, User, X } from 'lucide-react';
 import { useState } from 'react';
+import type { DiceGroup } from '@/lib/dice/types';
 import { CombatantHpControls } from './CombatantHpControls';
 import { CombatantStatusModal } from './CombatantStatusModal';
 import type { Combatant, CombatPhase, DeathSaveState } from './types';
@@ -19,6 +20,16 @@ export interface CombatantCardProps {
   onFlee?: () => void;
   onRollDeathSave?: () => void;
   onUpdateDeathSaves?: (saves: DeathSaveState) => void;
+  onRequestDiceRoll?: (
+    dice: DiceGroup[],
+    modifier: number,
+    context?: {
+      characterId?: string;
+      combatantId?: string;
+      actionName?: string;
+      characterName?: string;
+    }
+  ) => void;
 }
 
 export function CombatantCard({
@@ -34,6 +45,7 @@ export function CombatantCard({
   onFlee,
   onRollDeathSave,
   onUpdateDeathSaves,
+  onRequestDiceRoll,
 }: CombatantCardProps) {
   const isMonsterDead = c.isMonster && c.currentHp <= 0;
   const isFled = c.isMonster && !!c.isFled;
@@ -374,6 +386,27 @@ export function CombatantCard({
             <CombatantHpControls onHpChange={onHpChange} />
 
             <div className="flex items-center gap-2">
+              {/* Quick Dice Roll button */}
+              {onRequestDiceRoll && !isDeadOrInactive && (
+                <button
+                  type="button"
+                  data-testid={`combatant-roll-btn-${c.id}`}
+                  onClick={() =>
+                    onRequestDiceRoll([{ type: 'd20', count: 1 }], 0, {
+                      combatantId: c.id,
+                      characterId: c.characterId ?? undefined,
+                      characterName: c.name,
+                      actionName: `Rzut: ${c.name}`,
+                    })
+                  }
+                  className="px-2.5 py-1 text-xs rounded-lg bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1.5 transition cursor-pointer"
+                  title="Otwórz rzutnik kości dla tej postaci"
+                >
+                  <Dices className="w-3 h-3 text-indigo-400" />
+                  <span>Rzut (k20)</span>
+                </button>
+              )}
+
               {/* Flee button for monsters */}
               {c.isMonster && phase === 'ACTIVE' && !c.isFled && c.currentHp > 0 && onFlee && (
                 <button

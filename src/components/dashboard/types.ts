@@ -38,7 +38,8 @@ export type SessionLogType =
   | 'COMBAT_END'
   | 'SPELL_CAST'
   | 'COMBAT_ACTION'
-  | 'CUSTOM_NOTE';
+  | 'CUSTOM_NOTE'
+  | 'DICE_ROLL';
 
 export interface DashboardLog {
   id: string;

@@ -97,7 +97,7 @@ export function BottomDock({
             title="Rzutnik kości (Skrót: D)"
           >
             <Dices className="w-3.5 h-3.5 text-amber-400" />
-            <span className="font-medium text-xs">Kości 3D</span>
+            <span className="font-medium text-xs">Rzutnik Kości</span>
           </button>
         )}
       </div>

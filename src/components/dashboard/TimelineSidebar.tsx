@@ -2,6 +2,7 @@
 
 import {
   Clock,
+  Dices,
   FileText,
   Filter,
   Flame,
@@ -27,7 +28,7 @@ import type {
   SessionLogType,
 } from './types';
 
-export type TimelineFilter = 'all' | 'rests' | 'combat' | 'spells' | 'notes';
+export type TimelineFilter = 'all' | 'rests' | 'combat' | 'spells' | 'notes' | 'dice';
 
 interface TimelineSidebarProps {
   logs: DashboardLog[];
@@ -117,6 +118,12 @@ export function TimelineSidebar({
           color: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
           label: 'Akcja',
         };
+      case 'DICE_ROLL':
+        return {
+          icon: Dices,
+          color: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+          label: 'Rzut Kośćmi',
+        };
       default:
         return {
           icon: FileText,
@@ -150,6 +157,9 @@ export function TimelineSidebar({
     }
     if (activeFilter === 'notes') {
       return log.logType === 'CUSTOM_NOTE';
+    }
+    if (activeFilter === 'dice') {
+      return log.logType === 'DICE_ROLL';
     }
     return true;
   });
@@ -320,6 +330,7 @@ export function TimelineSidebar({
                 { id: 'combat', label: 'Walki' },
                 { id: 'spells', label: 'Zaklęcia' },
                 { id: 'notes', label: 'Notatki' },
+                { id: 'dice', label: 'Rzuty' },
               ] as const
             ).map((f) => (
               <button
@@ -373,6 +384,7 @@ export function TimelineSidebar({
                 const badge = getLogBadge(log.logType);
                 const Icon = badge.icon;
                 const isSelected = selectedLogId === log.id;
+                const isSecretRoll = Boolean(log.metadata?.isSecret);
 
                 return (
                   <button
@@ -386,12 +398,22 @@ export function TimelineSidebar({
                     }`}
                   >
                     <div className="flex items-center justify-between gap-1.5 mb-1">
-                      <span
-                        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${badge.color}`}
-                      >
-                        <Icon className="w-2.5 h-2.5" />
-                        <span>{badge.label}</span>
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold border ${badge.color}`}
+                        >
+                          <Icon className="w-2.5 h-2.5" />
+                          <span>{badge.label}</span>
+                        </span>
+                        {isSecretRoll && (
+                          <span
+                            data-testid="secret-roll-badge"
+                            className="inline-flex items-center text-[9px] px-1.5 py-0.2 rounded bg-amber-950/80 border border-amber-500/40 text-amber-300 font-mono font-semibold"
+                          >
+                            Tylko dla GM
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] text-slate-400 font-mono">
                         {formatLogTime(log.createdAt)}
                       </span>

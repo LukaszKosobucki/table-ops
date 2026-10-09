@@ -17,6 +17,7 @@ describe('Prisma Schema and Generated Client (Chunk 0.1)', () => {
     expect(SessionLogType.SPELL_CAST).toBe('SPELL_CAST');
     expect(SessionLogType.COMBAT_ACTION).toBe('COMBAT_ACTION');
     expect(SessionLogType.CUSTOM_NOTE).toBe('CUSTOM_NOTE');
+    expect(SessionLogType.DICE_ROLL).toBe('DICE_ROLL');
   });
 
   it('exposes all expected model delegates on the prisma client', () => {

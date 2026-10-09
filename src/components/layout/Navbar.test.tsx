@@ -25,9 +25,10 @@ describe('Navbar Routing & Access Guard', () => {
       />
     );
 
-    // Sessions tab should be enabled
-    const sessionsBtn = screen.getByRole('button', { name: /sesje/i });
-    expect(sessionsBtn).toBeEnabled();
+    // Session selector should be enabled in header
+    const sessionsBtns = screen.getAllByRole('button', { name: /wybierz sesję/i });
+    expect(sessionsBtns[0]).toBeEnabled();
+    expect(screen.queryByRole('button', { name: /^sesje$/i })).not.toBeInTheDocument();
 
     // Other tabs should be disabled
     const dashboardBtn = screen.getByRole('button', { name: /ekran prowadzenia/i });

@@ -24,6 +24,7 @@ enum SessionLogType {
   SPELL_CAST
   COMBAT_ACTION
   CUSTOM_NOTE
+  DICE_ROLL
 }
 
 model Session {

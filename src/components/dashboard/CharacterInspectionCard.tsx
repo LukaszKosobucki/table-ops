@@ -18,6 +18,7 @@ import {
 import { useEffect, useState } from 'react';
 import { LevelUpModal } from '@/components/characters/LevelUpModal';
 import type { CompendiumSpell } from '@/lib/compendium';
+import type { DiceGroup } from '@/lib/dice/types';
 import {
   applyDamage,
   applyHealing,
@@ -38,6 +39,11 @@ interface CharacterInspectionCardProps {
   onAddToCombat?: (character: DashboardCharacter) => void;
   isInCombat?: boolean;
   onCastSpell?: (spellName: string, level: number, characterName: string) => void;
+  onRequestDiceRoll?: (
+    dice: DiceGroup[],
+    modifier: number,
+    context?: { characterId?: string; characterName?: string; actionName?: string }
+  ) => void;
 }
 
 function calculateModifier(score = 10): { num: number; str: string } {
@@ -53,6 +59,7 @@ export function CharacterInspectionCard({
   onAddToCombat,
   isInCombat = false,
   onCastSpell,
+  onRequestDiceRoll,
 }: CharacterInspectionCardProps) {
   // Local HP state for instant response
   const [currentHp, setCurrentHp] = useState(character.currentHp);
@@ -537,6 +544,12 @@ export function CharacterInspectionCard({
       modifier,
       total,
       isSavingThrow,
+    });
+
+    onRequestDiceRoll?.([{ type: 'd20', count: 1 }], modifier, {
+      characterId: character.id,
+      characterName: character.name,
+      actionName: `${isSavingThrow ? 'Rzut Obronny' : 'Test'}: ${label}`,
     });
   };
 
@@ -1199,6 +1212,7 @@ export function CharacterInspectionCard({
                 <div className="pt-1 flex flex-col gap-1">
                   <button
                     type="button"
+                    data-testid={`roll-test-${st.key}`}
                     onClick={() => handleRollAttribute(st.label, st.val, false)}
                     className="w-full flex items-center justify-center gap-1 px-1.5 py-1 rounded bg-slate-900 hover:bg-indigo-600/30 text-[10px] font-semibold text-slate-300 hover:text-indigo-200 transition cursor-pointer"
                     title={`Rzuć d20 ${modStr} na ${st.label}`}
@@ -1208,6 +1222,7 @@ export function CharacterInspectionCard({
                   </button>
                   <button
                     type="button"
+                    data-testid={`roll-save-${st.key}`}
                     onClick={() => handleRollAttribute(st.label, st.val, true)}
                     className="w-full flex items-center justify-center gap-1 px-1.5 py-0.5 rounded bg-slate-900/50 hover:bg-amber-600/30 text-[9px] font-semibold text-slate-400 hover:text-amber-200 transition cursor-pointer"
                     title={`Rzut Obronny ${modStr} na ${st.label}`}

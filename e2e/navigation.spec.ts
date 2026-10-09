@@ -29,8 +29,10 @@ test.describe('TableOps Navigation & Shell', () => {
     // 4. Verify dice tab is absent from navbar
     await expect(page.locator('button:has-text("Kości i Real-time")')).not.toBeVisible();
 
-    // 5. Back to sessions
-    await page.click('button:has-text("Sesje")');
+    // 5. Verify "Sesje" is absent from navbar, and navigate back to sessions list via SessionSwitcher
+    await expect(page.locator('nav button:has-text("Sesje")')).not.toBeVisible();
+    await page.locator('[data-testid="session-switcher-btn"]:visible').click();
+    await page.locator('[data-testid="session-switcher-all-sessions-btn"]:visible').click();
     await expect(page.locator('text=Wybierz lub stwórz Sesję RPG').first()).toBeVisible();
   });
 });

@@ -1,10 +1,12 @@
 'use client';
 
-import { FileText, History, Skull, Sparkles, Swords, Users } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { Dices, FileText, History, Skull, Sparkles, Swords, Users } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { DraggableDiceTray } from '@/components/dice/DraggableDiceTray';
 import { EncounterBuilder } from '@/components/encounters/EncounterBuilder';
 import { InitiativeTracker } from '@/components/initiative/InitiativeTracker';
 import type { Combatant, CombatLogEntry } from '@/components/initiative/types';
+import type { DiceGroup, RollResult } from '@/lib/dice/types';
 import { getXpForLevel } from '@/lib/dnd-rules';
 import type { MonsterData } from '@/lib/monsters';
 import { BottomDock } from './BottomDock';
@@ -27,6 +29,27 @@ interface GmDashboardProps {
   initialMonsters: MonsterData[];
   initialCharacters?: DashboardCharacter[];
   onCharactersLoaded?: (characters: DashboardCharacter[]) => void;
+  suppressDockAndWindows?: boolean;
+  isNotesOpen?: boolean;
+  isNotesMinimized?: boolean;
+  onToggleNotes?: () => void;
+  googleDocUrl?: string | null;
+  onUpdateGoogleDocUrl?: (url: string | null) => Promise<void> | void;
+  isDiceOpen?: boolean;
+  isDiceMinimized?: boolean;
+  onToggleDice?: () => void;
+  onRequestDiceRoll?: (
+    dice: DiceGroup[],
+    modifier: number,
+    context?: {
+      characterId?: string;
+      combatantId?: string;
+      characterName?: string;
+      actionName?: string;
+    }
+  ) => void;
+  onRegisterRollHandler?: (handler: (result: RollResult) => void) => void;
+  onGoogleDocUrlChange?: (url: string | null) => void;
 }
 
 export const DEFAULT_PARTY: DashboardCharacter[] = [
@@ -83,6 +106,18 @@ export function GmDashboard({
   initialMonsters,
   initialCharacters,
   onCharactersLoaded,
+  suppressDockAndWindows = false,
+  isNotesOpen: propsIsNotesOpen,
+  isNotesMinimized: propsIsNotesMinimized,
+  onToggleNotes: propsOnToggleNotes,
+  googleDocUrl: propsGoogleDocUrl,
+  onUpdateGoogleDocUrl: propsOnUpdateGoogleDocUrl,
+  isDiceOpen: propsIsDiceOpen,
+  isDiceMinimized: propsIsDiceMinimized,
+  onToggleDice: propsOnToggleDice,
+  onRequestDiceRoll: propsOnRequestDiceRoll,
+  onRegisterRollHandler,
+  onGoogleDocUrlChange,
 }: GmDashboardProps) {
   const {
     characters,
@@ -90,8 +125,8 @@ export function GmDashboard({
     isLoading,
     logs,
     setLogs,
-    googleDocUrl,
-    updateGoogleDocUrl,
+    googleDocUrl: stateGoogleDocUrl,
+    updateGoogleDocUrl: stateUpdateGoogleDocUrl,
     activeCombatId,
     activeCombatRound,
     activeCombatTurnIndex,
@@ -113,23 +148,178 @@ export function GmDashboard({
     'Notatki GM-a: Gobliny czają się na lewej flance. Zwróć uwagę na pułapkę pod mostem.'
   );
 
-  // External Notes Window State (Chunk 9.2)
-  const [isNotesOpen, setIsNotesOpen] = useState(false);
-  const [isNotesMinimized, setIsNotesMinimized] = useState(false);
+  // Sync loaded googleDocUrl with parent MainDashboard
+  useEffect(() => {
+    if (stateGoogleDocUrl !== undefined && stateGoogleDocUrl !== null) {
+      onGoogleDocUrlChange?.(stateGoogleDocUrl);
+    }
+  }, [stateGoogleDocUrl, onGoogleDocUrlChange]);
+
+  const effectiveGoogleDocUrl =
+    propsGoogleDocUrl !== undefined ? propsGoogleDocUrl : stateGoogleDocUrl;
+  const effectiveUpdateGoogleDocUrl = propsOnUpdateGoogleDocUrl ?? stateUpdateGoogleDocUrl;
+
+  // External Notes Window State (Chunk 9.2) - Local state for standalone mode
+  const [localIsNotesOpen, setLocalIsNotesOpen] = useState(false);
+  const [localIsNotesMinimized, setLocalIsNotesMinimized] = useState(false);
+
+  const effectiveIsNotesOpen = propsIsNotesOpen !== undefined ? propsIsNotesOpen : localIsNotesOpen;
+  const effectiveIsNotesMinimized =
+    propsIsNotesMinimized !== undefined ? propsIsNotesMinimized : localIsNotesMinimized;
 
   const handleToggleNotesWindow = useCallback(() => {
-    if (isNotesMinimized) {
-      setIsNotesMinimized(false);
-      setIsNotesOpen(true);
+    if (localIsNotesMinimized) {
+      setLocalIsNotesMinimized(false);
+      setLocalIsNotesOpen(true);
     } else {
-      setIsNotesOpen((prev) => !prev);
+      setLocalIsNotesOpen((prev) => !prev);
     }
-  }, [isNotesMinimized]);
+  }, [localIsNotesMinimized]);
+
+  const effectiveToggleNotes = propsOnToggleNotes ?? handleToggleNotesWindow;
 
   const handleRestoreNotes = useCallback(() => {
-    setIsNotesMinimized(false);
-    setIsNotesOpen(true);
+    setLocalIsNotesMinimized(false);
+    setLocalIsNotesOpen(true);
   }, []);
+
+  // Dice Roller State & Shortcuts (Chunk 10.2 & 10.4) - Local state for standalone mode
+  const [localIsDiceOpen, setLocalIsDiceOpen] = useState(false);
+  const [localIsDiceMinimized, setLocalIsDiceMinimized] = useState(false);
+  const [diceTrayConfig, setDiceTrayConfig] = useState<{
+    dice?: DiceGroup[];
+    modifier?: number;
+    actorName?: string;
+    context?: {
+      characterId?: string;
+      combatantId?: string;
+      characterName?: string;
+      actionName?: string;
+      timestamp?: number;
+    };
+  }>({});
+
+  const effectiveIsDiceOpen = propsIsDiceOpen !== undefined ? propsIsDiceOpen : localIsDiceOpen;
+  const effectiveIsDiceMinimized =
+    propsIsDiceMinimized !== undefined ? propsIsDiceMinimized : localIsDiceMinimized;
+
+  const handleToggleDice = useCallback(() => {
+    if (localIsDiceMinimized) {
+      setLocalIsDiceMinimized(false);
+      setLocalIsDiceOpen(true);
+    } else {
+      setLocalIsDiceOpen((prev) => !prev);
+    }
+  }, [localIsDiceMinimized]);
+
+  const effectiveToggleDice = propsOnToggleDice ?? handleToggleDice;
+
+  const handleRestoreDice = useCallback(() => {
+    setLocalIsDiceMinimized(false);
+    setLocalIsDiceOpen(true);
+  }, []);
+
+  const handleRequestDiceRoll = useCallback(
+    (
+      dice: DiceGroup[],
+      modifier: number,
+      context?: {
+        characterId?: string;
+        combatantId?: string;
+        characterName?: string;
+        actionName?: string;
+      }
+    ) => {
+      setDiceTrayConfig({
+        dice,
+        modifier,
+        actorName: context?.characterName || 'Mistrz Gry',
+        context: {
+          ...context,
+          timestamp: Date.now(),
+        },
+      });
+      setLocalIsDiceMinimized(false);
+      setLocalIsDiceOpen(true);
+    },
+    []
+  );
+
+  const effectiveRequestDiceRoll = propsOnRequestDiceRoll ?? handleRequestDiceRoll;
+
+  const handleDiceRoll = useCallback(
+    (result: RollResult) => {
+      const localLog: DashboardLog = {
+        id: `dice-log-${result.id}`,
+        sessionId: sessionId || 'local',
+        logType: 'DICE_ROLL',
+        description: `🎲 Rzut (${result.actorName}): ${result.formula} = ${result.total}${
+          result.isSecret ? ' (Tylko dla GM)' : ''
+        }`,
+        metadata: {
+          ...result,
+        },
+        createdAt: result.timestamp || new Date().toISOString(),
+      };
+
+      setLogs((prev) => [localLog, ...prev]);
+
+      if (sessionId) {
+        fetch(`/api/sessions/${sessionId}/logs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            logType: 'DICE_ROLL',
+            description: localLog.description,
+            metadata: {
+              ...result,
+            },
+          }),
+        })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data?.log) {
+              setLogs((prev) => [data.log, ...prev.filter((l) => l.id !== localLog.id)]);
+            }
+          })
+          .catch(() => {});
+      }
+    },
+    [sessionId, setLogs]
+  );
+
+  // Expose roll handler to parent if integrated into shell
+  useEffect(() => {
+    onRegisterRollHandler?.(handleDiceRoll);
+  }, [onRegisterRollHandler, handleDiceRoll]);
+
+  // Global Hotkey 'D' to toggle dice roller in standalone mode (unless typing in input)
+  useEffect(() => {
+    if (suppressDockAndWindows) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement as HTMLInputElement | null;
+      const activeTag = (activeEl?.tagName || '').toUpperCase();
+      const isTextInput =
+        (activeTag === 'INPUT' && activeEl?.type !== 'checkbox' && activeEl?.type !== 'radio') ||
+        activeTag === 'TEXTAREA' ||
+        activeTag === 'SELECT';
+
+      if (
+        (e.key === 'd' || e.key === 'D') &&
+        !isTextInput &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey
+      ) {
+        e.preventDefault();
+        effectiveToggleDice();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [suppressDockAndWindows, effectiveToggleDice]);
 
   const handleLoadCombatants = (newCombatants: Combatant[]) => {
     setCombatants((prev) => {
@@ -513,7 +703,7 @@ export function GmDashboard({
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-14">
       {/* Session Title Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-800/80">
         <div className="flex items-center gap-2.5">
@@ -537,10 +727,25 @@ export function GmDashboard({
         <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
           <button
             type="button"
-            data-testid="external-notes-btn"
-            onClick={handleToggleNotesWindow}
+            data-testid="header-dice-btn"
+            onClick={effectiveToggleDice}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-sm ${
-              isNotesOpen && !isNotesMinimized
+              effectiveIsDiceOpen && !effectiveIsDiceMinimized
+                ? 'bg-amber-500/25 border-amber-500/60 text-amber-200 ring-1 ring-amber-500/40'
+                : 'bg-slate-900/90 hover:bg-slate-800 border-slate-700 text-slate-200 hover:text-amber-400'
+            }`}
+            title="Otwórz podręczny rzutnik kości (Skrót: D)"
+          >
+            <Dices className="w-3.5 h-3.5 text-amber-400" />
+            <span>Rzutnik kości</span>
+          </button>
+
+          <button
+            type="button"
+            data-testid="external-notes-btn"
+            onClick={effectiveToggleNotes}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-sm ${
+              effectiveIsNotesOpen && !effectiveIsNotesMinimized
                 ? 'bg-indigo-600/25 border-indigo-500/60 text-indigo-200 ring-1 ring-indigo-500/40'
                 : 'bg-slate-900/90 hover:bg-slate-800 border-slate-700 text-slate-200 hover:text-white'
             }`}
@@ -548,7 +753,7 @@ export function GmDashboard({
           >
             <FileText className="w-3.5 h-3.5 text-amber-400" />
             <span>Zewnętrzne notatki</span>
-            {googleDocUrl && (
+            {effectiveGoogleDocUrl && (
               <span
                 data-testid="external-notes-active-dot"
                 className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/60"
@@ -640,6 +845,7 @@ export function GmDashboard({
               onAddToCombat={handleAddCharacterToCombat}
               isInCombat={isCharacterInCombat(selectedCharacter.id)}
               onCastSpell={handleSpellCast}
+              onRequestDiceRoll={effectiveRequestDiceRoll}
             />
           ) : workspaceView === 'log-inspect' && selectedLog ? (
             <LogInspectionCard log={selectedLog} onBackToCombat={handleBackToCombat} />
@@ -696,6 +902,7 @@ export function GmDashboard({
                 isLoading={isLoading}
                 onAddPartyToCombat={handleAddPartyToCombat}
                 partyCount={characters.filter((c) => c.type === 'HERO').length}
+                onRequestDiceRoll={effectiveRequestDiceRoll}
               />
             </div>
           )}
@@ -742,30 +949,49 @@ export function GmDashboard({
               setLogs((prev) => [newLog, ...prev]);
             }}
             isLoading={isLoading}
-            googleDocUrl={googleDocUrl}
-            onOpenNotesWindow={handleToggleNotesWindow}
+            googleDocUrl={effectiveGoogleDocUrl}
+            onOpenNotesWindow={effectiveToggleNotes}
           />
         </div>
       </div>
 
-      {/* Draggable External Notes Window (Chunk 9.2) */}
-      <DraggableNotesWindow
-        isOpen={isNotesOpen}
-        isMinimized={isNotesMinimized}
-        onClose={() => setIsNotesOpen(false)}
-        onMinimize={() => setIsNotesMinimized(true)}
-        googleDocUrl={googleDocUrl}
-        onSaveUrl={updateGoogleDocUrl}
-      />
+      {/* Standalone mode fallback for dock and floating windows (e.g. isolated GmDashboard tests) */}
+      {!suppressDockAndWindows && (
+        <>
+          <DraggableNotesWindow
+            isOpen={localIsNotesOpen}
+            isMinimized={localIsNotesMinimized}
+            onClose={() => setLocalIsNotesOpen(false)}
+            onMinimize={() => setLocalIsNotesMinimized(true)}
+            googleDocUrl={stateGoogleDocUrl}
+            onSaveUrl={effectiveUpdateGoogleDocUrl}
+          />
 
-      {/* Sticky Bottom Dock (Chunk 9.2) */}
-      <BottomDock
-        isNotesOpen={isNotesOpen}
-        isNotesMinimized={isNotesMinimized}
-        onRestoreNotes={handleRestoreNotes}
-        onToggleNotes={handleToggleNotesWindow}
-        hasNotesUrl={Boolean(googleDocUrl)}
-      />
+          <DraggableDiceTray
+            isOpen={localIsDiceOpen}
+            isMinimized={localIsDiceMinimized}
+            onClose={() => setLocalIsDiceOpen(false)}
+            onMinimize={() => setLocalIsDiceMinimized(true)}
+            actorName={diceTrayConfig.actorName || 'Mistrz Gry'}
+            initialDice={diceTrayConfig.dice}
+            initialModifier={diceTrayConfig.modifier}
+            rollContext={diceTrayConfig.context}
+            onRoll={handleDiceRoll}
+          />
+
+          <BottomDock
+            isNotesOpen={localIsNotesOpen}
+            isNotesMinimized={localIsNotesMinimized}
+            onRestoreNotes={handleRestoreNotes}
+            onToggleNotes={handleToggleNotesWindow}
+            hasNotesUrl={Boolean(stateGoogleDocUrl)}
+            isDiceOpen={localIsDiceOpen}
+            isDiceMinimized={localIsDiceMinimized}
+            onRestoreDice={handleRestoreDice}
+            onToggleDice={handleToggleDice}
+          />
+        </>
+      )}
     </div>
   );
 }

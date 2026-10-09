@@ -54,6 +54,7 @@ export function SessionSwitcher({
     <div className="relative" ref={containerRef}>
       <button
         type="button"
+        data-testid="session-switcher-btn"
         onClick={() => setIsOpen((prev) => !prev)}
         className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/90 border border-slate-700/80 hover:border-indigo-500/50 text-slate-200 text-xs font-medium transition-all shadow-sm max-w-[220px]"
       >
@@ -115,6 +116,7 @@ export function SessionSwitcher({
 
             <button
               type="button"
+              data-testid="session-switcher-all-sessions-btn"
               onClick={() => {
                 setIsOpen(false);
                 onOpenSessionList();

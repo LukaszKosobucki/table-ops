@@ -55,7 +55,7 @@ test.describe('Character Wizard Module', () => {
 
     await expect(page.locator('text=Krok 3: Tożsamość i Poziom Postaci')).toBeVisible();
     const nameInput = page.locator('input[placeholder="np. Thorin Dębowa Tarcza"]');
-    await nameInput.fill('Valerius z Ostrej Bieli');
+    await nameInput.fill('Thorin Awansujący');
     const levelInput = page.locator('input[type="number"]');
     await levelInput.fill('3');
 
@@ -69,7 +69,7 @@ test.describe('Character Wizard Module', () => {
     );
     await page.locator('button:has-text("Zapisz Kartę Postaci")').click();
     await savePromise;
-    await expect(page.locator('h3:has-text("Valerius z Ostrej Bieli")')).toBeVisible();
+    await expect(page.locator('h3:has-text("Thorin Awansujący")')).toBeVisible();
 
     // 2. Navigate back to Ekran Prowadzenia (GM)
     await page.click('button:has-text("Ekran Prowadzenia (GM)")');
@@ -78,10 +78,10 @@ test.describe('Character Wizard Module', () => {
     // 3. Select character from party list
     const partyCharacter = page
       .locator('[data-testid="dashboard-party-column"]')
-      .locator('text=Valerius z Ostrej Bieli');
+      .locator('text=Thorin Awansujący');
     await expect(partyCharacter).toBeVisible({ timeout: 10000 });
     await partyCharacter.click();
-    await expect(page.locator('h2:has-text("Valerius z Ostrej Bieli")')).toBeVisible();
+    await expect(page.locator('h2:has-text("Thorin Awansujący")')).toBeVisible();
 
     // 4. Verify EXP section is visible
     await expect(page.locator('text=Doświadczenie & Poziom')).toBeVisible();
@@ -108,7 +108,9 @@ test.describe('Character Wizard Module', () => {
     await confirmBtn.click();
 
     // 10. Modal closes and level is updated
-    await expect(page.locator('div[data-testid="level-up-modal"]')).not.toBeVisible();
-    await expect(page.locator('text=Poziom 4').first()).toBeVisible();
+    await expect(page.locator('div[data-testid="level-up-modal"]')).not.toBeVisible({
+      timeout: 15000,
+    });
+    await expect(page.locator('text=Poziom 4').first()).toBeVisible({ timeout: 15000 });
   });
 });

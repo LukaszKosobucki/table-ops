@@ -57,6 +57,7 @@ const VALID_LOG_TYPES = new Set<SessionLogType>([
   SessionLogType.SPELL_CAST,
   SessionLogType.COMBAT_ACTION,
   SessionLogType.CUSTOM_NOTE,
+  SessionLogType.DICE_ROLL,
 ]);
 
 /**
@@ -95,6 +96,8 @@ export function validateSessionLogInput(input: unknown): LogValidationResult {
         'Drużyna ukończyła Długi Odpoczynek (8h). Wszyscy bohaterowie odzyskali pełnię sił i sloty czarów.';
     } else if (logType === SessionLogType.REST_SHORT) {
       description = 'Drużyna ukończyła Krótki Odpoczynek (1h).';
+    } else if (logType === SessionLogType.DICE_ROLL) {
+      description = 'Rzut kośćmi.';
     } else {
       description = 'Wpis w kronice sesji.';
     }

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GmDashboard } from './GmDashboard';
@@ -467,5 +467,61 @@ describe('GmDashboard Component (Chunk 2.2)', () => {
     const closeBtn = screen.getByTestId('notes-close-btn');
     await user.click(closeBtn);
     expect(screen.queryByTestId('draggable-notes-window')).not.toBeInTheDocument();
+  });
+
+  it('renders Dice Roller button in title bar, opens window, minimizes to dock, and restores', async () => {
+    const user = userEvent.setup();
+    render(<GmDashboard sessionId="ses-1" sessionName="Wrota Baldura" initialMonsters={[]} />);
+
+    // 1. Check title bar dice button
+    const diceBtn = screen.getByTestId('header-dice-btn');
+    expect(diceBtn).toBeInTheDocument();
+    expect(diceBtn).toHaveTextContent('Rzutnik kości');
+
+    // Window initially closed
+    expect(screen.queryByTestId('dice-tray-window')).not.toBeInTheDocument();
+
+    // 2. Click button to open window
+    await user.click(diceBtn);
+    expect(screen.getByTestId('dice-tray-window')).toBeInTheDocument();
+
+    // 3. Click minimize button
+    const minBtn = screen.getByTestId('minimize-dice-tray-btn');
+    await user.click(minBtn);
+
+    // Window is hidden
+    expect(screen.queryByTestId('dice-tray-window')).not.toBeInTheDocument();
+
+    // 4. Minimized pill is present in BottomDock
+    const dockRestoreBtn = screen.getByTestId('dock-minimized-dice-btn');
+    expect(dockRestoreBtn).toBeInTheDocument();
+    expect(dockRestoreBtn).toHaveTextContent('Rzutnik Kości');
+
+    // 5. Click dock pill to restore window
+    await user.click(dockRestoreBtn);
+    expect(screen.getByTestId('dice-tray-window')).toBeInTheDocument();
+
+    // 6. Click close button
+    const closeBtn = screen.getByTestId('close-dice-tray-btn');
+    await user.click(closeBtn);
+    expect(screen.queryByTestId('dice-tray-window')).not.toBeInTheDocument();
+  });
+
+  it('toggles Dice Roller window with "D" keyboard shortcut', async () => {
+    render(<GmDashboard sessionId="ses-1" sessionName="Wrota Baldura" initialMonsters={[]} />);
+
+    expect(screen.queryByTestId('dice-tray-window')).not.toBeInTheDocument();
+
+    // Press 'd'
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'd' });
+    });
+    expect(screen.getByTestId('dice-tray-window')).toBeInTheDocument();
+
+    // Press 'd' again to close
+    await act(async () => {
+      fireEvent.keyDown(window, { key: 'd' });
+    });
+    expect(screen.queryByTestId('dice-tray-window')).not.toBeInTheDocument();
   });
 });

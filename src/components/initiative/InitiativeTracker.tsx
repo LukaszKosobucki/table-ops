@@ -3,6 +3,7 @@
 import { AlertCircle, AlertTriangle, Skull, Square, Swords, X } from 'lucide-react';
 import type React from 'react';
 import { useState } from 'react';
+import type { DiceGroup } from '@/lib/dice/types';
 import type { MonsterData } from '@/lib/monsters';
 import { AddCombatantsPanel } from './AddCombatantsPanel';
 import { CombatantCard } from './CombatantCard';
@@ -35,6 +36,16 @@ export interface InitiativeTrackerProps {
   isLoading?: boolean;
   onAddPartyToCombat?: () => void;
   partyCount?: number;
+  onRequestDiceRoll?: (
+    dice: DiceGroup[],
+    modifier: number,
+    context?: {
+      characterId?: string;
+      combatantId?: string;
+      actionName?: string;
+      characterName?: string;
+    }
+  ) => void;
 }
 
 export function InitiativeTracker({
@@ -56,6 +67,7 @@ export function InitiativeTracker({
   isLoading = false,
   onAddPartyToCombat,
   partyCount,
+  onRequestDiceRoll,
 }: InitiativeTrackerProps) {
   const [gmNotes, setGmNotes] = useState(
     'Sesja #4: Zasadzka w ruinach zamku. Gobliny mają przewagę wysokości.'
@@ -306,6 +318,7 @@ export function InitiativeTracker({
                     onFlee={() => handleCombatantFlee(c.id)}
                     onRollDeathSave={() => handleRollDeathSave(c.id)}
                     onUpdateDeathSaves={(saves) => handleUpdateDeathSaves(c.id, saves)}
+                    onRequestDiceRoll={onRequestDiceRoll}
                   />
                 ))}
               </div>
@@ -419,6 +432,7 @@ export function InitiativeTracker({
                   onFlee={() => handleCombatantFlee(c.id)}
                   onRollDeathSave={() => handleRollDeathSave(c.id)}
                   onUpdateDeathSaves={(saves) => handleUpdateDeathSaves(c.id, saves)}
+                  onRequestDiceRoll={onRequestDiceRoll}
                 />
               ))}
             </div>

@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { DiceGroup, RollResult } from '@/lib/dice/types';
 import { getClientGuestId } from '@/lib/guest';
 import type { MonsterData } from '@/lib/monsters';
 import { useAuth } from './auth/useAuth';
@@ -40,6 +41,20 @@ const CharacterWizard = dynamic(
 const DiceRoller = dynamic(() => import('./dice/DiceRoller').then((mod) => mod.DiceRoller), {
   loading: () => <TabLoadingSkeleton title="Symulator Kości" />,
 });
+
+const BottomDock = dynamic(() => import('./dashboard/BottomDock').then((mod) => mod.BottomDock), {
+  ssr: false,
+});
+
+const DraggableNotesWindow = dynamic(
+  () => import('./dashboard/DraggableNotesWindow').then((mod) => mod.DraggableNotesWindow),
+  { ssr: false }
+);
+
+const DraggableDiceTray = dynamic(
+  () => import('./dice/DraggableDiceTray').then((mod) => mod.DraggableDiceTray),
+  { ssr: false }
+);
 
 function TabLoadingSkeleton({ title }: { title: string }) {
   return (
@@ -97,10 +112,180 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
   const [sessionCharacters, setSessionCharacters] = useState<DashboardCharacter[] | null>(null);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
 
+  // Floating Shell State (Bottom Dock, Notes Window, Dice Tray across all tabs)
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
+  const [isNotesMinimized, setIsNotesMinimized] = useState(false);
+  const [isDiceOpen, setIsDiceOpen] = useState(false);
+  const [isDiceMinimized, setIsDiceMinimized] = useState(false);
+  const [googleDocUrl, setGoogleDocUrl] = useState<string | null>(null);
+  const [diceTrayConfig, setDiceTrayConfig] = useState<{
+    dice?: DiceGroup[];
+    modifier?: number;
+    actorName?: string;
+    context?: {
+      characterId?: string;
+      combatantId?: string;
+      characterName?: string;
+      actionName?: string;
+      timestamp?: number;
+    };
+  }>({});
+
+  const gmDiceRollHandlerRef = useRef<((result: RollResult) => void) | null>(null);
+
   const setAndTrackActiveSession = useCallback((session: SessionItem | null) => {
     activeSessionRef.current = session;
     setActiveSession(session);
+    setGoogleDocUrl(session?.googleDocUrl ?? null);
   }, []);
+
+  // Sync googleDocUrl when activeSession changes
+  useEffect(() => {
+    if (activeSession?.googleDocUrl !== undefined) {
+      setGoogleDocUrl(activeSession.googleDocUrl);
+    }
+  }, [activeSession?.googleDocUrl]);
+
+  const handleToggleNotesWindow = useCallback(() => {
+    if (isNotesMinimized) {
+      setIsNotesMinimized(false);
+      setIsNotesOpen(true);
+    } else {
+      setIsNotesOpen((prev) => !prev);
+    }
+  }, [isNotesMinimized]);
+
+  const handleRestoreNotes = useCallback(() => {
+    setIsNotesMinimized(false);
+    setIsNotesOpen(true);
+  }, []);
+
+  const handleUpdateGoogleDocUrl = useCallback(
+    async (newUrl: string | null) => {
+      setGoogleDocUrl(newUrl);
+      if (!activeSession) return;
+      try {
+        const guestId = getClientGuestId();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (guestId) headers['x-guest-id'] = guestId;
+
+        const res = await fetch(`/api/sessions/${activeSession.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ googleDocUrl: newUrl }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.session) {
+            const savedUrl = json.session.googleDocUrl ?? null;
+            setGoogleDocUrl(savedUrl);
+            setSessions((prev) =>
+              prev.map((s) => (s.id === activeSession.id ? { ...s, googleDocUrl: savedUrl } : s))
+            );
+            setActiveSession((prev) => (prev ? { ...prev, googleDocUrl: savedUrl } : prev));
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to save googleDocUrl to backend:', err);
+      }
+    },
+    [activeSession]
+  );
+
+  const handleToggleDice = useCallback(() => {
+    if (isDiceMinimized) {
+      setIsDiceMinimized(false);
+      setIsDiceOpen(true);
+    } else {
+      setIsDiceOpen((prev) => !prev);
+    }
+  }, [isDiceMinimized]);
+
+  const handleRestoreDice = useCallback(() => {
+    setIsDiceMinimized(false);
+    setIsDiceOpen(true);
+  }, []);
+
+  const handleRequestDiceRoll = useCallback(
+    (
+      dice: DiceGroup[],
+      modifier: number,
+      context?: {
+        characterId?: string;
+        combatantId?: string;
+        characterName?: string;
+        actionName?: string;
+      }
+    ) => {
+      setDiceTrayConfig({
+        dice,
+        modifier,
+        actorName: context?.characterName || 'Mistrz Gry',
+        context: {
+          ...context,
+          timestamp: Date.now(),
+        },
+      });
+      setIsDiceMinimized(false);
+      setIsDiceOpen(true);
+    },
+    []
+  );
+
+  const handleDiceRoll = useCallback(
+    (result: RollResult) => {
+      if (gmDiceRollHandlerRef.current) {
+        gmDiceRollHandlerRef.current(result);
+      } else if (activeSession) {
+        fetch(`/api/sessions/${activeSession.id}/logs`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            logType: 'DICE_ROLL',
+            description: `🎲 Rzut (${result.actorName}): ${result.formula} = ${result.total}${
+              result.isSecret ? ' (Tylko dla GM)' : ''
+            }`,
+            metadata: {
+              ...result,
+            },
+          }),
+        }).catch(() => {});
+      }
+    },
+    [activeSession]
+  );
+
+  const handleRegisterRollHandler = useCallback((handler: (result: RollResult) => void) => {
+    gmDiceRollHandlerRef.current = handler;
+  }, []);
+
+  // Global Hotkey 'D' to toggle dice roller anywhere across tabs
+  useEffect(() => {
+    if (!activeSession) return;
+
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement as HTMLInputElement | null;
+      const activeTag = (activeEl?.tagName || '').toUpperCase();
+      const isTextInput =
+        (activeTag === 'INPUT' && activeEl?.type !== 'checkbox' && activeEl?.type !== 'radio') ||
+        activeTag === 'TEXTAREA' ||
+        activeTag === 'SELECT';
+
+      if (
+        (e.key === 'd' || e.key === 'D') &&
+        !isTextInput &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey
+      ) {
+        e.preventDefault();
+        handleToggleDice();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [activeSession, handleToggleDice]);
 
   // Fetch sessions on mount and resolve active session
   const fetchSessions = useCallback(async () => {
@@ -496,7 +681,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto p-4 sm:p-6 lg:p-8">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto p-4 sm:p-6 lg:p-8 pb-16">
         {/* Routing & Access Guard:
             Without an active session, ONLY the SessionSelection module is rendered.
             All other features (Combat Dashboard, Bestiary, Character Creator, Dice)
@@ -520,6 +705,18 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
                 initialMonsters={initialMonsters}
                 initialCharacters={sessionCharacters || undefined}
                 onCharactersLoaded={handleGmCharactersLoaded}
+                suppressDockAndWindows={true}
+                isNotesOpen={isNotesOpen}
+                isNotesMinimized={isNotesMinimized}
+                onToggleNotes={handleToggleNotesWindow}
+                googleDocUrl={googleDocUrl}
+                onUpdateGoogleDocUrl={handleUpdateGoogleDocUrl}
+                onGoogleDocUrlChange={setGoogleDocUrl}
+                isDiceOpen={isDiceOpen}
+                isDiceMinimized={isDiceMinimized}
+                onToggleDice={handleToggleDice}
+                onRequestDiceRoll={handleRequestDiceRoll}
+                onRegisterRollHandler={handleRegisterRollHandler}
               />
             </div>
             {activeTab === 'bestiary' && (
@@ -541,6 +738,44 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
           </>
         )}
       </main>
+
+      {/* Persistent Cross-Tab Shell Windows & Bottom Dock (Chunk 9.2 & Phase 10) */}
+      {activeSession && activeTab !== 'sessions' && (
+        <>
+          <DraggableNotesWindow
+            isOpen={isNotesOpen}
+            isMinimized={isNotesMinimized}
+            onClose={() => setIsNotesOpen(false)}
+            onMinimize={() => setIsNotesMinimized(true)}
+            googleDocUrl={googleDocUrl}
+            onSaveUrl={handleUpdateGoogleDocUrl}
+          />
+
+          <DraggableDiceTray
+            isOpen={isDiceOpen}
+            isMinimized={isDiceMinimized}
+            onClose={() => setIsDiceOpen(false)}
+            onMinimize={() => setIsDiceMinimized(true)}
+            actorName={diceTrayConfig.actorName || 'Mistrz Gry'}
+            initialDice={diceTrayConfig.dice}
+            initialModifier={diceTrayConfig.modifier}
+            rollContext={diceTrayConfig.context}
+            onRoll={handleDiceRoll}
+          />
+
+          <BottomDock
+            isNotesOpen={isNotesOpen}
+            isNotesMinimized={isNotesMinimized}
+            onRestoreNotes={handleRestoreNotes}
+            onToggleNotes={handleToggleNotesWindow}
+            hasNotesUrl={Boolean(googleDocUrl)}
+            isDiceOpen={isDiceOpen}
+            isDiceMinimized={isDiceMinimized}
+            onRestoreDice={handleRestoreDice}
+            onToggleDice={handleToggleDice}
+          />
+        </>
+      )}
 
       {/* Footer Status Bar */}
       <Footer />
