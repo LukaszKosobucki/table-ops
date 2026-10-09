@@ -544,7 +544,7 @@ export function MainDashboard({ initialMonsters }: MainDashboardProps) {
         tempHp: c.stats?.tempHp ?? 0,
       },
       traits: c.traits || [],
-      inventory: c.inventory || [],
+      inventory: (c.inventory || []).map((item) => (typeof item === 'string' ? item : item.name)),
       spells: c.spells || null,
     }));
   }, [sessionCharacters, activeSession?.id]);

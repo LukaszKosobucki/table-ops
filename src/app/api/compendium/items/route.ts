@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     const rarity = searchParams.get('rarity') || undefined;
 
     const limitParam = searchParams.get('limit');
-    const limit = limitParam !== null ? Math.min(100, Math.max(1, Number(limitParam))) : 20;
+    const limit = limitParam !== null ? Math.min(600, Math.max(1, Number(limitParam))) : 20;
     const offsetParam = searchParams.get('offset');
     const offset = offsetParam !== null ? Math.max(0, Number(offsetParam)) : 0;
 
@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
       offset,
       hasMore,
       items,
+      data: items,
     });
   } catch (error) {
     console.error('Error fetching compendium items:', error);

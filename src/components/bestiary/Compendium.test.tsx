@@ -294,8 +294,8 @@ describe('Compendium (Bestiary, Spells, Items)', () => {
 
     // Known spells section should be rendered
     expect(screen.getByTestId('known-spells-section')).toBeInTheDocument();
-    expect(screen.getByText('Cure Wounds')).toBeInTheDocument();
-    expect(screen.getByText('Bless')).toBeInTheDocument();
+    expect(screen.getByTestId('known-spell-Cure Wounds')).toBeInTheDocument();
+    expect(screen.getByTestId('known-spell-Bless')).toBeInTheDocument();
 
     // Inventory items should be rendered
     expect(screen.getByText('Longsword')).toBeInTheDocument();

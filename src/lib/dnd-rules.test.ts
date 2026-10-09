@@ -4,6 +4,7 @@ import {
   applyHealing,
   applyLevelUp,
   applyTempHp,
+  calculateArmorClass,
   calculateEncounterDifficulty,
   calculateLevelUpHpGain,
   calculateMaxHp,
@@ -12,6 +13,7 @@ import {
   calculateProficiencyBonus,
   calculateSpellSlots,
   calculateUnarmoredAc,
+  calculateWeaponCombatStats,
   formatModifier,
   getAbilityModifier,
   getCanonicalClassName,
@@ -710,5 +712,314 @@ describe('dnd-rules - applyLevelUp', () => {
     });
 
     expect(updated.stats.str).toBe(20);
+  });
+});
+
+describe('dnd-rules - calculateArmorClass (Chunk 11.4)', () => {
+  it('calculates unarmored AC based on 10 + DEX mod', () => {
+    const res = calculateArmorClass({
+      characterClass: 'Czarodziej (Wizard)',
+      stats: { dex: 14 }, // +2 mod
+      equippedItems: [],
+    });
+
+    expect(res.totalAc).toBe(12);
+    expect(res.source).toBe('unarmored');
+    expect(res.isOverridden).toBe(false);
+  });
+
+  it('calculates light armor AC with full DEX modifier', () => {
+    const res = calculateArmorClass({
+      characterClass: 'Łotrzyk (Rogue)',
+      stats: { dex: 16 }, // +3 mod
+      equippedItems: [
+        {
+          id: 'armor-1',
+          name: 'Skórzana zbroja (Leather Armor)',
+          category: 'Armor',
+          weight: 10,
+          isEquipped: true,
+          isAttuned: false,
+          requiresAttunement: false,
+          armorClass: { base: 11, dexBonus: true },
+        },
+      ],
+    });
+
+    expect(res.totalAc).toBe(14); // 11 + 3
+    expect(res.source).toBe('armor');
+  });
+
+  it('calculates medium armor AC capping DEX modifier at +2', () => {
+    const res = calculateArmorClass({
+      characterClass: 'Kleryk (Cleric)',
+      stats: { dex: 18 }, // +4 mod, but capped at 2
+      equippedItems: [
+        {
+          id: 'armor-2',
+          name: 'Pancerz łuskowy (Scale Mail)',
+          category: 'Armor',
+          weight: 45,
+          isEquipped: true,
+          isAttuned: false,
+          requiresAttunement: false,
+          armorClass: { base: 14, dexBonus: true, maxBonus: 2 },
+        },
+      ],
+    });
+
+    expect(res.totalAc).toBe(16); // 14 + 2
+    expect(res.dexBonus).toBe(2);
+  });
+
+  it('calculates heavy armor AC ignoring DEX modifier', () => {
+    const res = calculateArmorClass({
+      characterClass: 'Wojownik (Fighter)',
+      stats: { dex: 16 }, // +3 mod, ignored
+      equippedItems: [
+        {
+          id: 'armor-3',
+          name: 'Kolczuga (Chain Mail)',
+          category: 'Armor',
+          weight: 55,
+          isEquipped: true,
+          isAttuned: false,
+          requiresAttunement: false,
+          armorClass: { base: 16, dexBonus: false },
+        },
+      ],
+    });
+
+    expect(res.totalAc).toBe(16);
+    expect(res.dexBonus).toBe(0);
+  });
+
+  it('adds +2 AC from equipped shield', () => {
+    const res = calculateArmorClass({
+      characterClass: 'Wojownik (Fighter)',
+      stats: { dex: 12 }, // +1 mod
+      equippedItems: [
+        {
+          id: 'armor-3',
+          name: 'Kolczuga (Chain Mail)',
+          category: 'Armor',
+          weight: 55,
+          isEquipped: true,
+          isAttuned: false,
+          requiresAttunement: false,
+          armorClass: { base: 16, dexBonus: false },
+        },
+        {
+          id: 'shield-1',
+          name: 'Tarcza (Shield)',
+          category: 'Shield',
+          weight: 6,
+          isEquipped: true,
+          isAttuned: false,
+          requiresAttunement: false,
+          armorClass: { base: 2, dexBonus: false },
+        },
+      ],
+    });
+
+    expect(res.totalAc).toBe(18); // 16 + 2
+    expect(res.shieldBonus).toBe(2);
+  });
+
+  it('applies Barbarian Unarmored Defense (10 + DEX + CON) and allows shield', () => {
+    const res = calculateArmorClass({
+      characterClass: 'Barbarzyńca (Barbarian)',
+      stats: { dex: 14, con: 16 }, // DEX +2, CON +3
+      equippedItems: [
+        {
+          id: 'shield-1',
+          name: 'Tarcza (Shield)',
+          category: 'Shield',
+          weight: 6,
+          isEquipped: true,
+          isAttuned: false,
+          requiresAttunement: false,
+          armorClass: { base: 2, dexBonus: false },
+        },
+      ],
+    });
+
+    expect(res.totalAc).toBe(17); // 10 + 2 + 3 + 2
+    expect(res.source).toBe('barbarian_unarmored');
+  });
+
+  it('applies Monk Unarmored Defense (10 + DEX + WIS) when no shield, but falls back when shield equipped', () => {
+    const noShield = calculateArmorClass({
+      characterClass: 'Mnich (Monk)',
+      stats: { dex: 16, wis: 14 }, // DEX +3, WIS +2
+      equippedItems: [],
+    });
+    expect(noShield.totalAc).toBe(15); // 10 + 3 + 2
+    expect(noShield.source).toBe('monk_unarmored');
+
+    const withShield = calculateArmorClass({
+      characterClass: 'Mnich (Monk)',
+      stats: { dex: 16, wis: 14 },
+      equippedItems: [
+        {
+          id: 'shield-1',
+          name: 'Tarcza (Shield)',
+          category: 'Shield',
+          weight: 6,
+          isEquipped: true,
+          isAttuned: false,
+          requiresAttunement: false,
+          armorClass: { base: 2, dexBonus: false },
+        },
+      ],
+    });
+    // Shield disables Monk unarmored defense -> standard 10 + DEX (3) + Shield (2) = 15
+    expect(withShield.totalAc).toBe(15);
+    expect(withShield.source).toBe('unarmored');
+  });
+
+  it('applies magic bonus from equipped rings or cloaks of protection', () => {
+    const res = calculateArmorClass({
+      characterClass: 'Czarodziej (Wizard)',
+      stats: { dex: 14 }, // +2 mod
+      equippedItems: [
+        {
+          id: 'ring-1',
+          name: 'Pierścień ochrony (Ring of Protection)',
+          category: 'Ring',
+          weight: 0,
+          isEquipped: true,
+          isAttuned: true,
+          requiresAttunement: true,
+          armorClass: { base: 1, dexBonus: false },
+        },
+      ],
+    });
+
+    expect(res.totalAc).toBe(13); // 10 + 2 + 1
+    expect(res.magicBonus).toBe(1);
+  });
+
+  it('respects manual override AC if provided', () => {
+    const res = calculateArmorClass({
+      characterClass: 'Wojownik (Fighter)',
+      stats: { dex: 10 },
+      equippedItems: [],
+      overrideAc: 21,
+    });
+
+    expect(res.totalAc).toBe(21);
+    expect(res.isOverridden).toBe(true);
+    expect(res.source).toBe('manual');
+  });
+});
+
+describe('dnd-rules - calculateWeaponCombatStats (Chunk 11.4)', () => {
+  it('calculates melee weapon using STR modifier and proficiency bonus', () => {
+    const stats = calculateWeaponCombatStats({
+      weapon: {
+        id: 'w-1',
+        name: 'Długi miecz (Longsword)',
+        category: 'Weapon',
+        weight: 3,
+        isEquipped: true,
+        isAttuned: false,
+        requiresAttunement: false,
+        weaponDetails: {
+          damageDice: '1d8',
+          damageType: 'Cięte (Slashing)',
+          isFinesse: false,
+          isRanged: false,
+        },
+      },
+      characterLevel: 1, // PB +2
+      stats: { str: 16, dex: 12 }, // STR +3
+    });
+
+    expect(stats.attackBonus).toBe(5); // +3 STR + 2 PB
+    expect(stats.attackBonusFormatted).toBe('+5');
+    expect(stats.damageBonus).toBe(3);
+    expect(stats.damageFormula).toBe('1d8 + 3');
+    expect(stats.governingAbility).toBe('str');
+  });
+
+  it('calculates finesse weapon using higher DEX modifier when DEX > STR', () => {
+    const stats = calculateWeaponCombatStats({
+      weapon: {
+        id: 'w-2',
+        name: 'Rapier',
+        category: 'Weapon',
+        weight: 2,
+        isEquipped: true,
+        isAttuned: false,
+        requiresAttunement: false,
+        weaponDetails: {
+          damageDice: '1d8',
+          damageType: 'Kłute (Piercing)',
+          isFinesse: true,
+          isRanged: false,
+        },
+      },
+      characterLevel: 3, // PB +2
+      stats: { str: 10, dex: 16 }, // STR 0, DEX +3
+    });
+
+    expect(stats.attackBonus).toBe(5); // +3 DEX + 2 PB
+    expect(stats.damageFormula).toBe('1d8 + 3');
+    expect(stats.governingAbility).toBe('dex');
+  });
+
+  it('calculates ranged weapon using DEX modifier and scales with level PB', () => {
+    const stats = calculateWeaponCombatStats({
+      weapon: {
+        id: 'w-3',
+        name: 'Długi łuk (Longbow)',
+        category: 'Weapon',
+        weight: 2,
+        isEquipped: true,
+        isAttuned: false,
+        requiresAttunement: false,
+        weaponDetails: {
+          damageDice: '1d8',
+          damageType: 'Kłute (Piercing)',
+          isFinesse: false,
+          isRanged: true,
+        },
+      },
+      characterLevel: 5, // PB +3
+      stats: { str: 14, dex: 18 }, // DEX +4
+    });
+
+    expect(stats.attackBonus).toBe(7); // +4 DEX + 3 PB
+    expect(stats.attackBonusFormatted).toBe('+7');
+    expect(stats.damageFormula).toBe('1d8 + 4');
+    expect(stats.governingAbility).toBe('dex');
+  });
+
+  it('applies magical weapon +1 bonus to both attack and damage', () => {
+    const stats = calculateWeaponCombatStats({
+      weapon: {
+        id: 'w-4',
+        name: 'Miecz krótki +1 (Shortsword +1)',
+        category: 'Weapon',
+        weight: 2,
+        isEquipped: true,
+        isAttuned: false,
+        requiresAttunement: false,
+        weaponDetails: {
+          damageDice: '1d6',
+          damageType: 'Kłute',
+          isFinesse: true,
+          isRanged: false,
+          attackBonus: 1,
+        },
+      },
+      characterLevel: 1, // PB +2
+      stats: { str: 10, dex: 14 }, // DEX +2
+    });
+
+    expect(stats.attackBonus).toBe(5); // +2 DEX + 2 PB + 1 magic
+    expect(stats.damageBonus).toBe(3); // +2 DEX + 1 magic
+    expect(stats.damageFormula).toBe('1d6 + 3');
   });
 });

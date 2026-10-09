@@ -1,16 +1,26 @@
 'use client';
 
-import { Clock, Compass, Hourglass, Shield, Sparkles, UserPlus, Wand2, X } from 'lucide-react';
+import { Clock, Compass, Hourglass, Shield, Sparkles, UserPlus, Wand2, X, Zap } from 'lucide-react';
 import type { CompendiumSpell } from '@/lib/compendium';
 import { getSchoolColor } from './SpellCard';
 
-interface SpellDetailModalProps {
+export interface SpellDetailModalProps {
   spell: CompendiumSpell | null;
   onClose: () => void;
   onAssign?: (spell: CompendiumSpell) => void;
+  onCast?: (spell: CompendiumSpell) => void;
+  castLabel?: string;
+  canCast?: boolean;
 }
 
-export function SpellDetailModal({ spell, onClose, onAssign }: SpellDetailModalProps) {
+export function SpellDetailModal({
+  spell,
+  onClose,
+  onAssign,
+  onCast,
+  castLabel,
+  canCast = true,
+}: SpellDetailModalProps) {
   if (!spell) return null;
 
   const schoolBadge = getSchoolColor(spell.school);
@@ -147,16 +157,34 @@ export function SpellDetailModal({ spell, onClose, onAssign }: SpellDetailModalP
             Zamknij
           </button>
 
-          {onAssign && (
-            <button
-              type="button"
-              onClick={() => onAssign(spell)}
-              className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 flex items-center gap-1.5 transition cursor-pointer"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>+ Dodaj do Postaci</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {onCast && (
+              <button
+                type="button"
+                data-testid="modal-cast-spell-btn"
+                disabled={!canCast}
+                onClick={() => {
+                  onCast(spell);
+                  onClose();
+                }}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold text-xs shadow-md shadow-indigo-600/30 flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <Zap className="w-3.5 h-3.5 text-amber-300" />
+                <span>{castLabel || 'Rzuć zaklęcie'}</span>
+              </button>
+            )}
+
+            {onAssign && (
+              <button
+                type="button"
+                onClick={() => onAssign(spell)}
+                className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-md shadow-indigo-600/30 flex items-center gap-1.5 transition cursor-pointer"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                <span>+ Dodaj do Postaci</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

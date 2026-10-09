@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   Dices,
   Heart,
+  Info,
   Loader2,
   Minus,
   Plus,
@@ -13,6 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { SpellDetailModal } from '@/components/bestiary/SpellDetailModal';
 import type { CompendiumSpell } from '@/lib/compendium';
 import {
   applyLevelUp,
@@ -89,17 +91,18 @@ export function LevelUpModal({
   const [selectedNewSpells, setSelectedNewSpells] = useState<string[]>([]);
   const [customSpellInput, setCustomSpellInput] = useState('');
   const [unlimitedSpellsMode, setUnlimitedSpellsMode] = useState(false);
+  const [inspectingSpell, setInspectingSpell] = useState<CompendiumSpell | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch spells if caster
   useEffect(() => {
     if (!isOpen || !isCaster) return;
     let mounted = true;
-    fetch('/api/compendium/spells')
+    fetch('/api/compendium/spells?limit=500')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!mounted || !data) return;
-        const list = Array.isArray(data) ? data : data.spells;
+        const list = Array.isArray(data) ? data : data.spells || data.data;
         if (Array.isArray(list)) setCompendiumSpells(list);
       })
       .catch(() => {});
@@ -582,29 +585,81 @@ export function LevelUpModal({
                       const isBlocked = !isSelected && isAtSpellLimit;
 
                       return (
-                        <button
+                        <div
                           key={s.index}
-                          type="button"
-                          disabled={isBlocked}
-                          onClick={() => handleToggleSpell(s.name)}
-                          title={
-                            isBlocked
-                              ? `Osiągnięto limit ${recommendedSpellsCount} zaklęć`
-                              : undefined
-                          }
-                          className={`p-2 rounded-xl text-left text-xs font-medium border transition flex items-center justify-between cursor-pointer ${
-                            isSelected
-                              ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-200'
-                              : isBlocked
-                                ? 'bg-slate-950/30 border-slate-900 text-slate-600 opacity-50 cursor-not-allowed'
-                                : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
-                          }`}
+                          className="group/spellitem relative flex items-center gap-1"
                         >
-                          <span className="truncate">{s.name}</span>
-                          <span className="text-[9px] font-mono px-1 rounded bg-slate-800 text-amber-400 ml-1">
-                            {s.level === 0 ? 'Cantrip' : `Krąg ${s.level}`}
-                          </span>
-                        </button>
+                          <button
+                            type="button"
+                            data-testid={`level-up-select-spell-${s.name}`}
+                            disabled={isBlocked}
+                            onClick={() => handleToggleSpell(s.name)}
+                            title={
+                              isBlocked
+                                ? `Osiągnięto limit ${recommendedSpellsCount} zaklęć`
+                                : undefined
+                            }
+                            className={`flex-1 min-w-0 p-2 rounded-xl text-left text-xs font-medium border transition flex items-center justify-between cursor-pointer ${
+                              isSelected
+                                ? 'bg-indigo-600/20 border-indigo-500/50 text-indigo-200'
+                                : isBlocked
+                                  ? 'bg-slate-950/30 border-slate-900 text-slate-600 opacity-50 cursor-not-allowed'
+                                  : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                            }`}
+                          >
+                            <span className="truncate">{s.name}</span>
+                            <span className="text-[9px] font-mono px-1 rounded bg-slate-800 text-amber-400 ml-1 shrink-0">
+                              {s.level === 0 ? 'Cantrip' : `Krąg ${s.level}`}
+                            </span>
+                          </button>
+
+                          {/* Quick Info Button */}
+                          <button
+                            type="button"
+                            data-testid={`level-up-spell-info-${s.name}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setInspectingSpell(s);
+                            }}
+                            title={`Szczegóły zaklęcia ${s.name}`}
+                            className="p-1.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 hover:bg-indigo-500/20 text-indigo-400 hover:text-white transition cursor-pointer shrink-0"
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Hover Popover Tooltip */}
+                          <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 rounded-xl bg-slate-950/95 border border-indigo-500/50 shadow-2xl backdrop-blur-md opacity-0 group-hover/spellitem:opacity-100 transition-all duration-150 z-40 space-y-2 text-left hidden sm:block">
+                            <div className="flex items-center justify-between gap-1 pb-1.5 border-b border-slate-800">
+                              <span className="font-bold text-slate-100 truncate">{s.name}</span>
+                              <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 shrink-0">
+                                {s.level === 0 ? 'Sztuczka' : `Krąg ${s.level}`}
+                              </span>
+                            </div>
+                            <div className="grid grid-cols-3 gap-1 text-[10px] text-slate-300 font-mono">
+                              <div className="bg-slate-900/80 p-1 rounded border border-slate-800">
+                                <span className="text-slate-500 block text-[9px]">Czas</span>
+                                <span className="truncate block font-semibold">
+                                  {s.castingTime}
+                                </span>
+                              </div>
+                              <div className="bg-slate-900/80 p-1 rounded border border-slate-800">
+                                <span className="text-slate-500 block text-[9px]">Zasięg</span>
+                                <span className="truncate block font-semibold">{s.range}</span>
+                              </div>
+                              <div className="bg-slate-900/80 p-1 rounded border border-slate-800">
+                                <span className="text-slate-500 block text-[9px]">Trwanie</span>
+                                <span className="truncate block font-semibold">{s.duration}</span>
+                              </div>
+                            </div>
+                            <p className="text-[11px] text-slate-300 line-clamp-3 leading-relaxed">
+                              {s.description}
+                            </p>
+                            <div className="text-[9px] text-indigo-400 font-medium flex items-center justify-between pt-1 border-t border-slate-800/80">
+                              <span className="capitalize">{s.school}</span>
+                              <span>Kliknij (i), aby otworzyć pełne zasady →</span>
+                            </div>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
@@ -700,6 +755,11 @@ export function LevelUpModal({
           </button>
         </div>
       </div>
+
+      {/* Spell Detail Inspection Modal */}
+      {inspectingSpell && (
+        <SpellDetailModal spell={inspectingSpell} onClose={() => setInspectingSpell(null)} />
+      )}
     </div>
   );
 }

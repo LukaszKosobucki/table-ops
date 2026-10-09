@@ -240,13 +240,19 @@ function CharacterCard({
     Math.min(100, Math.round((character.currentHp / (character.maxHp || 1)) * 100))
   );
 
+  const isNpc = character.type === 'NPC';
+
   return (
     <div
       data-testid={`party-card-${character.id}`}
       className={`rounded-xl transition-all border overflow-hidden ${
         isSelected
-          ? 'bg-indigo-600/15 border-indigo-500/60 shadow-lg shadow-indigo-950/40 ring-1 ring-indigo-500/50'
-          : 'glass-card hover:bg-slate-800/40 border-slate-800/80 hover:border-slate-700'
+          ? isNpc
+            ? 'bg-amber-500/15 border-amber-500/60 shadow-lg shadow-amber-950/40 ring-1 ring-amber-500/50'
+            : 'bg-indigo-600/15 border-indigo-500/60 shadow-lg shadow-indigo-950/40 ring-1 ring-indigo-500/50'
+          : isNpc
+            ? 'glass-card bg-amber-950/10 hover:bg-amber-950/20 border-amber-800/40 hover:border-amber-600/60'
+            : 'glass-card hover:bg-slate-800/40 border-slate-800/80 hover:border-slate-700'
       }`}
     >
       <button
@@ -261,14 +267,16 @@ function CharacterCard({
               <img
                 src={character.avatarUrl}
                 alt={character.name}
-                className="w-7 h-7 rounded-lg object-cover border border-amber-500/30 shrink-0"
+                className={`w-7 h-7 rounded-lg object-cover shrink-0 border ${
+                  isNpc ? 'border-amber-500/40' : 'border-emerald-500/40'
+                }`}
               />
             ) : (
               <div
                 className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
-                  character.type === 'HERO'
-                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                    : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                  isNpc
+                    ? 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
+                    : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
                 }`}
               >
                 {character.name.charAt(0).toUpperCase()}
@@ -276,7 +284,14 @@ function CharacterCard({
             )}
 
             <div className="min-w-0">
-              <h3 className="text-xs font-bold text-slate-100 truncate">{character.name}</h3>
+              <div className="flex items-center gap-1.5">
+                <h3 className="text-xs font-bold text-slate-100 truncate">{character.name}</h3>
+                {isNpc && (
+                  <span className="text-[9px] px-1 py-0.2 rounded font-bold bg-amber-500/15 border border-amber-500/40 text-amber-300 shrink-0">
+                    NPC
+                  </span>
+                )}
+              </div>
               <p className="text-[10px] text-slate-400 truncate">
                 {character.class ||
                   character.race ||

@@ -1,7 +1,8 @@
 'use client';
 
-import { Backpack, CheckCircle2, ChevronLeft, Loader2, Sparkles, Wand2 } from 'lucide-react';
+import { Award, Backpack, CheckCircle2, ChevronLeft, Loader2, Sparkles, Wand2 } from 'lucide-react';
 import { calculateSpellSlots } from '@/lib/dnd-rules';
+import { DND_SKILLS, type SkillProficiencyLevel } from '@/lib/skills-and-traits';
 
 interface StepSummaryProps {
   charName: string;
@@ -12,6 +13,7 @@ interface StepSummaryProps {
   traits?: string;
   inventory?: string[];
   knownSpells?: string[];
+  skills?: Record<string, SkillProficiencyLevel>;
   calculatedHp: number;
   calculatedAc: number;
   calculatedPassivePerception: number;
@@ -30,6 +32,7 @@ export function StepSummary({
   traits = '',
   inventory = [],
   knownSpells = [],
+  skills = {},
   calculatedHp,
   calculatedAc,
   calculatedPassivePerception,
@@ -142,6 +145,42 @@ export function StepSummary({
                   {s}
                 </span>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Skills Preview */}
+        {skills && Object.keys(skills).some((k) => skills[k] !== 'none') && (
+          <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-emerald-300 uppercase tracking-wider">
+              <Award className="w-3.5 h-3.5" />
+              <span>
+                Biegłości w Umiejętnościach (
+                {Object.values(skills).filter((v) => v !== 'none').length})
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {Object.entries(skills)
+                .filter(([_, lvl]) => lvl !== 'none')
+                .map(([key, lvl]) => {
+                  const def = DND_SKILLS.find((s) => s.key === key);
+                  const isExp = lvl === 'expertise';
+                  return (
+                    <span
+                      key={key}
+                      className={`px-2 py-0.5 rounded-lg text-xs font-medium border flex items-center gap-1 ${
+                        isExp
+                          ? 'bg-purple-950/60 border-purple-500/50 text-purple-200'
+                          : 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200'
+                      }`}
+                    >
+                      <span>{def?.name || key}</span>
+                      <span className="text-[10px] opacity-75">
+                        ({isExp ? 'Ekspert' : 'Biegły'})
+                      </span>
+                    </span>
+                  );
+                })}
             </div>
           </div>
         )}

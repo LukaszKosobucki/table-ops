@@ -2,36 +2,43 @@
 
 import {
   ArrowLeft,
-  Backpack,
-  CheckCircle2,
+  Crosshair,
   Dices,
   Heart,
+  Info,
   MessageSquare,
   Plus,
+  Settings,
   Shield,
   Sparkles,
+  Sword,
   Swords,
-  Trash2,
   Wand2,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { SpellDetailModal } from '@/components/bestiary/SpellDetailModal';
 import { CharacterDefensesEditor } from '@/components/characters/CharacterDefensesEditor';
 import { CharacterSkillsList } from '@/components/characters/CharacterSkillsList';
 import { LevelUpModal } from '@/components/characters/LevelUpModal';
+import { InventoryManager } from '@/components/inventory/InventoryManager';
 import type { CompendiumSpell } from '@/lib/compendium';
-import type { DiceGroup } from '@/lib/dice/types';
+import type { DiceGroup, DiceType } from '@/lib/dice/types';
 import {
   applyDamage,
   applyHealing,
   applyTempHp,
   type CharacterSpellSlots,
+  calculateArmorClass,
   calculateSpellSlots,
+  calculateWeaponCombatStats,
   getCanonicalClassName,
   getMaxSpellLevel,
   getNextLevelXpThreshold,
   getXpForLevel,
+  type WeaponCombatStats,
 } from '@/lib/dnd-rules';
+import { type EquipmentItem, normalizeInventory, serializeInventory } from '@/lib/inventory';
 import {
   type CombatantDefenses,
   extractCharacterDefenses,
@@ -104,15 +111,198 @@ export function CharacterInspectionCard({
   const initialDefenses = character.defenses || extractCharacterDefenses(character);
   const [defenses, setDefenses] = useState<CombatantDefenses>(initialDefenses);
 
-  // Item management state
-  const [isAddingItem, setIsAddingItem] = useState(false);
-  const [newItemName, setNewItemName] = useState('');
+  // Item management (derived synchronously from character.inventory)
+  const inventoryItems = normalizeInventory((character.inventory as unknown[]) || []);
+
+  // AC Calculation & Manual Override state (Chunk 11.4)
+  const initialIsManualAc = Boolean(
+    character.isManualAc ?? (character.stats as Record<string, unknown> | null)?.isManualAc
+  );
+  const [isManualAc, setIsManualAc] = useState(initialIsManualAc);
+
+  const initialOverrideAc =
+    character.overrideAc ??
+    ((character.stats as Record<string, unknown> | null)?.overrideAc as number | undefined) ??
+    null;
+  const [overrideAc, setOverrideAc] = useState<number | null>(initialOverrideAc);
+
+  // Sync state when character prop changes externally
+  useEffect(() => {
+    const isManual = Boolean(
+      character.isManualAc ?? (character.stats as Record<string, unknown> | null)?.isManualAc
+    );
+    const customAc =
+      character.overrideAc ??
+      ((character.stats as Record<string, unknown> | null)?.overrideAc as number | undefined) ??
+      null;
+    setIsManualAc(isManual);
+    setOverrideAc(customAc);
+    if (customAc != null) {
+      setManualAcInput(String(customAc));
+    }
+  }, [character.isManualAc, character.overrideAc, character.stats]);
+
+  const acCalculation = calculateArmorClass({
+    characterClass: character.class ?? undefined,
+    stats: character.stats ?? undefined,
+    equippedItems: inventoryItems,
+    overrideAc: isManualAc ? (overrideAc ?? character.ac) : null,
+  });
+
+  const [isEditingAc, setIsEditingAc] = useState(false);
+  const [manualAcInput, setManualAcInput] = useState(
+    String(isManualAc ? (overrideAc ?? character.ac) : acCalculation.totalAc)
+  );
+
+  const handleToggleManualAc = async (checked: boolean) => {
+    setIsManualAc(checked);
+    if (checked) {
+      const val = parseInt(manualAcInput, 10) || acCalculation.totalAc;
+      setOverrideAc(val);
+      const nextStats = {
+        ...(character.stats || {}),
+        isManualAc: true,
+        overrideAc: val,
+      };
+      const updatedChar: DashboardCharacter = {
+        ...character,
+        ac: val,
+        isManualAc: true,
+        overrideAc: val,
+        stats: nextStats,
+      };
+      onCharacterUpdate?.(updatedChar);
+      if (character.id && !character.id.startsWith('char-default')) {
+        try {
+          await fetch(`/api/characters/${character.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ac: val, stats: nextStats }),
+          });
+        } catch {}
+      }
+    } else {
+      setOverrideAc(null);
+      const autoRes = calculateArmorClass({
+        characterClass: character.class ?? undefined,
+        stats: character.stats ?? undefined,
+        equippedItems: inventoryItems,
+        overrideAc: null,
+      });
+      const nextStats = {
+        ...(character.stats || {}),
+        isManualAc: false,
+        overrideAc: null,
+      };
+      const updatedChar: DashboardCharacter = {
+        ...character,
+        ac: autoRes.totalAc,
+        isManualAc: false,
+        overrideAc: null,
+        stats: nextStats,
+      };
+      setManualAcInput(String(autoRes.totalAc));
+      onCharacterUpdate?.(updatedChar);
+      if (character.id && !character.id.startsWith('char-default')) {
+        try {
+          await fetch(`/api/characters/${character.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ac: autoRes.totalAc, stats: nextStats }),
+          });
+        } catch {}
+      }
+    }
+  };
+
+  const handleSaveManualAc = async () => {
+    const val = parseInt(manualAcInput, 10);
+    if (Number.isNaN(val) || val <= 0) return;
+    setIsManualAc(true);
+    setOverrideAc(val);
+    const nextStats = {
+      ...(character.stats || {}),
+      isManualAc: true,
+      overrideAc: val,
+    };
+    const updatedChar: DashboardCharacter = {
+      ...character,
+      ac: val,
+      isManualAc: true,
+      overrideAc: val,
+      stats: nextStats,
+    };
+    setIsEditingAc(false);
+    onCharacterUpdate?.(updatedChar);
+    if (character.id && !character.id.startsWith('char-default')) {
+      try {
+        await fetch(`/api/characters/${character.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ac: val, stats: nextStats }),
+        });
+      } catch {}
+    }
+  };
+
+  // Equipped weapons (Chunk 11.4)
+  const equippedWeapons = inventoryItems.filter(
+    (item) => item.isEquipped && item.category === 'Weapon'
+  );
+
+  const handleRollWeaponAttack = (weaponCombat: WeaponCombatStats) => {
+    const d20 = Math.floor(Math.random() * 20) + 1;
+    const total = d20 + weaponCombat.attackBonus;
+    setLastRoll({
+      label: `Atak: ${weaponCombat.weaponName}`,
+      d20,
+      modifier: weaponCombat.attackBonus,
+      total,
+    });
+    onRequestDiceRoll?.([{ type: 'd20', count: 1 }], weaponCombat.attackBonus, {
+      characterId: character.id,
+      actionName: `Atak bronią: ${weaponCombat.weaponName}`,
+    });
+  };
+
+  const handleRollWeaponDamage = (weaponCombat: WeaponCombatStats) => {
+    const match = weaponCombat.damageDice
+      .trim()
+      .toLowerCase()
+      .match(/^(\d+)?d(\d+)$/);
+    const count = match ? parseInt(match[1] || '1', 10) : 1;
+    const sides = match ? parseInt(match[2] || '6', 10) : 6;
+    const validDiceTypes: DiceType[] = ['d4', 'd6', 'd8', 'd10', 'd12', 'd20', 'd100'];
+    const rawDieType = `d${sides}`;
+    const dieType: DiceType = validDiceTypes.includes(rawDieType as DiceType)
+      ? (rawDieType as DiceType)
+      : 'd6';
+
+    let diceSum = 0;
+    for (let i = 0; i < count; i++) {
+      diceSum += Math.floor(Math.random() * sides) + 1;
+    }
+    const total = Math.max(1, diceSum + weaponCombat.damageBonus);
+
+    setLastRoll({
+      label: `Obrażenia (${weaponCombat.damageType}): ${weaponCombat.weaponName}`,
+      d20: diceSum,
+      modifier: weaponCombat.damageBonus,
+      total,
+    });
+
+    onRequestDiceRoll?.([{ type: dieType, count }], weaponCombat.damageBonus, {
+      characterId: character.id,
+      actionName: `Obrażenia: ${weaponCombat.weaponName}`,
+    });
+  };
 
   // Spell management state
   const [isAddingSpell, setIsAddingSpell] = useState(false);
   const [compendiumSpells, setCompendiumSpells] = useState<CompendiumSpell[]>([]);
   const [selectedSpellToAdd, setSelectedSpellToAdd] = useState('');
   const [customSpellInput, setCustomSpellInput] = useState('');
+  const [inspectingSpellName, setInspectingSpellName] = useState<string | null>(null);
   const [castFeedback, setCastFeedback] = useState<{
     spellName: string;
     success: boolean;
@@ -178,15 +368,15 @@ export function CharacterInspectionCard({
     }
   };
 
-  // Fetch compendium spells for level resolution and adding
+  // Fetch compendium spells for level resolution, details, and adding
   useEffect(() => {
     if (compendiumSpells.length > 0) return;
     let mounted = true;
-    fetch('/api/compendium/spells')
+    fetch('/api/compendium/spells?limit=500')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (!mounted || !data) return;
-        const list = Array.isArray(data) ? data : data.spells;
+        const list = Array.isArray(data) ? data : data.spells || data.data;
         if (Array.isArray(list)) setCompendiumSpells(list);
       })
       .catch(() => {});
@@ -198,6 +388,43 @@ export function CharacterInspectionCard({
   const canonicalClass = getCanonicalClassName(character.class ?? undefined);
   const maxSpellLvl = getMaxSpellLevel(character.class ?? undefined, character.level || 1);
 
+  // Helper to determine spell level
+  const getSpellLevel = (spellName: string): number => {
+    const found = compendiumSpells.find(
+      (s) => s.name.toLowerCase() === spellName.trim().toLowerCase()
+    );
+    if (found) return found.level;
+    const lower = spellName.toLowerCase();
+    if (lower.includes('cantrip') || lower.includes('sztuczka')) return 0;
+    return 1;
+  };
+
+  // Helper to resolve full spell info from compendium or fallback to homebrew format
+  const resolveSpell = (spellName: string): CompendiumSpell => {
+    const clean = spellName.trim().toLowerCase();
+    const found = compendiumSpells.find(
+      (s) => s.name.toLowerCase() === clean || s.index.toLowerCase() === clean
+    );
+    if (found) return found;
+    const lvl = getSpellLevel(spellName);
+    return {
+      index: clean.replace(/\s+/g, '-'),
+      name: spellName,
+      level: lvl,
+      school: 'Homebrew',
+      castingTime: '1 Akcja',
+      range: 'Dotyk / Zasięg',
+      duration: 'Chwilowy',
+      components: ['V', 'S'],
+      ritual: false,
+      concentration: false,
+      classes: [canonicalClass],
+      description: 'Własne zaklęcie lub wpis Homebrew. Brak oficjalnego wpisu w Kompendium SRD 5e.',
+    };
+  };
+
+  const inspectingSpell = inspectingSpellName ? resolveSpell(inspectingSpellName) : null;
+
   // Available spells filtered by class and max level
   const classFilteredSpells = compendiumSpells.filter((s) => {
     const matchesClass = Array.isArray(s.classes)
@@ -208,51 +435,40 @@ export function CharacterInspectionCard({
     return matchesClass && matchesLevel && notAlreadyKnown;
   });
 
-  const handleAddItem = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const trimmed = newItemName.trim();
-    if (!trimmed) return;
+  const handleInventoryChange = async (newItems: EquipmentItem[]) => {
+    const serialized = serializeInventory(newItems);
 
-    const currentInv = character.inventory || [];
-    const nextInv = [...currentInv, trimmed];
-
-    const updatedChar: DashboardCharacter = {
-      ...character,
-      inventory: nextInv,
-    };
-    onCharacterUpdate?.(updatedChar);
-    setNewItemName('');
-    setIsAddingItem(false);
-
-    if (character.id && !character.id.startsWith('char-default')) {
-      try {
-        await fetch(`/api/characters/${character.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inventory: nextInv }),
-        });
-      } catch {
-        // Optimistic UI state already updated
-      }
+    const isManual = Boolean(
+      character.isManualAc ?? (character.stats as Record<string, unknown> | null)?.isManualAc
+    );
+    let effectiveAc = character.ac;
+    if (!isManual) {
+      const autoRes = calculateArmorClass({
+        characterClass: character.class ?? undefined,
+        stats: character.stats ?? undefined,
+        equippedItems: newItems,
+        overrideAc: null,
+      });
+      effectiveAc = autoRes.totalAc;
     }
-  };
-
-  const handleRemoveItem = async (itemToRemove: string) => {
-    const currentInv = character.inventory || [];
-    const nextInv = currentInv.filter((item) => item !== itemToRemove);
 
     const updatedChar: DashboardCharacter = {
       ...character,
-      inventory: nextInv,
+      ac: effectiveAc,
+      inventory: serialized as string[],
     };
     onCharacterUpdate?.(updatedChar);
 
     if (character.id && !character.id.startsWith('char-default')) {
+      const payload: Record<string, unknown> = { inventory: serialized };
+      if (!isManual && effectiveAc !== character.ac) {
+        payload.ac = effectiveAc;
+      }
       try {
         await fetch(`/api/characters/${character.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inventory: nextInv }),
+          body: JSON.stringify(payload),
         });
       } catch {
         // Optimistic UI state already updated
@@ -435,17 +651,6 @@ export function CharacterInspectionCard({
         // Optimistic update
       }
     }
-  };
-
-  // Helper to determine spell level
-  const getSpellLevel = (spellName: string): number => {
-    const found = compendiumSpells.find(
-      (s) => s.name.toLowerCase() === spellName.trim().toLowerCase()
-    );
-    if (found) return found.level;
-    const lower = spellName.toLowerCase();
-    if (lower.includes('cantrip') || lower.includes('sztuczka')) return 0;
-    return 1;
   };
 
   // Spell cast handler with upcasting support
@@ -757,9 +962,28 @@ export function CharacterInspectionCard({
               <span className="text-[10px] font-mono text-indigo-300 block">+{tempHp} temp</span>
             )}
           </div>
-          <div className="glass-card px-3.5 py-2 rounded-xl border border-slate-800 text-center min-w-[60px]">
-            <span className="text-[10px] text-slate-400 font-bold uppercase block">Pancerz</span>
-            <span className="text-base font-bold font-mono text-indigo-400">{character.ac} AC</span>
+          {/* AC Vital Card */}
+          <div
+            data-testid="ac-vital-card"
+            onClick={() => setIsEditingAc(!isEditingAc)}
+            title="Kliknij, aby skonfigurować Klasę Pancerza (AC)"
+            className="glass-card px-3.5 py-2 rounded-xl border border-slate-800 text-center min-w-[70px] relative group cursor-pointer hover:border-indigo-500/50 transition"
+          >
+            <span className="text-[10px] text-slate-400 font-bold uppercase block flex items-center justify-center gap-1">
+              <span>Pancerz</span>
+              <Settings className="w-2.5 h-2.5 opacity-50 group-hover:opacity-100" />
+            </span>
+            <span className="text-base font-bold font-mono text-indigo-400">
+              {acCalculation.totalAc} AC
+            </span>
+            <span
+              data-testid="ac-mode-badge"
+              className={`text-[9px] font-mono block ${
+                acCalculation.isOverridden ? 'text-amber-400 font-bold' : 'text-slate-400'
+              }`}
+            >
+              {acCalculation.isOverridden ? 'Ręczne ✎' : 'Auto ℹ'}
+            </span>
           </div>
           <div className="glass-card px-3.5 py-2 rounded-xl border border-slate-800 text-center min-w-[60px]">
             <span className="text-[10px] text-slate-400 font-bold uppercase block">Percepcja</span>
@@ -769,6 +993,74 @@ export function CharacterInspectionCard({
           </div>
         </div>
       </div>
+
+      {/* AC Configuration Popover / Editor */}
+      {isEditingAc && (
+        <div
+          data-testid="ac-editor-popover"
+          className="p-3.5 rounded-xl bg-slate-950/95 border border-indigo-500/50 shadow-2xl space-y-2.5 animate-fadeIn"
+        >
+          <div className="flex items-center justify-between pb-1.5 border-b border-slate-800">
+            <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <Shield className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Konfiguracja Klasy Pancerza (AC)</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsEditingAc(false)}
+              className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="text-[11px] text-slate-300 bg-slate-900/80 p-2 rounded-lg border border-slate-800 font-mono">
+            <span className="text-slate-500 block text-[9px] uppercase font-bold">
+              Kalkulacja D&D 5e:
+            </span>
+            <span data-testid="ac-breakdown-text">{acCalculation.breakdown}</span>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-1">
+            <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+              <input
+                type="checkbox"
+                data-testid="toggle-manual-ac-checkbox"
+                checked={isManualAc}
+                onChange={(e) => handleToggleManualAc(e.target.checked)}
+                className="rounded border-slate-700 bg-slate-900 text-indigo-600 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+              />
+              <span>Własne AC (Manual Override)</span>
+            </label>
+
+            {isManualAc ? (
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  data-testid="manual-ac-input"
+                  min={1}
+                  max={40}
+                  value={manualAcInput}
+                  onChange={(e) => setManualAcInput(e.target.value)}
+                  className="w-16 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-center font-mono text-amber-300 focus:outline-none focus:border-amber-400"
+                />
+                <button
+                  type="button"
+                  data-testid="save-manual-ac-btn"
+                  onClick={handleSaveManualAc}
+                  className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold cursor-pointer transition shadow-sm"
+                >
+                  Zapisz
+                </button>
+              </div>
+            ) : (
+              <span className="text-[11px] text-indigo-300 font-mono">
+                Tryb automatyczny aktywny
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* EXP & Level Progression Card */}
       <div className="glass-card p-4 rounded-xl border border-slate-800 space-y-2.5">
@@ -1118,6 +1410,19 @@ export function CharacterInspectionCard({
                 >
                   Wybierz
                 </button>
+
+                {selectedSpellToAdd && (
+                  <button
+                    type="button"
+                    data-testid="preview-selected-spell-btn"
+                    onClick={() => setInspectingSpellName(selectedSpellToAdd)}
+                    title={`Pokaż szczegóły zaklęcia ${selectedSpellToAdd}`}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-indigo-300 text-xs font-semibold cursor-pointer transition flex items-center gap-1 border border-slate-700"
+                  >
+                    <Info className="w-3.5 h-3.5" />
+                    <span>Szczegóły</span>
+                  </button>
+                )}
               </div>
 
               {/* Or custom input */}
@@ -1200,15 +1505,60 @@ export function CharacterInspectionCard({
                 const effectiveSlotLevel = baseAvailable ? spellLvl : higherSlotLevel;
                 const canCast = spellLvl === 0 || baseAvailable || !!higherSlotLevel;
                 const isUpcast = !baseAvailable && !!higherSlotLevel;
+                const spellData = resolveSpell(spellName);
 
                 return (
                   <span
                     key={spellName}
                     data-testid={`known-spell-${spellName}`}
-                    className="group/spell px-2.5 py-1.5 rounded-xl bg-indigo-950/60 border border-indigo-500/30 text-indigo-200 text-xs font-medium flex items-center gap-2 shadow-sm"
+                    className="group/spell relative px-2.5 py-1.5 rounded-xl bg-indigo-950/60 border border-indigo-500/30 text-indigo-200 text-xs font-medium flex items-center gap-2 shadow-sm hover:border-indigo-500/60 transition"
                   >
                     <Wand2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                    <span>{spellName}</span>
+
+                    {/* Spell Name & Info Button */}
+                    <button
+                      type="button"
+                      data-testid={`spell-info-btn-${spellName}`}
+                      onClick={() => setInspectingSpellName(spellName)}
+                      title={`Kliknij, aby otworzyć szczegóły zaklęcia ${spellName}`}
+                      className="font-semibold text-slate-200 hover:text-white flex items-center gap-1 cursor-pointer transition text-left"
+                    >
+                      <span>{spellName}</span>
+                      <Info className="w-3 h-3 text-indigo-400/80 hover:text-indigo-200 shrink-0" />
+                    </button>
+
+                    {/* Quick Hover Tooltip */}
+                    <div className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-72 p-3 rounded-xl bg-slate-950/95 border border-indigo-500/50 shadow-2xl backdrop-blur-md opacity-0 group-hover/spell:opacity-100 transition-all duration-150 z-40 space-y-2 text-left hidden sm:block">
+                      <div className="flex items-center justify-between gap-1 pb-1.5 border-b border-slate-800">
+                        <span className="font-bold text-slate-100 truncate">{spellData.name}</span>
+                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 shrink-0">
+                          {spellLvl === 0 ? 'Sztuczka' : `Krąg ${spellLvl}`}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1 text-[10px] text-slate-300 font-mono">
+                        <div className="bg-slate-900/80 p-1 rounded border border-slate-800">
+                          <span className="text-slate-500 block text-[9px]">Czas</span>
+                          <span className="truncate block font-semibold">
+                            {spellData.castingTime}
+                          </span>
+                        </div>
+                        <div className="bg-slate-900/80 p-1 rounded border border-slate-800">
+                          <span className="text-slate-500 block text-[9px]">Zasięg</span>
+                          <span className="truncate block font-semibold">{spellData.range}</span>
+                        </div>
+                        <div className="bg-slate-900/80 p-1 rounded border border-slate-800">
+                          <span className="text-slate-500 block text-[9px]">Trwanie</span>
+                          <span className="truncate block font-semibold">{spellData.duration}</span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-slate-300 line-clamp-3 leading-relaxed">
+                        {spellData.description}
+                      </p>
+                      <div className="text-[9px] text-indigo-400 font-medium flex items-center justify-between pt-1 border-t border-slate-800/80">
+                        <span className="capitalize">{spellData.school}</span>
+                        <span>Kliknij (i) po pełne zasady →</span>
+                      </div>
+                    </div>
 
                     {/* Spell Cast Button */}
                     <button
@@ -1349,6 +1699,103 @@ export function CharacterInspectionCard({
         </div>
       </div>
 
+      {/* Equipped Weapons & Attacks Section (FR-CALC-03 & FR-CALC-04) */}
+      <div
+        data-testid="equipped-weapons-section"
+        className="glass-card p-4 rounded-xl border border-slate-800 space-y-3"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider">
+            <Swords className="w-4 h-4 text-amber-400" />
+            <span>Założona Broń i Szybkie Ataki</span>
+          </div>
+          <span className="text-[10px] text-slate-400 font-mono">
+            {equippedWeapons.length}{' '}
+            {equippedWeapons.length === 1 ? 'założona broń' : 'założone bronie'}
+          </span>
+        </div>
+
+        {equippedWeapons.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {equippedWeapons.map((weapon) => {
+              const weaponCombat = calculateWeaponCombatStats({
+                weapon,
+                characterLevel: character.level || 1,
+                stats: character.stats ?? undefined,
+                isProficient: true,
+              });
+
+              return (
+                <div
+                  key={weapon.id}
+                  data-testid={`weapon-card-${weapon.id}`}
+                  className="bg-slate-900/80 p-3 rounded-xl border border-slate-800/80 hover:border-amber-500/40 transition space-y-2 group"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <Sword className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                        <h4 className="text-xs font-bold text-slate-100 truncate">{weapon.name}</h4>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-mono mt-0.5">
+                        {weaponCombat.damageType} •{' '}
+                        {weaponCombat.isFinesse
+                          ? 'Finezyjna'
+                          : weaponCombat.isRanged
+                            ? 'Dystansowa'
+                            : 'Broń biała'}
+                        {weaponCombat.governingAbility &&
+                          ` (${weaponCombat.governingAbility.toUpperCase()})`}
+                      </p>
+                    </div>
+
+                    <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 shrink-0">
+                      {weaponCombat.damageFormula}
+                    </span>
+                  </div>
+
+                  <p
+                    className="text-[10px] text-slate-400 font-mono bg-slate-950/60 px-2 py-1 rounded border border-slate-800/60 truncate"
+                    title={weaponCombat.breakdown}
+                  >
+                    {weaponCombat.breakdown}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1">
+                    <button
+                      type="button"
+                      data-testid={`weapon-attack-btn-${weapon.id}`}
+                      onClick={() => handleRollWeaponAttack(weaponCombat)}
+                      className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-600/90 hover:bg-amber-500 text-white text-xs font-bold shadow-sm shadow-amber-950/50 transition cursor-pointer"
+                      title={`Rzuć d20 ${weaponCombat.attackBonusFormatted} na atak bronią ${weapon.name}`}
+                    >
+                      <Crosshair className="w-3.5 h-3.5" />
+                      <span>Atak ({weaponCombat.attackBonusFormatted})</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      data-testid={`weapon-damage-btn-${weapon.id}`}
+                      onClick={() => handleRollWeaponDamage(weaponCombat)}
+                      className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700/80 hover:border-amber-500/50 text-amber-200 text-xs font-bold shadow-sm transition cursor-pointer"
+                      title={`Rzuć obrażenia ${weaponCombat.damageFormula} broni ${weapon.name}`}
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                      <span>Obr. ({weaponCombat.damageFormula})</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500 italic">
+            Brak założonych broni. Oznacz broń jako „Założona” w poniższym Ekwipunku, aby aktywować
+            szybkie testy ataku i obrażeń.
+          </p>
+        )}
+      </div>
+
       {/* 18 Skills Proficiency List */}
       <CharacterSkillsList
         skills={skills}
@@ -1377,71 +1824,11 @@ export function CharacterInspectionCard({
         </div>
 
         {/* Inventory / Equipment */}
-        <div className="glass-card p-4 rounded-xl border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-indigo-400 font-bold text-xs uppercase tracking-wider">
-              <Backpack className="w-3.5 h-3.5" />
-              <span>Ekwipunek i Ważne Przedmioty</span>
-            </div>
-            <button
-              type="button"
-              data-testid="open-add-item-btn"
-              onClick={() => setIsAddingItem(!isAddingItem)}
-              className="flex items-center gap-1 text-[11px] font-semibold text-indigo-400 hover:text-indigo-300 transition cursor-pointer"
-            >
-              <Plus className="w-3 h-3" />
-              <span>{isAddingItem ? 'Anuluj' : 'Dodaj'}</span>
-            </button>
-          </div>
-
-          {/* Inline Add Item Form */}
-          {isAddingItem && (
-            <form onSubmit={handleAddItem} className="flex items-center gap-2 animate-fadeIn">
-              <input
-                type="text"
-                data-testid="new-item-input"
-                placeholder="Wpisz nazwę przedmiotu..."
-                value={newItemName}
-                onChange={(e) => setNewItemName(e.target.value)}
-                className="flex-1 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:border-indigo-500"
-              />
-              <button
-                type="submit"
-                data-testid="confirm-add-item-btn"
-                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer transition shadow-sm"
-              >
-                Dodaj
-              </button>
-            </form>
-          )}
-
-          {character.inventory && character.inventory.length > 0 ? (
-            <ul className="text-xs text-slate-300 space-y-1">
-              {character.inventory.map((item) => (
-                <li
-                  key={item}
-                  className="flex items-center justify-between group/item p-1 rounded-lg hover:bg-slate-900/60 transition"
-                >
-                  <div className="flex items-center gap-1.5 truncate">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                    <span className="truncate">{item}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveItem(item)}
-                    data-testid={`remove-item-${item}`}
-                    title={`Usuń ${item}`}
-                    className="p-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer opacity-80 group-hover/item:opacity-100"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="text-xs text-slate-400">Podstawowy zestaw podróżnika.</p>
-          )}
-        </div>
+        <InventoryManager
+          items={inventoryItems}
+          strengthScore={character.stats?.str ?? 10}
+          onChange={handleInventoryChange}
+        />
       </div>
 
       {/* Level Up Modal */}
@@ -1452,6 +1839,49 @@ export function CharacterInspectionCard({
           onClose={() => setIsLevelUpModalOpen(false)}
           onApplyLevelUp={handleApplyLevelUp}
           sessionId={character.sessionId || undefined}
+        />
+      )}
+
+      {/* Spell Detail Modal */}
+      {inspectingSpell && (
+        <SpellDetailModal
+          spell={inspectingSpell}
+          onClose={() => setInspectingSpellName(null)}
+          onCast={(s) => {
+            const lvl = getSpellLevel(s.name);
+            const baseSlot = spellSlots[lvl];
+            const baseAvailable = lvl === 0 || (baseSlot && baseSlot.used < baseSlot.max);
+            const higherSlotLevel =
+              !baseAvailable && lvl > 0
+                ? Object.keys(spellSlots)
+                    .map(Number)
+                    .filter(
+                      (l) => l > lvl && spellSlots[l] && spellSlots[l].used < spellSlots[l].max
+                    )
+                    .sort((a, b) => a - b)[0]
+                : undefined;
+            const effLvl = baseAvailable ? lvl : higherSlotLevel;
+            handleCastSpell(s.name, effLvl);
+          }}
+          castLabel={
+            getSpellLevel(inspectingSpell.name) === 0
+              ? '✨ Rzuć sztuczkę'
+              : `⚡ Rzuć (${getSpellLevel(inspectingSpell.name)}. krąg)`
+          }
+          canCast={
+            getSpellLevel(inspectingSpell.name) === 0 ||
+            (spellSlots[getSpellLevel(inspectingSpell.name)] &&
+              spellSlots[getSpellLevel(inspectingSpell.name)].used <
+                spellSlots[getSpellLevel(inspectingSpell.name)].max) ||
+            Object.keys(spellSlots)
+              .map(Number)
+              .some(
+                (l) =>
+                  l > getSpellLevel(inspectingSpell.name) &&
+                  spellSlots[l] &&
+                  spellSlots[l].used < spellSlots[l].max
+              )
+          }
         />
       )}
     </div>

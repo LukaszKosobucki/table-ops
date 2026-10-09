@@ -3,6 +3,8 @@
  * Pure helper functions for stat modifiers, health calculations, and dice rolls.
  */
 
+import type { EquipmentItem } from './inventory';
+
 /**
  * Calculates ability modifier from an ability score (e.g. 10 -> 0, 16 -> +3, 8 -> -1).
  */
@@ -1038,5 +1040,317 @@ export function applyLevelUp<
     passivePerception: newPp,
     stats: updatedStats,
     spells: updatedSpells,
+  };
+}
+
+export interface ArmorClassCalculationResult {
+  totalAc: number;
+  baseAc: number;
+  dexBonus: number;
+  shieldBonus: number;
+  magicBonus: number;
+  source: 'unarmored' | 'armor' | 'barbarian_unarmored' | 'monk_unarmored' | 'manual';
+  isOverridden: boolean;
+  breakdown: string;
+}
+
+export interface CalculateArmorClassParams {
+  characterClass?: string;
+  stats?: {
+    dex?: number;
+    con?: number;
+    wis?: number;
+  };
+  equippedItems?: EquipmentItem[];
+  overrideAc?: number | null;
+}
+
+/**
+ * Calculates Armor Class (AC) according to D&D 5e rules, supporting armor categories,
+ * shields, Barbarian/Monk unarmored defense, magic items, and manual override.
+ */
+export function calculateArmorClass({
+  characterClass,
+  stats,
+  equippedItems = [],
+  overrideAc,
+}: CalculateArmorClassParams): ArmorClassCalculationResult {
+  if (typeof overrideAc === 'number' && !Number.isNaN(overrideAc) && overrideAc > 0) {
+    return {
+      totalAc: overrideAc,
+      baseAc: overrideAc,
+      dexBonus: 0,
+      shieldBonus: 0,
+      magicBonus: 0,
+      source: 'manual',
+      isOverridden: true,
+      breakdown: `Własne AC: ${overrideAc} (Manual Override)`,
+    };
+  }
+
+  const dex = stats?.dex ?? 10;
+  const con = stats?.con ?? 10;
+  const wis = stats?.wis ?? 10;
+  const dexMod = getAbilityModifier(dex);
+  const conMod = getAbilityModifier(con);
+  const wisMod = getAbilityModifier(wis);
+
+  const canonicalClass = getCanonicalClassName(characterClass);
+
+  // Find equipped armor
+  const wornArmor = equippedItems.find((item) => item.isEquipped && item.category === 'Armor');
+
+  // Find equipped shield
+  const wornShield = equippedItems.find((item) => item.isEquipped && item.category === 'Shield');
+
+  // Magic bonus from other equipped items (rings, cloaks, wondrous items)
+  let magicBonus = 0;
+  for (const item of equippedItems) {
+    if (!item.isEquipped) continue;
+    if (item.category === 'Armor' || item.category === 'Shield') continue;
+    if (item.armorClass?.base) {
+      magicBonus += item.armorClass.base;
+    } else {
+      const nameLower = item.name.toLowerCase();
+      if (
+        nameLower.includes('ring of protection') ||
+        nameLower.includes('cloak of protection') ||
+        nameLower.includes('pierścień ochrony') ||
+        nameLower.includes('płaszcz ochrony')
+      ) {
+        magicBonus += 1;
+      } else if (
+        (nameLower.includes('bracers of defense') || nameLower.includes('karwasze obrony')) &&
+        !wornArmor &&
+        !wornShield
+      ) {
+        magicBonus += 2;
+      }
+    }
+  }
+
+  // Shield bonus
+  let shieldBonus = 0;
+  if (wornShield) {
+    shieldBonus = wornShield.armorClass?.base ?? 2;
+    if (wornShield.weaponDetails?.attackBonus) {
+      shieldBonus += wornShield.weaponDetails.attackBonus;
+    }
+  }
+
+  if (wornArmor) {
+    let baseAc = 11;
+    let allowedDex = dexMod;
+    const armorName = wornArmor.name;
+
+    if (wornArmor.armorClass) {
+      baseAc = wornArmor.armorClass.base;
+      if (!wornArmor.armorClass.dexBonus) {
+        // Heavy Armor
+        allowedDex = 0;
+      } else if (typeof wornArmor.armorClass.maxBonus === 'number') {
+        // Medium Armor
+        allowedDex = Math.min(dexMod, wornArmor.armorClass.maxBonus);
+      } else {
+        // Light Armor
+        allowedDex = dexMod;
+      }
+    }
+
+    const totalAc = baseAc + allowedDex + shieldBonus + magicBonus;
+    const parts = [`${armorName} (${baseAc})`];
+    if (allowedDex !== 0) parts.push(`DEX (${allowedDex >= 0 ? `+${allowedDex}` : allowedDex})`);
+    if (shieldBonus > 0) parts.push(`Tarcza (+${shieldBonus})`);
+    if (magicBonus > 0) parts.push(`Magia (+${magicBonus})`);
+
+    return {
+      totalAc,
+      baseAc,
+      dexBonus: allowedDex,
+      shieldBonus,
+      magicBonus,
+      source: 'armor',
+      isOverridden: false,
+      breakdown: `${parts.join(' + ')} = ${totalAc} AC`,
+    };
+  }
+
+  // Unarmored: Barbarian (can use shield)
+  if (canonicalClass === 'Barbarian') {
+    const baseAc = 10;
+    const effectiveDexCon = dexMod + conMod;
+    const totalAc = baseAc + effectiveDexCon + shieldBonus + magicBonus;
+    const parts = [
+      '10 (Baza)',
+      `DEX (${dexMod >= 0 ? `+${dexMod}` : dexMod})`,
+      `CON (${conMod >= 0 ? `+${conMod}` : conMod})`,
+    ];
+    if (shieldBonus > 0) parts.push(`Tarcza (+${shieldBonus})`);
+    if (magicBonus > 0) parts.push(`Magia (+${magicBonus})`);
+
+    return {
+      totalAc,
+      baseAc,
+      dexBonus: effectiveDexCon,
+      shieldBonus,
+      magicBonus,
+      source: 'barbarian_unarmored',
+      isOverridden: false,
+      breakdown: `Obrona bez pancerza (Barbarzyńca): ${parts.join(' + ')} = ${totalAc} AC`,
+    };
+  }
+
+  // Unarmored: Monk (cannot use shield)
+  if (canonicalClass === 'Monk' && !wornShield) {
+    const baseAc = 10;
+    const effectiveDexWis = dexMod + wisMod;
+    const totalAc = baseAc + effectiveDexWis + magicBonus;
+    const parts = [
+      '10 (Baza)',
+      `DEX (${dexMod >= 0 ? `+${dexMod}` : dexMod})`,
+      `WIS (${wisMod >= 0 ? `+${wisMod}` : wisMod})`,
+    ];
+    if (magicBonus > 0) parts.push(`Magia (+${magicBonus})`);
+
+    return {
+      totalAc,
+      baseAc,
+      dexBonus: effectiveDexWis,
+      shieldBonus: 0,
+      magicBonus,
+      source: 'monk_unarmored',
+      isOverridden: false,
+      breakdown: `Obrona bez pancerza (Mnich): ${parts.join(' + ')} = ${totalAc} AC`,
+    };
+  }
+
+  // Standard Unarmored
+  const baseAc = 10;
+  const totalAc = baseAc + dexMod + shieldBonus + magicBonus;
+  const parts = ['10 (Baza)', `DEX (${dexMod >= 0 ? `+${dexMod}` : dexMod})`];
+  if (shieldBonus > 0) parts.push(`Tarcza (+${shieldBonus})`);
+  if (magicBonus > 0) parts.push(`Magia (+${magicBonus})`);
+
+  return {
+    totalAc,
+    baseAc,
+    dexBonus: dexMod,
+    shieldBonus,
+    magicBonus,
+    source: 'unarmored',
+    isOverridden: false,
+    breakdown: `${parts.join(' + ')} = ${totalAc} AC`,
+  };
+}
+
+export interface WeaponCombatStats {
+  weaponId: string;
+  weaponName: string;
+  isEquipped: boolean;
+  attackBonus: number;
+  attackBonusFormatted: string;
+  damageDice: string;
+  damageBonus: number;
+  damageType: string;
+  damageFormula: string;
+  isFinesse: boolean;
+  isRanged: boolean;
+  governingAbility: 'str' | 'dex';
+  breakdown: string;
+}
+
+export interface CalculateWeaponCombatStatsParams {
+  weapon: EquipmentItem;
+  characterLevel?: number;
+  stats?: {
+    str?: number;
+    dex?: number;
+  };
+  isProficient?: boolean;
+}
+
+/**
+ * Calculates attack modifier and damage formula for an equipped weapon in D&D 5e.
+ * Supports Melee (STR), Finesse (STR or DEX), Ranged (DEX), Proficiency Bonus, and Magic +X.
+ */
+export function calculateWeaponCombatStats({
+  weapon,
+  characterLevel = 1,
+  stats,
+  isProficient = true,
+}: CalculateWeaponCombatStatsParams): WeaponCombatStats {
+  const str = stats?.str ?? 10;
+  const dex = stats?.dex ?? 10;
+  const strMod = getAbilityModifier(str);
+  const dexMod = getAbilityModifier(dex);
+  const pb = calculateProficiencyBonus(characterLevel);
+
+  const details = weapon.weaponDetails || {
+    damageDice: '1d6',
+    damageType: 'Obrażenia',
+    isFinesse: false,
+    isRanged: false,
+  };
+
+  const isRanged = Boolean(details.isRanged);
+  const isFinesse = Boolean(details.isFinesse);
+
+  let magicBonus = details.attackBonus ?? 0;
+  if (magicBonus === 0) {
+    const match = weapon.name.match(/\+(\d+)/);
+    if (match) {
+      magicBonus = parseInt(match[1], 10);
+    }
+  }
+
+  let governingAbility: 'str' | 'dex' = 'str';
+  if (isRanged) {
+    governingAbility = 'dex';
+  } else if (isFinesse) {
+    governingAbility = dexMod > strMod ? 'dex' : 'str';
+  } else {
+    governingAbility = 'str';
+  }
+
+  const abilityMod = governingAbility === 'dex' ? dexMod : strMod;
+  const profBonus = isProficient ? pb : 0;
+  const totalAttackBonus = abilityMod + profBonus + magicBonus;
+  const totalDamageBonus = abilityMod + magicBonus;
+
+  const damageDice = details.damageDice || '1d6';
+  const damageType = details.damageType || 'Obrażenia';
+
+  let damageFormula = damageDice;
+  if (totalDamageBonus > 0) {
+    damageFormula = `${damageDice} + ${totalDamageBonus}`;
+  } else if (totalDamageBonus < 0) {
+    damageFormula = `${damageDice} - ${Math.abs(totalDamageBonus)}`;
+  }
+
+  const attackBonusFormatted =
+    totalAttackBonus >= 0 ? `+${totalAttackBonus}` : `${totalAttackBonus}`;
+
+  const attackBreakdownParts = [
+    `${governingAbility.toUpperCase()} (${abilityMod >= 0 ? `+${abilityMod}` : abilityMod})`,
+  ];
+  if (profBonus > 0) attackBreakdownParts.push(`Biegłość (+${profBonus})`);
+  if (magicBonus > 0) attackBreakdownParts.push(`Magia (+${magicBonus})`);
+
+  const breakdown = `Atak: ${attackBreakdownParts.join(' + ')} = ${attackBonusFormatted} | Obrażenia: ${damageFormula} (${damageType})`;
+
+  return {
+    weaponId: weapon.id,
+    weaponName: weapon.name,
+    isEquipped: weapon.isEquipped,
+    attackBonus: totalAttackBonus,
+    attackBonusFormatted,
+    damageDice,
+    damageBonus: totalDamageBonus,
+    damageType,
+    damageFormula,
+    isFinesse,
+    isRanged,
+    governingAbility,
+    breakdown,
   };
 }

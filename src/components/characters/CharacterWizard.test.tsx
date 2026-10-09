@@ -144,9 +144,10 @@ describe('CharacterWizard Component (Chunk 3.2)', () => {
       );
     });
 
-    // Weryfikacja powrotu do Kroku 1 i pojawienia się nowej karty postaci
+    // Weryfikacja powrotu do widoku listy postaci i pojawienia się nowej karty postaci
     await waitFor(() => {
-      expect(screen.getByText(/Krok 1: Wybierz Rasę i Klasę/i)).toBeInTheDocument();
+      expect(screen.getByText('Gimli Syn Gloina')).toBeInTheDocument();
+      expect(screen.getByTestId('open-create-character-btn')).toBeInTheDocument();
       expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ name: 'Gimli Syn Gloina' }));
     });
   });
@@ -202,5 +203,25 @@ describe('CharacterWizard Component (Chunk 3.2)', () => {
     fireEvent.click(screen.getByTestId('wizard-to-summary-btn'));
     expect(screen.getByText(/Krok 5: Podsumowanie/i)).toBeInTheDocument();
     expect(screen.getByText('Ognista Kula')).toBeInTheDocument();
+  });
+
+  it('opens CharacterInspectionCard when clicking a character card and returns to list when clicking back', () => {
+    render(<CharacterWizard sessionId="test" initialCharacters={DEFAULT_CHARACTERS} />);
+
+    // Click first character card
+    const card = screen.getByTestId('character-card-c-1');
+    fireEvent.click(card);
+
+    // Verify detailed inspection card is opened
+    expect(screen.getByText('Powrót do Walki / Tracker Inicjatywy')).toBeInTheDocument();
+    expect(screen.getByText('Valerius z Ostrej Bieli')).toBeInTheDocument();
+    expect(screen.getByText('Pancerz')).toBeInTheDocument();
+
+    // Click back button
+    fireEvent.click(screen.getByText('Powrót do Walki / Tracker Inicjatywy'));
+
+    // Verify return to list
+    expect(screen.getByText('Eldrin Srebrny Liść')).toBeInTheDocument();
+    expect(screen.getByTestId('open-create-character-btn')).toBeInTheDocument();
   });
 });

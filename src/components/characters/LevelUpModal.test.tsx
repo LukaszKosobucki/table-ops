@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DashboardCharacter } from '../dashboard/types';
 import { LevelUpModal } from './LevelUpModal';
@@ -244,20 +244,20 @@ describe('LevelUpModal Component (Chunk 8.4)', () => {
 
     // Wait for spells to render
     await waitFor(() => {
-      expect(screen.getByText('Ciemność')).toBeInTheDocument();
-      expect(screen.getByText('Pajęczyna')).toBeInTheDocument();
+      expect(screen.getByTestId('level-up-select-spell-Ciemność')).toBeInTheDocument();
+      expect(screen.getByTestId('level-up-select-spell-Pajęczyna')).toBeInTheDocument();
     });
 
     // Select Spell 1
-    fireEvent.click(screen.getByText('Ciemność'));
+    fireEvent.click(screen.getByTestId('level-up-select-spell-Ciemność'));
     expect(screen.getByTestId('level-up-spell-counter')).toHaveTextContent('Wybrano: 1 / 2');
 
     // Select Spell 2
-    fireEvent.click(screen.getByText('Pajęczyna'));
+    fireEvent.click(screen.getByTestId('level-up-select-spell-Pajęczyna'));
     expect(screen.getByTestId('level-up-spell-counter')).toHaveTextContent('Wybrano: 2 / 2');
 
     // 3rd spell button should be disabled
-    const thirdSpellBtn = screen.getByText('Kula Ognia').closest('button');
+    const thirdSpellBtn = screen.getByTestId('level-up-select-spell-Kula Ognia');
     expect(thirdSpellBtn).toBeDisabled();
 
     // Custom spell input should be disabled
@@ -275,7 +275,7 @@ describe('LevelUpModal Component (Chunk 8.4)', () => {
     expect(thirdSpellBtn).not.toBeDisabled();
 
     // Now 3rd spell can be selected
-    fireEvent.click(screen.getByText('Kula Ognia'));
+    fireEvent.click(screen.getByTestId('level-up-select-spell-Kula Ognia'));
     expect(screen.getByTestId('level-up-unlimited-badge')).toHaveTextContent(
       'Tryb swobodny GM (3)'
     );
@@ -311,5 +311,57 @@ describe('LevelUpModal Component (Chunk 8.4)', () => {
       'Klasa przygotowująca'
     );
     expect(screen.getByText(/Kleryk, Druid i Paladyn znają wszystkie czary/i)).toBeInTheDocument();
+  });
+
+  it('opens SpellDetailModal when clicking spell info button during level up', async () => {
+    const mockSpells = [
+      {
+        index: 'shield',
+        name: 'Tarcza',
+        level: 1,
+        school: 'Abjuration',
+        castingTime: '1 Reakcja',
+        range: 'Własny',
+        duration: '1 runda',
+        components: ['V', 'S'],
+        classes: ['Wizard'],
+        description:
+          'Niewidzialna bariera magicznej siły chroni cię, dodając +5 do Klasy Pancerza.',
+      },
+    ];
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      if (String(url).includes('/api/compendium/spells')) {
+        return { ok: true, json: async () => ({ success: true, spells: mockSpells }) } as Response;
+      }
+      return { ok: true, json: async () => ({ success: true }) } as Response;
+    });
+
+    render(
+      <LevelUpModal
+        character={mockWizard}
+        isOpen={true}
+        onClose={vi.fn()}
+        onApplyLevelUp={vi.fn()}
+      />
+    );
+
+    // Wait for spells to load
+    await waitFor(() => {
+      expect(screen.getByTestId('level-up-spell-info-Tarcza')).toBeInTheDocument();
+    });
+
+    // Click the info button
+    fireEvent.click(screen.getByTestId('level-up-spell-info-Tarcza'));
+
+    // Verify modal is open and shows description
+    await waitFor(() => {
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(
+        within(dialog).getByText(/Niewidzialna bariera magicznej siły chroni cię/i)
+      ).toBeInTheDocument();
+      expect(within(dialog).getByText('1 Reakcja')).toBeInTheDocument();
+    });
   });
 });

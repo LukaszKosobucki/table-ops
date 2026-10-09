@@ -14,6 +14,9 @@ export interface CharacterSpells {
   prepared?: string[];
 }
 
+import type { EquipmentItem } from '@/lib/inventory';
+import type { CombatantDefenses, SkillProficiencyLevel } from '@/lib/skills-and-traits';
+
 export interface Character {
   id: string;
   sessionId?: string;
@@ -29,9 +32,18 @@ export interface Character {
   passivePerception: number;
   stats: CharacterStats;
   traits?: string[];
-  inventory?: string[];
+  inventory?: (string | EquipmentItem)[];
   spells?: CharacterSpells | null;
   avatarUrl?: string | null;
+  proficiencies?:
+    | {
+        skills?: Record<string, SkillProficiencyLevel>;
+        defenses?: CombatantDefenses;
+        [key: string]: unknown;
+      }
+    | string[]
+    | null;
+  defenses?: CombatantDefenses;
 }
 
 export interface RaceOption {

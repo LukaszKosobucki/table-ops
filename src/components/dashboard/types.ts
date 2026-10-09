@@ -1,3 +1,4 @@
+import type { EquipmentItem } from '@/lib/inventory';
 import type { CombatantDefenses, SkillProficiencyLevel } from '@/lib/skills-and-traits';
 
 export type HealthStatus = 'healthy' | 'bloodied' | 'critical' | 'dead';
@@ -19,6 +20,8 @@ export interface DashboardCharacter {
   currentHp: number;
   maxHp: number;
   ac: number;
+  overrideAc?: number | null;
+  isManualAc?: boolean | null;
   passivePerception: number;
   avatarUrl?: string | null;
   stats?: {
@@ -34,7 +37,7 @@ export interface DashboardCharacter {
   proficiencies?: CharacterProficienciesData | string[] | null;
   defenses?: CombatantDefenses;
   traits?: string[] | null;
-  inventory?: string[] | null;
+  inventory?: (string | EquipmentItem)[] | string[] | null;
   spells?: {
     slots?: Record<number, { max: number; used: number }>;
     known?: string[];

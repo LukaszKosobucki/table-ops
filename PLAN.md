@@ -723,7 +723,7 @@ flowchart TD
   * [`src/components/initiative/CombatantCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantCard.test.tsx): 16 testów (w tym test integracji z badge'em odporności).
   * Kompletny zestaw testów: 497/497 testów Vitest (53 pliki, 100% zielone), 0 błędów Biome linter, czysty produkcyjny build Next.js 16 (Turbopack).
 
-### Chunk 11.3: Ekwipunek – Integracja z Kompendium, Snapshoty i Dostrojenie (US-EQ-01, US-EQ-02)
+### Chunk 11.3: Ekwipunek – Integracja z Kompendium, Snapshoty i Dostrojenie (US-EQ-01, US-EQ-02) (✅ Zakończone)
 * **User Stories & Wymagania:**
   * **US-EQ-01: Wybór ekwipunku z kompendium SRD oraz tworzenie przedmiotów autorskich (Homebrew)**
     * *Jako* Mistrz Gry,
@@ -734,53 +734,61 @@ flowchart TD
       - Pozycje w wynikach wyszukiwania są oznaczone źródłem: `[SRD]` lub `[Homebrew]`.
       - Wybranie przedmiotu kopiuje jego parametry do karty postaci w formie niezależnego rekordu (snapshot w `Character.inventory`), co gwarantuje stabilność ekwipunku niezależnie od modyfikacji bazy ogólnej.
       - Opcja „Stwórz własny przedmiot” (Homebrew) z polami: Nazwa, Typ (Broń / Pancerz / Tarcza / Przedmiot cudowny / Amunicja / Mikstura), Waga (lbs), Wartość, Kość obrażeń i Właściwości.
-      - Wsteczna kompatybilność: zachowanie obsługi dotychczasowych prostych tablic `string[]` z automatyczną konwersją do obiektów `EquipmentItem`.
+      - Szybkie dodawanie proste (`Szybkie`) dla podręcznych notatek/przedmiotów bez otwierania zaawansowanych modali.
+      - Wsteczna kompatybilność: pełne wsparcie i bezstratna normalizacja dotychczasowych tablic stringów (`normalizeInventory`) oraz inteligentna serializacja (`serializeInventory`).
   * **US-EQ-02: Zarządzanie stanem założenia (Equipped / Attuned)**
     * *Jako* Mistrz Gry,
     * *Chcę* jednym kliknięciem oznaczać przedmioty w plecaku jako założone (`Equipped`) lub dostrojone (`Attuned`),
     * *Aby* system wiedział, które przedmioty wpływają na statystyki obronne i ofensywne.
     * *Kryteria Akceptacji:*
-      - Przełącznik `Założone (Equipped)`: aktywny pancerz, aktywna tarcza, broń w ręku. Dozwolony maksymalnie jeden pancerz i jedna tarcza jednocześnie (walidacja UI).
+      - Przełącznik `Założone (Equipped)`: aktywny pancerz, aktywna tarcza, broń w ręku. Dozwolony maksymalnie jeden pancerz i jedna tarcza jednocześnie (walidacja UI z czytelnym komunikatem błędu).
       - Przełącznik `Dostrojone (Attuned)`: dla przedmiotów z wymogiem dostrojenia (*Requires Attunement*), z limitem maks. 3 dostrojone przedmioty (reguła D&D 5e).
-      - Prezentacja sumarycznej wagi plecaka oraz maksymalnego udźwigu bohatera (`STR × 15 lbs`).
-* **Architektura & Typy:**
-  * Typ `EquipmentItem`: `{ id: string; name: string; category: ItemCategory; weight: number; cost?: string; isEquipped: boolean; isAttuned: boolean; requiresAttunement: boolean; armorClass?: { base: number; dexBonus: boolean; maxBonus?: number }; weaponDetails?: { damageDice: string; damageType: string; isFinesse: boolean; isRanged: boolean; attackBonus?: number }; description?: string; isCustom?: boolean }`.
-  * Komponent [`src/components/inventory/InventoryManager.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/inventory/InventoryManager.tsx) oraz rozbudowa [`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx).
+      - Prezentacja sumarycznej wagi plecaka oraz maksymalnego udźwigu bohatera (`STR × 15 lbs`) z ostrzeżeniem o przeciążeniu (`Encumbered`).
+* **Architektura & Frontend:**
+  * Moduł domenowy [`src/lib/inventory.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/inventory.ts): normalizacja wsteczna, serializacja, snapshoty przedmiotów z bazy SRD, tworzenie przedmiotów Homebrew, wyliczanie wagi i limitu udźwigu, mechanizm bezpiecznego wyposażania (maks. 1 pancerz, maks. 1 tarcza) i dostrajania (maks. 3).
+  * Komponent [`src/components/inventory/InventoryManager.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/inventory/InventoryManager.tsx): pełny interfejs ekwipunku z filtrowaniem wg kategorii (Wszystkie, Założone, Dostrojone, Bronie, Pancerze), wskaźnikiem udźwigu, żetonami attunementu (x/3), modalem przeglądania kompendium SRD, kreatorem przedmiotów Homebrew oraz szybkim dodawaniem w linii.
+  * Zintegrowanie ekwipunku z kartą inspekcji postaci [`src/components/dashboard/CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx) i synchronizacja API z bazą danych (`PUT /api/characters/[id]`).
 * **Testowanie:**
-  * Testy migracji formatów ekwipunku i snapshotów w `src/lib/inventory.test.ts`.
-  * Testy walidacji (reguła 1 pancerza, limit 3 dostrojeń) w `src/components/inventory/InventoryManager.test.tsx`.
+  * [`src/lib/inventory.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/inventory.test.ts): 13 testów jednostkowych (normalizacja, snapshoty, reguła maks. 1 pancerza, maks. 1 tarczy, limit 3 dostrojeń, przeciążenie udźwigu).
+  * [`src/components/inventory/InventoryManager.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/inventory/InventoryManager.test.tsx): 4 testy komponentu (renderowanie wagi, udźwigu, filtrowanie, blokada 4. dostrojenia, tworzenie przedmiotu autorskiego).
+  * [`src/components/dashboard/CharacterInspectionCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.test.tsx): 18 testów (w tym test integracji ekwipunku, dodawania, usuwania i synchronizacji z backendem).
+  * Kompletny zestaw testów: 514/514 testów Vitest (55 plików, 100% zielone), 0 błędów Biome linter, czysty produkcyjny build Next.js 16 (Turbopack).
 
-### Chunk 11.4: Automatyczny Kalkulator AC, Ataków i Manual Override (FR-CALC-01 do FR-CALC-04)
-* **Wymagania Funkcjonalne:**
+### Chunk 11.4: Automatyczny Kalkulator AC, Ataków i Manual Override (FR-CALC-01 do FR-CALC-04) (✅ Zakończone)
+* **Wymagania Funkcjonalne & Implementacja:**
   * **FR-CALC-01: Automatyczne wyliczanie Klasy Pancerza (AC)**
-    * Wyliczenie AC w oparciu o założony pancerz i tarczę:
-      - Brak pancerza (Unarmored): `10 + DEX mod` (z uwzględnieniem cech klasowych, np. Barbarzyńca `10 + DEX + CON`, Mnich `10 + DEX + WIS`).
+    * Wdrożenie pełnego kalkulatora AC D&D 5e w [`src/lib/dnd-rules.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.ts) (`calculateArmorClass`):
+      - Brak pancerza (Unarmored): `10 + DEX mod` (z obsługą cech bezpancerzowych: Barbarzyńca `10 + DEX + CON` działające z tarczą, Mnich `10 + DEX + WIS` bez pancerza i tarczy).
       - Pancerz lekki: `Baza pancerza + DEX mod`.
       - Pancerz średni: `Baza pancerza + min(DEX mod, 2)`.
-      - Pancerz ciężki: `Baza pancerza` (brak wpływu DEX).
-      - Tarcza: `+2 AC` jeśli oznaczona jako założona.
-      - Przedmioty magiczne (np. Pierścień Ochrony): `+X AC` jeśli dostrojone/założone.
+      - Pancerz ciężki: `Baza pancerza` (brak bonusu DEX).
+      - Tarcza: `+2 AC` (lub bazowa wartość tarczy) przy zaznaczeniu `isEquipped`.
+      - Magiczne bonusy do obrony: `+X AC` z wyposażonych/dostrojonych przedmiotów magicznych (np. Pierścień Ochrony, Płaszcz Ochrony, Karwasze Obrony).
+      - Szczegółowe tekstowe rozbicie matematyczne reguł D&D (pole `breakdown`).
   * **FR-CALC-02: Manual Override Klasy Pancerza (Custom AC)**
-    * Możliwość włączenia opcji *„Własne AC (Manual Override)”* i ręcznego wpisania wartości (dla efektów czarów, premii sytuacyjnych lub zasad homebrew).
-    * Czytelna plakietka: `🛡️ AC: 16 (Auto)` vs `🛡️ AC: 18 (Ręczne / Nadpisane)`.
+    * Opcja *„Własne AC (Manual Override)”* z przełącznikiem checkbox i polem numerycznym w popoverze konfiguracji AC ([`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx)).
+    * Dynamiczny badge trybu na karcie cech życiowych: `Auto ℹ` (odcień szary/błękitny) vs `Ręczne ✎` (odcień bursztynowy).
+    * Natychmiastowa aktualizacja optymistyczna oraz persystencja w bazie PostgreSQL (`stats.isManualAc`, `stats.overrideAc`, `ac`) poprzez endpoint `PUT /api/characters/:id`.
   * **FR-CALC-03: Automatyczny kalkulator bonusu ataku i obrażeń broni**
-    * Wyliczanie modyfikatorów dla założonych broni:
+    * Funkcja domenowa `calculateWeaponCombatStats` wyliczająca statystyki bojowe dla wyposażonych broni:
       - Broń biała (Melee): `STR mod + Bonus Biegłości` (jeśli proficient).
       - Broń finezyjna (Finesse): `max(STR mod, DEX mod) + Bonus Biegłości`.
       - Broń dystansowa (Ranged): `DEX mod + Bonus Biegłości`.
-      - Bonus broni magicznej (np. +1): doliczany do testu ataku i do obrażeń.
-      - Obrażenia: `[Kość broni] + [Odpowiedni modyfikator atrybutu] + [Bonus magiczny]` (np. `1d8 + 3 cięte`).
+      - Magiczny bonus broni (+1, +2, +3): automatycznie doliczany do testu ataku i rzutu na obrażenia.
+      - Formuła obrażeń: `[Kość broni] + [Modyfikator cechy + Magia] [Typ obrażeń]` (np. `1d8 + 3 cięte`).
   * **FR-CALC-04: Szybkie rzuty z karty postaci do Rzutnika Kości**
-    * Każda założona broń w ekwipunku posiada interaktywne przyciski `[⚔️ Atak (+X)]` oraz `[💥 Obrażenia (1d8+X)]`.
-    * Kliknięcie `[Atak]` automatycznie wysyła rzut k20 z modyfikatorem do rzutnika kości i rejestruje akcję w Osi Czasu / Kronice.
-    * Kliknięcie `[Obrażenia]` wysyła kości obrażeń do rzutnika kości.
-* **Architektura:**
-  * Rozszerzenie biblioteki reguł [`src/lib/dnd-rules.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.ts): funkcje `calculateArmorClass`, `calculateWeaponAttackBonus`, `calculateWeaponDamageFormula`.
-  * Integracja w [`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx) i [`CombatantCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantCard.tsx).
+    * Dedykowana sekcja *„Założona Broń i Szybkie Ataki”* (`data-testid="equipped-weapons-section"`) w [`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx).
+    * Karty broni (`data-testid="weapon-card-{id}"`) z interaktywnymi przyciskami:
+      - `[⚔️ Atak (+X)]` (`data-testid="weapon-attack-btn-{id}"`): rzut d20 + modyfikator ataku wysyłany do rzutnika kości (`onRequestDiceRoll`) oraz baneru rzutu.
+      - `[💥 Obr. (formula)]` (`data-testid="weapon-damage-btn-{id}"`): rzut kością obrażeń (d4–d12) + modyfikator obrażeń wysyłany do rzutnika kości.
+* **Architektura & Frontend:**
+  * Moduł domenowy [`src/lib/dnd-rules.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.ts): `calculateArmorClass`, `calculateWeaponCombatStats`.
+  * Integracja w [`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx): popover edycji AC, optymistyczny stan `isManualAc` / `overrideAc`, sekcja założonych broni z atakami i obrażeniami.
+  * Rozszerzenie typów `DashboardCharacter` w [`src/components/dashboard/types.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/types.ts) o opcjonalne pola `overrideAc` oraz `isManualAc`.
 * **Testowanie:**
-  * Testy jednostkowe kalkulatora AC (wszystkie kategorie pancerzy, tarcze, cechy bezpancerzowe, manual override) w [`src/lib/dnd-rules.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.test.ts).
-  * Testy kalkulatora broni (finezyjne, dystansowe, magiczne) w [`src/lib/dnd-rules.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.test.ts).
-  * Testy integracyjne z rzutnikiem kości w [`src/components/dashboard/CharacterInspectionCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.test.tsx).
+  * [`src/lib/dnd-rules.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.test.ts): 65 testów jednostkowych reguł D&D 5e (w tym 13 nowych testów AC bezpancerzowego, pancerzy lekkich/średnich/ciężkich, tarcz, cech Barbarzyńcy i Mnicha, przedmiotów magicznych, broni finezyjnych, dystansowych i magicznych).
+  * [`src/components/dashboard/CharacterInspectionCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.test.tsx): 22 testy jednostkowe i integracyjne (w tym 3 nowe testy Chunk 11.4 sprawdzające auto AC, manual override, rzuty ataku i obrażeń broni).
+  * Kompletny zestaw testów: 533/533 testów Vitest (55 plików, 100% zielone), 0 błędów Biome linter, czysty produkcyjny build Next.js 16 (Turbopack).
 
 ---
 

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CharacterInspectionCard } from './CharacterInspectionCard';
 import type { DashboardCharacter } from './types';
@@ -298,7 +298,7 @@ describe('CharacterInspectionCard Component (Chunk 3.2)', () => {
     );
 
     // Initial known spell
-    expect(screen.getByText('Promień Mrozu')).toBeInTheDocument();
+    expect(screen.getByTestId('known-spell-Promień Mrozu')).toBeInTheDocument();
 
     // Open spell form
     fireEvent.click(screen.getByTestId('open-add-spell-btn'));
@@ -337,6 +337,81 @@ describe('CharacterInspectionCard Component (Chunk 3.2)', () => {
         body: expect.stringContaining('Tarcza Magiczna'),
       })
     );
+  });
+
+  it('opens spell details modal on info button click and allows casting from modal', async () => {
+    const mockSpells = [
+      {
+        index: 'fireball',
+        name: 'Kula Ognia',
+        level: 3,
+        school: 'Evocation',
+        castingTime: '1 Akcja',
+        range: '150 ft',
+        duration: 'Natychmiastowy',
+        components: ['V', 'S', 'M'],
+        material: 'Kula guana i siarki',
+        ritual: false,
+        concentration: false,
+        classes: ['Wizard', 'Sorcerer'],
+        description:
+          'Jasna smuga światła wybucha płomieniem w wybranym punkcie, zadając 8d6 obrażeń od ognia.',
+        higherLevels: 'Obrażenia rosną o 1d6 na każdy krąg powyżej 3.',
+      },
+    ];
+
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (url) => {
+      if (String(url).includes('/api/compendium/spells')) {
+        return { ok: true, json: async () => ({ success: true, spells: mockSpells }) } as Response;
+      }
+      return { ok: true, json: async () => ({ success: true }) } as Response;
+    });
+
+    const charWithSpells: DashboardCharacter = {
+      ...mockCharacter,
+      spells: {
+        slots: { 3: { max: 2, used: 0 } },
+        known: ['Kula Ognia'],
+      },
+    };
+
+    const onUpdate = vi.fn();
+    render(
+      <CharacterInspectionCard
+        character={charWithSpells}
+        onBackToCombat={vi.fn()}
+        onCharacterUpdate={onUpdate}
+      />
+    );
+
+    // Verify spell info button exists
+    const infoBtn = screen.getByTestId('spell-info-btn-Kula Ognia');
+    expect(infoBtn).toBeInTheDocument();
+
+    // Click info button to open SpellDetailModal
+    fireEvent.click(infoBtn);
+
+    // Modal should be open and display details
+    await waitFor(() => {
+      const dialog = screen.getByRole('dialog');
+      expect(dialog).toBeInTheDocument();
+      expect(within(dialog).getByText('Opis Zaklęcia')).toBeInTheDocument();
+      expect(
+        within(dialog).getByText(/Jasna smuga światła wybucha płomieniem w wybranym punkcie/i)
+      ).toBeInTheDocument();
+      expect(within(dialog).getByText('150 ft')).toBeInTheDocument();
+      expect(within(dialog).getByText('1 Akcja')).toBeInTheDocument();
+    });
+
+    // Click cast button in modal
+    const modalCastBtn = screen.getByTestId('modal-cast-spell-btn');
+    expect(modalCastBtn).toBeInTheDocument();
+    fireEvent.click(modalCastBtn);
+
+    // Cast feedback banner should appear
+    await waitFor(() => {
+      expect(screen.getByTestId('spell-cast-feedback')).toBeInTheDocument();
+    });
   });
 
   it('renders EXP progress and allows adding XP with API synchronization', async () => {
@@ -702,6 +777,144 @@ describe('CharacterInspectionCard Component (Chunk 3.2)', () => {
         defenses: expect.objectContaining({
           resistances: expect.arrayContaining(['Ogień (Fire)']),
         }),
+      })
+    );
+  });
+
+  it('calculates auto AC from equipped armor and displays mode badge (Chunk 11.4)', () => {
+    const charWithArmor: DashboardCharacter = {
+      ...mockCharacter,
+      stats: { ...mockCharacter.stats, dex: 16 }, // DEX mod +3
+      inventory: [
+        {
+          id: 'armor-leather',
+          name: 'Skórzana zbroja (Leather Armor)',
+          category: 'Armor',
+          weight: 10,
+          isEquipped: true,
+          isAttuned: false,
+          requiresAttunement: false,
+          armorClass: { base: 11, dexBonus: true },
+        },
+      ],
+    };
+
+    render(<CharacterInspectionCard character={charWithArmor} onBackToCombat={vi.fn()} />);
+
+    expect(screen.getByTestId('ac-vital-card')).toBeInTheDocument();
+    // 11 + 3 = 14 AC
+    expect(screen.getByText('14 AC')).toBeInTheDocument();
+    expect(screen.getByTestId('ac-mode-badge')).toHaveTextContent(/Auto/i);
+  });
+
+  it('allows toggling manual AC override and saving custom AC (Chunk 11.4)', async () => {
+    const onUpdate = vi.fn();
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true }),
+    } as Response);
+
+    render(
+      <CharacterInspectionCard
+        character={mockCharacter}
+        onBackToCombat={vi.fn()}
+        onCharacterUpdate={onUpdate}
+      />
+    );
+
+    // Open AC editor popover
+    fireEvent.click(screen.getByTestId('ac-vital-card'));
+    expect(screen.getByTestId('ac-editor-popover')).toBeInTheDocument();
+
+    // Toggle manual AC
+    const checkbox = screen.getByTestId('toggle-manual-ac-checkbox');
+    fireEvent.click(checkbox);
+
+    // Enter custom AC
+    const input = screen.getByTestId('manual-ac-input');
+    fireEvent.change(input, { target: { value: '18' } });
+    fireEvent.click(screen.getByTestId('save-manual-ac-btn'));
+
+    await waitFor(() => {
+      expect(onUpdate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ac: 18,
+          isManualAc: true,
+          overrideAc: 18,
+        })
+      );
+    });
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      '/api/characters/char-test-1',
+      expect.objectContaining({
+        method: 'PUT',
+        body: expect.stringContaining('"ac":18'),
+      })
+    );
+  });
+
+  it('renders equipped weapons with attack and damage roll buttons (Chunk 11.4)', () => {
+    const handleDiceRoll = vi.fn();
+    const charWithWeapon: DashboardCharacter = {
+      ...mockCharacter,
+      level: 3, // PB +2
+      stats: { ...mockCharacter.stats, str: 16, dex: 12 }, // STR +3
+      inventory: [
+        {
+          id: 'weapon-sword',
+          name: 'Długi miecz (Longsword)',
+          category: 'Weapon',
+          weight: 3,
+          isEquipped: true,
+          isAttuned: false,
+          requiresAttunement: false,
+          weaponDetails: {
+            damageDice: '1d8',
+            damageType: 'Cięte (Slashing)',
+            isFinesse: false,
+            isRanged: false,
+          },
+        },
+      ],
+    };
+
+    render(
+      <CharacterInspectionCard
+        character={charWithWeapon}
+        onBackToCombat={vi.fn()}
+        onRequestDiceRoll={handleDiceRoll}
+      />
+    );
+
+    expect(screen.getByTestId('equipped-weapons-section')).toBeInTheDocument();
+    expect(screen.getByTestId('weapon-card-weapon-sword')).toBeInTheDocument();
+
+    // Click Attack Roll (+5: +3 STR + 2 PB)
+    const attackBtn = screen.getByTestId('weapon-attack-btn-weapon-sword');
+    expect(attackBtn).toHaveTextContent(/Atak \(\+5\)/i);
+    fireEvent.click(attackBtn);
+
+    expect(handleDiceRoll).toHaveBeenCalledWith(
+      [{ type: 'd20', count: 1 }],
+      5,
+      expect.objectContaining({
+        characterId: mockCharacter.id,
+        actionName: expect.stringContaining('Atak bronią: Długi miecz'),
+      })
+    );
+
+    // Click Damage Roll (1d8 + 3)
+    const damageBtn = screen.getByTestId('weapon-damage-btn-weapon-sword');
+    expect(damageBtn).toHaveTextContent(/Obr\. \(1d8 \+ 3\)/i);
+    fireEvent.click(damageBtn);
+
+    expect(handleDiceRoll).toHaveBeenCalledWith(
+      [{ type: 'd8', count: 1 }],
+      3,
+      expect.objectContaining({
+        characterId: mockCharacter.id,
+        actionName: expect.stringContaining('Obrażenia: Długi miecz'),
       })
     );
   });
