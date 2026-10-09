@@ -10,6 +10,7 @@ import { initCombatantTurnResources } from '@/lib/combat-actions';
 import type { DiceGroup, RollResult } from '@/lib/dice/types';
 import { getXpForLevel } from '@/lib/dnd-rules';
 import type { MonsterData } from '@/lib/monsters';
+import { extractCharacterDefenses } from '@/lib/skills-and-traits';
 import { BottomDock } from './BottomDock';
 import { CharacterInspectionCard } from './CharacterInspectionCard';
 import { DraggableNotesWindow } from './DraggableNotesWindow';
@@ -414,24 +415,32 @@ export function GmDashboard({
     );
     if (heroesToAdd.length === 0) return;
 
-    const newCombatants: Combatant[] = heroesToAdd.map((h) => ({
-      id: h.id,
-      characterId: h.id,
-      name: h.name,
-      avatarUrl: h.avatarUrl || null,
-      initiative: 0,
-      currentHp: h.currentHp,
-      maxHp: h.maxHp,
-      ac: h.ac,
-      isMonster: false,
-      type: h.class || undefined,
-      conditions: [],
-      statuses: [],
-      turnResources: initCombatantTurnResources({
-        className: h.class || undefined,
-        level: h.level,
-      }),
-    }));
+    const newCombatants: Combatant[] = heroesToAdd.map((h) => {
+      const def = extractCharacterDefenses(h);
+      return {
+        id: h.id,
+        characterId: h.id,
+        name: h.name,
+        avatarUrl: h.avatarUrl || null,
+        initiative: 0,
+        currentHp: h.currentHp,
+        maxHp: h.maxHp,
+        ac: h.ac,
+        isMonster: false,
+        type: h.class || undefined,
+        conditions: [],
+        statuses: [],
+        turnResources: initCombatantTurnResources({
+          className: h.class || undefined,
+          level: h.level,
+        }),
+        defenses: def,
+        resistances: def.resistances,
+        damageImmunities: def.damageImmunities,
+        conditionImmunities: def.conditionImmunities,
+        senses: def.senses,
+      };
+    });
 
     const now = new Date();
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(
@@ -495,6 +504,7 @@ export function GmDashboard({
       const alreadyInCombat = combatants.some((c) => c.characterId === char.id || c.id === char.id);
       if (alreadyInCombat) return;
 
+      const def = extractCharacterDefenses(char);
       const newCombatant: Combatant = {
         id: char.id,
         characterId: char.id,
@@ -507,6 +517,11 @@ export function GmDashboard({
         isMonster: false,
         conditions: [],
         statuses: [],
+        defenses: def,
+        resistances: def.resistances,
+        damageImmunities: def.damageImmunities,
+        conditionImmunities: def.conditionImmunities,
+        senses: def.senses,
       };
       handleAddCombatant(newCombatant);
     },

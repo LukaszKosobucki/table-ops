@@ -63,13 +63,12 @@ export async function createNewSession(page: Page, prefix = 'Sesja E2E') {
 
   const submitBtn = page.locator('button:has-text("Utwórz i rozpocznij")');
   const createPromise = page.waitForResponse(
-    (res) =>
-      res.request().method() === 'POST' &&
-      res.url().includes('/api/sessions') &&
-      (res.status() === 200 || res.status() === 201)
+    (res) => res.request().method() === 'POST' && res.url().includes('/api/sessions'),
+    { timeout: 15000 }
   );
   await submitBtn.click();
-  await createPromise;
+  const createRes = await createPromise;
+  expect([200, 201]).toContain(createRes.status());
 
   await expect(gmTab).toBeEnabled({ timeout: 15000 });
 }

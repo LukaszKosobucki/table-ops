@@ -24,6 +24,11 @@ export interface MonsterData {
   speed?: Record<string, string | number>;
   actions?: Array<{ name: string; desc: string }>;
   specialAbilities?: Array<{ name: string; desc: string }>;
+  damageResistances?: string[];
+  damageImmunities?: string[];
+  conditionImmunities?: string[];
+  senses?: string[];
+  rawData?: unknown;
 }
 
 export async function getMonsters(): Promise<MonsterData[]> {

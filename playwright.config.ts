@@ -33,6 +33,14 @@ export default defineConfig({
     timeout: 120 * 1000,
     env: {
       NEXT_PUBLIC_DEMO_MODE: 'true',
+      ...(process.env.DATABASE_URL ? { DATABASE_URL: process.env.DATABASE_URL } : {}),
+      ...(process.env.DIRECT_URL ? { DIRECT_URL: process.env.DIRECT_URL } : {}),
+      ...(process.env.NEXT_PUBLIC_SUPABASE_URL
+        ? { NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL }
+        : {}),
+      ...(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        ? { NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }
+        : {}),
     },
   },
 });

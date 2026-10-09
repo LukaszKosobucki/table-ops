@@ -679,7 +679,7 @@ flowchart TD
   * [`src/components/initiative/InitiativeTracker.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/InitiativeTracker.test.tsx): 14 testów (w tym testy integracyjne odnawiania akcji i reakcji w cyklu walki).
   * Kompletny zestaw testów: 472/472 testów Vitest (49 plików, 100% zielone), 0 błędów Biome linter, czysty produkcyjny build Next.js 16 (Turbopack) oraz 27/27 testów Playwright E2E zielone (100%).
 
-### Chunk 11.2: Biegłości w 18 Umiejętnościach, Odporności i Zmysły w Kartach Postaci (US-CS-01, US-CS-02)
+### Chunk 11.2: Biegłości w 18 Umiejętnościach, Odporności i Zmysły w Kartach Postaci (US-CS-01, US-CS-02) (✅ Zakończone)
 * **User Stories & Wymagania:**
   * **US-CS-01: Biegłości w 18 umiejętnościach (Skills & Proficiency)**
     * *Jako* Mistrz Gry,
@@ -696,7 +696,7 @@ flowchart TD
         - `Brak` (modyfikator bazowy atrybutu)
         - `Biegłość / Proficient` (+Bonus Biegłości postaci, np. +2 na poz. 1-4, +3 na 5-8 itd.)
         - `Ekspertyza / Expertise` (+Podwójny Bonus Biegłości postaci)
-      - Kliknięcie w nazwę umiejętności wykonuje natychmiastowy rzut kością k20 z wyliczonym modyfikatorem w szybkim rzutniku kości i loguje test w Kronice Walki.
+      - Kliknięcie w nazwę umiejętności wykonuje natychmiastowy rzut kością k20 z wyliczonym modyfikatorem w szybkim rzutniku kości i loguje test w Kronice Walki / banerze rzutu.
   * **US-CS-02: Odporności, niewrażliwości i zmysły (Resistances, Immunities, Senses)**
     * *Jako* Mistrz Gry,
     * *Chcę* przypisywać postaciom i potworom tagi odporności, niewrażliwości oraz zmysłów,
@@ -704,16 +704,24 @@ flowchart TD
     * *Kryteria Akceptacji:*
       - Multiselect typów obrażeń: `Ogień`, `Zimno`, `Kwas`, `Elektryczność`, `Trucizna`, `Nekrotyczne`, `Promienne`, `Moc`, `Psychiczne`, `Kłute`, `Cięte`, `Obuchowe`.
       - Podział na kategorie: `Odporności (Resistances - 50% obrażeń)`, `Niewrażliwości (Immunities - 0 obrażeń)`, `Niewrażliwości na stany (Condition Immunities)` oraz `Zmysły (Senses - Darkvision, Blindsight, Truesight)`.
-      - Na liście inicjatywy przy nazwie potwora/gracza pojawia się kompaktowa ikonka tarczy ochronnej (`Shield`). Hover lub kliknięcie wyświetla czytelny tooltip:
+      - Na liście inicjatywy przy nazwie potwora/gracza pojawia się kompaktowa ikonka tarczy ochronnej (`Shield`). Hover lub kliknięcie wyświetla czytelny tooltip / popover:
         - *Odporność: Ogień (50% obr.)*
         - *Niewrażliwość: Przerażenie, Uśpienie*
         - *Zmysły: Widzenie w ciemności 18m*
-* **Architektura & Persystencja:**
-  * Wykorzystanie istniejących pól `Json?` w schemacie Prisma (`Character.proficiencies` oraz `Character.traits`) – brak konieczności migracji bazy.
-  * Nowy komponent [`src/components/characters/CharacterSkillsList.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/CharacterSkillsList.tsx) oraz rozbudowa [`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx).
+* **Architektura & Frontend:**
+  * Moduł domenowy [`src/lib/skills-and-traits.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/skills-and-traits.ts) z listą 18 umiejętności, typami biegłości, wyliczaniem modyfikatorów oraz funkcjami ekstrakcji cech obronnych (`extractMonsterDefenses`, `extractCharacterDefenses`).
+  * Nowy komponent [`src/components/characters/CharacterSkillsList.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/CharacterSkillsList.tsx) z 3-stanowym przełącznikiem biegłości i bezpośrednim rzutem k20.
+  * Nowy edytor cech obronnych [`src/components/characters/CharacterDefensesEditor.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/CharacterDefensesEditor.tsx).
+  * Nowy badge wiersza inicjatywy [`src/components/initiative/CombatantDefensesBadge.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantDefensesBadge.tsx) w [`CombatantCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantCard.tsx).
+  * Rozszerzenie [`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx) oraz paneli dodawania potworów i bohaterów do walki.
 * **Testowanie:**
-  * Testy logiki wyliczania biegłości i ekspertyzy w [`src/lib/dnd-rules.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.test.ts).
-  * Testy renderowania i interakcji listy umiejętności w `src/components/characters/CharacterSkillsList.test.tsx`.
+  * [`src/lib/skills-and-traits.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/skills-and-traits.test.ts): 11 testów jednostkowych logiki domenowej (definicje 18 umiejętności, wyliczenia modyfikatorów, ekstrakcja odporności potworów i postaci).
+  * [`src/components/characters/CharacterSkillsList.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/CharacterSkillsList.test.tsx): 4 testy komponentu (renderowanie 18 umiejętności, kalkulacja PB, 3-stanowy toggle, rzut k20).
+  * [`src/components/characters/CharacterDefensesEditor.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/CharacterDefensesEditor.test.tsx): 3 testy edytora odporności, niewrażliwości i zmysłów.
+  * [`src/components/initiative/CombatantDefensesBadge.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantDefensesBadge.test.tsx): 3 testy badge'a obrony i popovera w wierszu walki.
+  * [`src/components/dashboard/CharacterInspectionCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.test.tsx): 18 testów (w tym 3 nowe testy integracyjne umiejętności, rzutu testu i edycji odporności).
+  * [`src/components/initiative/CombatantCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantCard.test.tsx): 16 testów (w tym test integracji z badge'em odporności).
+  * Kompletny zestaw testów: 497/497 testów Vitest (53 pliki, 100% zielone), 0 błędów Biome linter, czysty produkcyjny build Next.js 16 (Turbopack).
 
 ### Chunk 11.3: Ekwipunek – Integracja z Kompendium, Snapshoty i Dostrojenie (US-EQ-01, US-EQ-02)
 * **User Stories & Wymagania:**

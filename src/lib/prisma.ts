@@ -13,7 +13,7 @@ if (!process.env.DATABASE_URL && typeof process.loadEnvFile === 'function') {
 const connectionString =
   process.env.DATABASE_URL ||
   process.env.DIRECT_URL ||
-  'postgresql://postgres:postgres@localhost:5432/tableops?schema=public';
+  'postgresql://postgres:postgres@127.0.0.1:5432/tableops?schema=public';
 
 const adapter = new PrismaPg({ connectionString });
 

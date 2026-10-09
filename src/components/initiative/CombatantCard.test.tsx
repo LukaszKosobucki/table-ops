@@ -392,4 +392,29 @@ describe('CombatantCard Component', () => {
     expect(handleConsume).toHaveBeenCalledTimes(1);
     expect(handleDiceRoll).toHaveBeenCalledTimes(1);
   });
+
+  it('renders defenses badge and opens popover when combatant has resistances (Chunk 11.2)', () => {
+    const heroWithDefenses: Combatant = {
+      ...mockHero,
+      resistances: ['Ogień (Fire)'],
+      senses: ['Widzenie w ciemności 18m'],
+    };
+
+    render(
+      <CombatantCard
+        combatant={heroWithDefenses}
+        isActiveTurn={false}
+        onHpChange={vi.fn()}
+        onRemove={vi.fn()}
+      />
+    );
+
+    const badgeBtn = screen.getByTestId(`defenses-badge-btn-${heroWithDefenses.id}`);
+    expect(badgeBtn).toBeInTheDocument();
+
+    fireEvent.click(badgeBtn);
+    expect(screen.getByTestId(`defenses-popover-${heroWithDefenses.id}`)).toBeInTheDocument();
+    expect(screen.getByText(/Ogień \(Fire\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/Widzenie w ciemności 18m/i)).toBeInTheDocument();
+  });
 });

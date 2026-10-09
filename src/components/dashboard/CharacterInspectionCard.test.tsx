@@ -627,4 +627,82 @@ describe('CharacterInspectionCard Component (Chunk 3.2)', () => {
       /Rzucono zaklęcie: Magiczny Pocisk \(używając wyższego 2\. kręgu\)/i
     );
   });
+
+  it('renders skills list and toggles proficiency level (Chunk 11.2)', async () => {
+    const onUpdate = vi.fn();
+    render(
+      <CharacterInspectionCard
+        character={mockCharacter}
+        onBackToCombat={vi.fn()}
+        onCharacterUpdate={onUpdate}
+      />
+    );
+
+    expect(screen.getByText('Biegłości w Umiejętnościach')).toBeInTheDocument();
+    expect(screen.getByTestId('skill-row-arcana')).toBeInTheDocument();
+
+    const toggleBtn = screen.getByTestId('skill-toggle-arcana');
+    fireEvent.click(toggleBtn);
+
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        proficiencies: expect.objectContaining({
+          skills: expect.objectContaining({
+            arcana: 'proficient',
+          }),
+        }),
+      })
+    );
+  });
+
+  it('triggers skill roll and displays banner and forwards to onRequestDiceRoll (Chunk 11.2)', () => {
+    const handleDiceRoll = vi.fn();
+    render(
+      <CharacterInspectionCard
+        character={mockCharacter}
+        onBackToCombat={vi.fn()}
+        onRequestDiceRoll={handleDiceRoll}
+      />
+    );
+
+    const rollBtn = screen.getByTestId('skill-roll-stealth');
+    fireEvent.click(rollBtn);
+
+    expect(handleDiceRoll).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ type: 'd20', count: 1 })]),
+      expect.any(Number),
+      expect.objectContaining({
+        characterId: mockCharacter.id,
+        actionName: 'Test: Skradanie',
+      })
+    );
+
+    expect(screen.getByText(/Test Umiejętności: Skradanie/i)).toBeInTheDocument();
+  });
+
+  it('renders defenses editor and allows adding resistance tag (Chunk 11.2)', () => {
+    const onUpdate = vi.fn();
+    render(
+      <CharacterInspectionCard
+        character={mockCharacter}
+        onBackToCombat={vi.fn()}
+        onCharacterUpdate={onUpdate}
+      />
+    );
+
+    expect(screen.getByText('Odporności, Niewrażliwości i Zmysły')).toBeInTheDocument();
+    const addResBtn = screen.getByTestId('add-resistance-btn');
+    fireEvent.click(addResBtn);
+
+    const fireBtn = screen.getByTestId('select-damage-type-fire');
+    fireEvent.click(fireBtn);
+
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        defenses: expect.objectContaining({
+          resistances: expect.arrayContaining(['Ogień (Fire)']),
+        }),
+      })
+    );
+  });
 });

@@ -1,4 +1,12 @@
+import type { CombatantDefenses, SkillProficiencyLevel } from '@/lib/skills-and-traits';
+
 export type HealthStatus = 'healthy' | 'bloodied' | 'critical' | 'dead';
+
+export interface CharacterProficienciesData {
+  skills?: Record<string, SkillProficiencyLevel>;
+  defenses?: CombatantDefenses;
+  [key: string]: unknown;
+}
 
 export interface DashboardCharacter {
   id: string;
@@ -23,6 +31,8 @@ export interface DashboardCharacter {
     tempHp?: number;
     xp?: number;
   } | null;
+  proficiencies?: CharacterProficienciesData | string[] | null;
+  defenses?: CombatantDefenses;
   traits?: string[] | null;
   inventory?: string[] | null;
   spells?: {

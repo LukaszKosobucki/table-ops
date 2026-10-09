@@ -18,6 +18,7 @@ import type {
   MultiattackSegment,
   TurnActionType,
 } from '@/lib/combat-actions';
+import type { CombatantDefenses } from '@/lib/skills-and-traits';
 
 export type { CombatantTurnResources, MultiattackSegment, TurnActionType };
 
@@ -42,6 +43,11 @@ export interface Combatant {
   deathSaves?: DeathSaveState;
   turnResources?: CombatantTurnResources;
   rawActions?: Array<{ name: string; desc?: string; [key: string]: unknown }>;
+  defenses?: CombatantDefenses;
+  resistances?: string[];
+  damageImmunities?: string[];
+  conditionImmunities?: string[];
+  senses?: string[];
 }
 
 export interface CombatLogEntry {

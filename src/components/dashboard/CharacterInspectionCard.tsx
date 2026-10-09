@@ -16,6 +16,8 @@ import {
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { CharacterDefensesEditor } from '@/components/characters/CharacterDefensesEditor';
+import { CharacterSkillsList } from '@/components/characters/CharacterSkillsList';
 import { LevelUpModal } from '@/components/characters/LevelUpModal';
 import type { CompendiumSpell } from '@/lib/compendium';
 import type { DiceGroup } from '@/lib/dice/types';
@@ -30,6 +32,12 @@ import {
   getNextLevelXpThreshold,
   getXpForLevel,
 } from '@/lib/dnd-rules';
+import {
+  type CombatantDefenses,
+  extractCharacterDefenses,
+  type SkillKey,
+  type SkillProficiencyLevel,
+} from '@/lib/skills-and-traits';
 import type { DashboardCharacter } from './types';
 
 interface CharacterInspectionCardProps {
@@ -81,6 +89,20 @@ export function CharacterInspectionCard({
     total: number;
     isSavingThrow?: boolean;
   } | null>(null);
+
+  // Skills and Proficiencies state
+  const rawSkills =
+    (character.proficiencies &&
+    typeof character.proficiencies === 'object' &&
+    !Array.isArray(character.proficiencies) &&
+    'skills' in character.proficiencies
+      ? (character.proficiencies as { skills?: Record<string, SkillProficiencyLevel> }).skills
+      : undefined) || {};
+  const [skills, setSkills] = useState<Record<string, SkillProficiencyLevel>>(rawSkills);
+
+  // Defenses and Senses state
+  const initialDefenses = character.defenses || extractCharacterDefenses(character);
+  const [defenses, setDefenses] = useState<CombatantDefenses>(initialDefenses);
 
   // Item management state
   const [isAddingItem, setIsAddingItem] = useState(false);
@@ -551,6 +573,96 @@ export function CharacterInspectionCard({
       characterName: character.name,
       actionName: `${isSavingThrow ? 'Rzut Obronny' : 'Test'}: ${label}`,
     });
+  };
+
+  // Skill proficiency toggle handler
+  const handleSkillToggle = async (skillKey: SkillKey) => {
+    const current = skills[skillKey] || 'none';
+    const next: SkillProficiencyLevel =
+      current === 'none' ? 'proficient' : current === 'proficient' ? 'expertise' : 'none';
+    const updatedSkills = { ...skills, [skillKey]: next };
+    setSkills(updatedSkills);
+
+    const prevProf =
+      character.proficiencies &&
+      typeof character.proficiencies === 'object' &&
+      !Array.isArray(character.proficiencies)
+        ? character.proficiencies
+        : {};
+    const updatedChar: DashboardCharacter = {
+      ...character,
+      proficiencies: {
+        ...prevProf,
+        skills: updatedSkills,
+      },
+    };
+    onCharacterUpdate?.(updatedChar);
+
+    if (character.id && !character.id.startsWith('char-default')) {
+      try {
+        await fetch(`/api/characters/${character.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ proficiencies: updatedChar.proficiencies }),
+        });
+      } catch {
+        // Optimistic update
+      }
+    }
+  };
+
+  // Skill roll handler
+  const handleRollSkill = (_skillKey: SkillKey, skillName: string, modifier: number) => {
+    const roll = Math.floor(Math.random() * 20) + 1;
+    const total = roll + modifier;
+    setLastRoll({
+      label: `Test Umiejętności: ${skillName}`,
+      d20: roll,
+      modifier,
+      total,
+      isSavingThrow: false,
+    });
+
+    onRequestDiceRoll?.([{ type: 'd20', count: 1 }], modifier, {
+      characterId: character.id,
+      characterName: character.name,
+      actionName: `Test: ${skillName}`,
+    });
+  };
+
+  // Defenses change handler
+  const handleDefensesChange = async (updatedDefenses: CombatantDefenses) => {
+    setDefenses(updatedDefenses);
+
+    const prevProf =
+      character.proficiencies &&
+      typeof character.proficiencies === 'object' &&
+      !Array.isArray(character.proficiencies)
+        ? character.proficiencies
+        : {};
+    const updatedChar: DashboardCharacter = {
+      ...character,
+      defenses: updatedDefenses,
+      proficiencies: {
+        ...prevProf,
+        defenses: updatedDefenses,
+      },
+    };
+    onCharacterUpdate?.(updatedChar);
+
+    if (character.id && !character.id.startsWith('char-default')) {
+      try {
+        await fetch(`/api/characters/${character.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            proficiencies: updatedChar.proficiencies,
+          }),
+        });
+      } catch {
+        // Optimistic update
+      }
+    }
   };
 
   // Health bar percentage
@@ -1236,6 +1348,18 @@ export function CharacterInspectionCard({
           })}
         </div>
       </div>
+
+      {/* 18 Skills Proficiency List */}
+      <CharacterSkillsList
+        skills={skills}
+        stats={character.stats}
+        level={character.level || 1}
+        onSkillToggle={handleSkillToggle}
+        onRollSkill={handleRollSkill}
+      />
+
+      {/* Resistances, Immunities & Senses Editor */}
+      <CharacterDefensesEditor defenses={defenses} onChange={handleDefensesChange} />
 
       {/* Roleplay & LARP Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">

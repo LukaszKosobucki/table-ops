@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { initCombatantTurnResources } from '@/lib/combat-actions';
 import type { DiceGroup } from '@/lib/dice/types';
 import { ActionEconomyBar } from './ActionEconomyBar';
+import { CombatantDefensesBadge } from './CombatantDefensesBadge';
 import { CombatantHpControls } from './CombatantHpControls';
 import { CombatantStatusModal } from './CombatantStatusModal';
 import type { Combatant, CombatPhase, DeathSaveState, TurnActionType } from './types';
@@ -162,6 +163,18 @@ export function CombatantCard({
                 <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700 font-mono inline-flex items-center gap-1">
                   <Shield className="w-3 h-3 text-slate-400" /> AC {c.ac}
                 </span>
+
+                <CombatantDefensesBadge
+                  combatantId={c.id}
+                  defenses={
+                    c.defenses || {
+                      resistances: c.resistances,
+                      damageImmunities: c.damageImmunities,
+                      conditionImmunities: c.conditionImmunities,
+                      senses: c.senses,
+                    }
+                  }
+                />
 
                 {!isActiveTurn && phase === 'ACTIVE' && !isDeadOrInactive && onToggleTurnAction && (
                   <button

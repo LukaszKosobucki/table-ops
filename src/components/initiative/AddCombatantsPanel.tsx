@@ -5,6 +5,7 @@ import type React from 'react';
 import { useState } from 'react';
 import { initCombatantTurnResources } from '@/lib/combat-actions';
 import type { MonsterData } from '@/lib/monsters';
+import { extractMonsterDefenses } from '@/lib/skills-and-traits';
 import type { Combatant } from './types';
 
 interface AddCombatantsPanelProps {
@@ -32,6 +33,7 @@ export function AddCombatantsPanel({
 
     const dexMod = Math.floor(((targetMonster.stats?.dex ?? 10) - 10) / 2);
     const initRoll = Math.floor(Math.random() * 20) + 1 + dexMod;
+    const defenses = extractMonsterDefenses(targetMonster);
 
     const newCombatant: Combatant = {
       id: `m-${Date.now()}`,
@@ -48,6 +50,11 @@ export function AddCombatantsPanel({
       conditions: [],
       rawActions: targetMonster.actions,
       turnResources: initCombatantTurnResources({ actions: targetMonster.actions }),
+      defenses,
+      resistances: defenses.resistances,
+      damageImmunities: defenses.damageImmunities,
+      conditionImmunities: defenses.conditionImmunities,
+      senses: defenses.senses,
     };
 
     onAddCombatant(newCombatant);

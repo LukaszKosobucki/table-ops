@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { initCombatantTurnResources } from '@/lib/combat-actions';
 import { getAbilityModifier } from '@/lib/dnd-rules';
 import type { MonsterData } from '@/lib/monsters';
+import { extractMonsterDefenses } from '@/lib/skills-and-traits';
 import type { Combatant } from './types';
 
 interface AddCombatantModalProps {
@@ -67,6 +68,7 @@ export function AddCombatantModal({
 
     const dexScore = monster.stats?.dex || 10;
     const dexMod = getAbilityModifier(dexScore);
+    const defenses = extractMonsterDefenses(monster);
 
     const count = Math.max(1, monsterCount);
     for (let i = 0; i < count; i++) {
@@ -85,6 +87,11 @@ export function AddCombatantModal({
         conditions: [],
         rawActions: monster.actions,
         turnResources: initCombatantTurnResources({ actions: monster.actions }),
+        defenses,
+        resistances: defenses.resistances,
+        damageImmunities: defenses.damageImmunities,
+        conditionImmunities: defenses.conditionImmunities,
+        senses: defenses.senses,
       });
     }
 
