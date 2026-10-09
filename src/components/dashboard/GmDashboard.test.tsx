@@ -430,4 +430,42 @@ describe('GmDashboard Component (Chunk 2.2)', () => {
       expect(screen.getByTestId('combatant-card-char-1')).toBeInTheDocument();
     });
   });
+
+  it('renders External Notes button in title bar, opens window, minimizes to dock, and restores', async () => {
+    const user = userEvent.setup();
+    render(<GmDashboard sessionId="ses-1" sessionName="Wrota Baldura" initialMonsters={[]} />);
+
+    // 1. Check title bar button
+    const notesBtn = screen.getByTestId('external-notes-btn');
+    expect(notesBtn).toBeInTheDocument();
+    expect(notesBtn).toHaveTextContent('Zewnętrzne notatki');
+
+    // Window initially closed
+    expect(screen.queryByTestId('draggable-notes-window')).not.toBeInTheDocument();
+
+    // 2. Click button to open window
+    await user.click(notesBtn);
+    expect(screen.getByTestId('draggable-notes-window')).toBeInTheDocument();
+
+    // 3. Click minimize button
+    const minBtn = screen.getByTestId('notes-minimize-btn');
+    await user.click(minBtn);
+
+    // Window is hidden
+    expect(screen.queryByTestId('draggable-notes-window')).not.toBeInTheDocument();
+
+    // 4. Minimized pill is present in BottomDock
+    const dockRestoreBtn = screen.getByTestId('dock-minimized-notes-btn');
+    expect(dockRestoreBtn).toBeInTheDocument();
+    expect(dockRestoreBtn).toHaveTextContent('Zewnętrzne Notatki');
+
+    // 5. Click dock pill to restore window
+    await user.click(dockRestoreBtn);
+    expect(screen.getByTestId('draggable-notes-window')).toBeInTheDocument();
+
+    // 6. Click close button
+    const closeBtn = screen.getByTestId('notes-close-btn');
+    await user.click(closeBtn);
+    expect(screen.queryByTestId('draggable-notes-window')).not.toBeInTheDocument();
+  });
 });

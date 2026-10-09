@@ -1,5 +1,20 @@
 import type { PrismaClient } from '@prisma/client';
+import {
+  type ExternalNotesUrlValidationError,
+  type ExternalNotesUrlValidationResult,
+  type ExternalNotesUrlValidationSuccess,
+  toEmbeddableNotesUrl,
+  validateExternalNotesUrl,
+} from './external-notes';
 import { prisma as defaultPrisma } from './prisma';
+
+export {
+  type ExternalNotesUrlValidationError,
+  type ExternalNotesUrlValidationResult,
+  type ExternalNotesUrlValidationSuccess,
+  toEmbeddableNotesUrl,
+  validateExternalNotesUrl,
+};
 
 export interface SessionValidationSuccess {
   valid: true;
@@ -56,6 +71,18 @@ export interface SessionOwnershipOptions {
   userId?: string | null;
 }
 
+export interface CreateSessionData {
+  name: string;
+  googleDocUrl?: string | null;
+  userId?: string | null;
+}
+
+export interface UpdateSessionData {
+  name?: string;
+  googleDocUrl?: string | null;
+  userId?: string | null;
+}
+
 function isSessionPrismaClient(value: unknown): value is SessionPrismaClient {
   return typeof value === 'object' && value !== null && 'session' in value;
 }
@@ -95,10 +122,10 @@ export async function getSessions(
 
 /**
  * Creates a new session after validating input.
- * Supports associating with a userId (or null for guest).
+ * Supports associating with a userId (or null for guest) and optional googleDocUrl.
  */
 export async function createSession(
-  data: { name: string; userId?: string | null },
+  data: CreateSessionData,
   client: SessionPrismaClient = defaultPrisma
 ) {
   const validation = validateSessionName(data.name);
@@ -106,9 +133,21 @@ export async function createSession(
     throw new Error(validation.error);
   }
 
-  const sessionData: { name: string; userId?: string | null } = {
+  let validatedGoogleDocUrl: string | null = null;
+  if (data.googleDocUrl !== undefined) {
+    const urlValidation = validateExternalNotesUrl(data.googleDocUrl);
+    if (!urlValidation.valid) {
+      throw new Error(urlValidation.error);
+    }
+    validatedGoogleDocUrl = urlValidation.url;
+  }
+
+  const sessionData: { name: string; googleDocUrl?: string | null; userId?: string | null } = {
     name: validation.name,
   };
+  if (validatedGoogleDocUrl !== null) {
+    sessionData.googleDocUrl = validatedGoogleDocUrl;
+  }
   if (data.userId !== undefined) {
     sessionData.userId = data.userId;
   }
@@ -119,17 +158,34 @@ export async function createSession(
 }
 
 /**
- * Updates a session's name after validating input.
+ * Updates a session's name and/or googleDocUrl after validating input.
  * Ensures the requester has permission if userId is specified. Returns null if not found or unauthorized.
  */
 export async function updateSession(
   id: string,
-  data: { name: string; userId?: string | null },
+  data: UpdateSessionData,
   client: SessionPrismaClient = defaultPrisma
 ) {
-  const validation = validateSessionName(data.name);
-  if (!validation.valid) {
-    throw new Error(validation.error);
+  if (data.name === undefined && data.googleDocUrl === undefined) {
+    throw new Error('At least one field (name or googleDocUrl) must be provided');
+  }
+
+  const updatePayload: { name?: string; googleDocUrl?: string | null } = {};
+
+  if (data.name !== undefined) {
+    const validation = validateSessionName(data.name);
+    if (!validation.valid) {
+      throw new Error(validation.error);
+    }
+    updatePayload.name = validation.name;
+  }
+
+  if (data.googleDocUrl !== undefined) {
+    const urlValidation = validateExternalNotesUrl(data.googleDocUrl);
+    if (!urlValidation.valid) {
+      throw new Error(urlValidation.error);
+    }
+    updatePayload.googleDocUrl = urlValidation.url;
   }
 
   const existing = await client.session.findUnique({
@@ -146,9 +202,7 @@ export async function updateSession(
 
   return client.session.update({
     where: { id },
-    data: {
-      name: validation.name,
-    },
+    data: updatePayload,
   });
 }
 

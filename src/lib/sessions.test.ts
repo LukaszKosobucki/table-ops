@@ -6,7 +6,9 @@ import {
   getSessionFullState,
   getSessions,
   type SessionPrismaClient,
+  toEmbeddableNotesUrl,
   updateSession,
+  validateExternalNotesUrl,
   validateSessionName,
 } from './sessions';
 
@@ -606,6 +608,217 @@ describe('Sessions Service (Chunk 1.1)', () => {
       expect(count1).toBe(0);
       expect(count2).toBe(0);
       expect(mockPrisma.session.updateMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('External Notes Integration (Chunk 9.1)', () => {
+    describe('validateExternalNotesUrl', () => {
+      it('accepts null, undefined, and empty string as null (clearing the URL)', () => {
+        expect(validateExternalNotesUrl(null)).toEqual({ valid: true, url: null });
+        expect(validateExternalNotesUrl(undefined)).toEqual({ valid: true, url: null });
+        expect(validateExternalNotesUrl('')).toEqual({ valid: true, url: null });
+        expect(validateExternalNotesUrl('   ')).toEqual({ valid: true, url: null });
+      });
+
+      it('accepts valid https and http URLs', () => {
+        const validGoogleDoc =
+          'https://docs.google.com/document/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit';
+        expect(validateExternalNotesUrl(validGoogleDoc)).toEqual({
+          valid: true,
+          url: validGoogleDoc,
+        });
+
+        const validDrive = 'https://drive.google.com/drive/folders/12345';
+        expect(validateExternalNotesUrl(validDrive)).toEqual({
+          valid: true,
+          url: validDrive,
+        });
+
+        const validHttp = 'http://notes.local/campaign';
+        expect(validateExternalNotesUrl(validHttp)).toEqual({
+          valid: true,
+          url: 'http://notes.local/campaign',
+        });
+      });
+
+      it('rejects invalid URL formats or unsupported protocols', () => {
+        expect(validateExternalNotesUrl('not-a-url')).toEqual({
+          valid: false,
+          error: 'Invalid URL format',
+        });
+
+        expect(validateExternalNotesUrl('javascript:alert(1)')).toEqual({
+          valid: false,
+          error: 'URL must use http or https protocol',
+        });
+
+        expect(validateExternalNotesUrl(123)).toEqual({
+          valid: false,
+          error: 'External notes URL must be a string',
+        });
+      });
+    });
+
+    describe('toEmbeddableNotesUrl', () => {
+      it('converts Google Docs /edit URLs to /preview', () => {
+        const docUrl = 'https://docs.google.com/document/d/12345/edit?usp=sharing';
+        expect(toEmbeddableNotesUrl(docUrl)).toBe(
+          'https://docs.google.com/document/d/12345/preview'
+        );
+      });
+
+      it('converts Google Spreadsheets /edit URLs to /preview', () => {
+        const sheetUrl = 'https://docs.google.com/spreadsheets/d/67890/edit#gid=0';
+        expect(toEmbeddableNotesUrl(sheetUrl)).toBe(
+          'https://docs.google.com/spreadsheets/d/67890/preview'
+        );
+      });
+
+      it('handles Google Docs Publish to web (/pub) URLs and appends embedded=true', () => {
+        const pubUrl = 'https://docs.google.com/document/d/e/2PACX-12345/pub';
+        expect(toEmbeddableNotesUrl(pubUrl)).toBe(
+          'https://docs.google.com/document/d/e/2PACX-12345/pub?embedded=true'
+        );
+
+        const alreadyEmbeddedPubUrl =
+          'https://docs.google.com/document/d/e/2PACX-12345/pub?embedded=true';
+        expect(toEmbeddableNotesUrl(alreadyEmbeddedPubUrl)).toBe(alreadyEmbeddedPubUrl);
+      });
+
+      it('converts Google Drive file /view URLs to /preview', () => {
+        const driveUrl = 'https://drive.google.com/file/d/drive-file-id-123/view?usp=sharing';
+        expect(toEmbeddableNotesUrl(driveUrl)).toBe(
+          'https://drive.google.com/file/d/drive-file-id-123/preview'
+        );
+      });
+
+      it('converts Google Drive folder URLs to embeddedfolderview', () => {
+        const folderUrl =
+          'https://drive.google.com/drive/folders/1daJYUmpEOJvN7QckuhWVKDcDV9N0CblC?usp=sharing';
+        expect(toEmbeddableNotesUrl(folderUrl)).toBe(
+          'https://drive.google.com/embeddedfolderview?id=1daJYUmpEOJvN7QckuhWVKDcDV9N0CblC#grid'
+        );
+      });
+
+      it('leaves already preview URLs or standard external URLs unchanged', () => {
+        const previewUrl = 'https://docs.google.com/document/d/12345/preview';
+        expect(toEmbeddableNotesUrl(previewUrl)).toBe(previewUrl);
+
+        const notionUrl = 'https://notion.so/my-campaign-notes';
+        expect(toEmbeddableNotesUrl(notionUrl)).toBe(notionUrl);
+
+        expect(toEmbeddableNotesUrl(null)).toBeNull();
+        expect(toEmbeddableNotesUrl('')).toBeNull();
+      });
+    });
+
+    describe('updateSession with googleDocUrl', () => {
+      it('updates only googleDocUrl when provided', async () => {
+        const existing = {
+          id: 's-1',
+          name: 'Sesja 1',
+          googleDocUrl: null,
+          userId: null,
+        };
+        const updated = {
+          ...existing,
+          googleDocUrl: 'https://docs.google.com/document/d/123/preview',
+        };
+        const mockPrisma = {
+          session: {
+            findUnique: vi.fn().mockResolvedValue(existing),
+            update: vi.fn().mockResolvedValue(updated),
+          },
+        };
+
+        const result = await updateSession(
+          's-1',
+          { googleDocUrl: 'https://docs.google.com/document/d/123/edit' },
+          mockPrisma as unknown as SessionPrismaClient
+        );
+
+        expect(mockPrisma.session.update).toHaveBeenCalledWith({
+          where: { id: 's-1' },
+          data: { googleDocUrl: 'https://docs.google.com/document/d/123/edit' },
+        });
+        expect(result).toEqual(updated);
+      });
+
+      it('clears googleDocUrl when set to null or empty string', async () => {
+        const existing = {
+          id: 's-1',
+          name: 'Sesja 1',
+          googleDocUrl: 'https://docs.google.com/document/d/123/edit',
+          userId: null,
+        };
+        const updated = {
+          ...existing,
+          googleDocUrl: null,
+        };
+        const mockPrisma = {
+          session: {
+            findUnique: vi.fn().mockResolvedValue(existing),
+            update: vi.fn().mockResolvedValue(updated),
+          },
+        };
+
+        const result = await updateSession(
+          's-1',
+          { googleDocUrl: null },
+          mockPrisma as unknown as SessionPrismaClient
+        );
+
+        expect(mockPrisma.session.update).toHaveBeenCalledWith({
+          where: { id: 's-1' },
+          data: { googleDocUrl: null },
+        });
+        expect(result).toEqual(updated);
+      });
+
+      it('updates both name and googleDocUrl when both are provided', async () => {
+        const existing = {
+          id: 's-1',
+          name: 'Stara Nazwa',
+          googleDocUrl: null,
+          userId: null,
+        };
+        const updated = {
+          ...existing,
+          name: 'Nowa Nazwa',
+          googleDocUrl: 'https://docs.google.com/document/d/456/edit',
+        };
+        const mockPrisma = {
+          session: {
+            findUnique: vi.fn().mockResolvedValue(existing),
+            update: vi.fn().mockResolvedValue(updated),
+          },
+        };
+
+        const result = await updateSession(
+          's-1',
+          {
+            name: 'Nowa Nazwa',
+            googleDocUrl: 'https://docs.google.com/document/d/456/edit',
+          },
+          mockPrisma as unknown as SessionPrismaClient
+        );
+
+        expect(mockPrisma.session.update).toHaveBeenCalledWith({
+          where: { id: 's-1' },
+          data: {
+            name: 'Nowa Nazwa',
+            googleDocUrl: 'https://docs.google.com/document/d/456/edit',
+          },
+        });
+        expect(result).toEqual(updated);
+      });
+
+      it('throws when neither name nor googleDocUrl is provided', async () => {
+        const mockPrisma = { session: { findUnique: vi.fn(), update: vi.fn() } };
+        await expect(
+          updateSession('s-1', {}, mockPrisma as unknown as SessionPrismaClient)
+        ).rejects.toThrow('At least one field');
+      });
     });
   });
 });

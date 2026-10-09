@@ -30,6 +30,7 @@ model Session {
   id              String           @id @default(uuid())
   userId          String?          @map("user_id")
   name            String
+  googleDocUrl    String?          @map("google_doc_url")
   characters      Character[]
   encounterGroups EncounterGroup[]
   combats         Combat[]

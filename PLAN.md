@@ -504,24 +504,40 @@ flowchart TD
 
 ---
 
-## FAZA 9: Integracja Notatek Zewnętrznych (Google Docs / Smart Embed) (Do wdrożenia)
+## FAZA 9: Integracja Notatek Zewnętrznych (Google Docs / Smart Embed) (✅ Zakończone)
 *User Stories:* [`user-stories-and-spec/user_stories_integracja_notatek_google_docs.md`](file:///Users/lukaszkosobucki/Documents/table-ops/user-stories-and-spec/user_stories_integracja_notatek_google_docs.md)
 
-### Chunk 9.1: Model i Backend Linku do Google Docs w Sesji
+### Chunk 9.1: Model i Backend Linku do Google Docs w Sesji (✅ Zakończone)
 * **Prisma i Baza Danych:**
-  * Rozszerzenie modelu `Session` o pole `googleDocUrl String? @map("google_doc_url")`.
-  * Aktualizacja endpointu `PUT /api/sessions/[id]` oraz `src/lib/sessions.ts` o walidację i zapis adresu Google Docs / Google Drive.
+  * Rozszerzenie modelu Prisma `Session` o pole `googleDocUrl String? @map("google_doc_url")` w [`prisma/schema.prisma`](file:///Users/lukaszkosobucki/Documents/table-ops/prisma/schema.prisma) i pomyślna migracja Supabase PostgreSQL (`prisma db push`).
+  * Wydzielenie bezpiecznego dla klienta modułu domenowego [`src/lib/external-notes.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/external-notes.ts) zawierającego `validateExternalNotesUrl` oraz automatyczną transformację adresów Google Docs i Sheets do embeddable formatu `/preview` (`toEmbeddableNotesUrl`).
+  * Aktualizacja [`src/lib/sessions.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/sessions.ts): obsługa częściowej aktualizacji (partial update) parametrów `name` oraz `googleDocUrl` (w tym czyszczenie wartości do `null`) w `updateSession` oraz tworzenia w `createSession`.
+  * Aktualizacja endpointu `PUT /api/sessions/[id]` w [`src/app/api/sessions/[id]/route.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/[id]/route.ts) z walidacją adresu URL oraz obsługą kodów 200, 400 i 404.
 * **Testowanie:**
-  * Testy zapisu i odczytu linku URL sesji w `src/lib/sessions.test.ts` i `sessions-api.test.ts`.
+  * [`src/lib/sessions.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/sessions.test.ts): 10 testów jednostkowych walidacji, konwersji linków Google Docs oraz mutacji stanu sesji.
+  * [`src/app/api/sessions/sessions-api.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/app/api/sessions/sessions-api.test.ts): testy integracyjne endpointu `PUT /api/sessions/[id]`.
+  * [`src/lib/prisma-schema.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/prisma-schema.test.ts): testy silnego typowania modelu Prisma.
 
-### Chunk 9.2: Smart Embed Google Docs i Szybkie Narzędzia GM-a
+### Chunk 9.2: Smart Embed Google Docs i Szybkie Narzędzia GM-a (✅ Zakończone)
 * **Frontend:**
-  * W prawym panelu Timeline / Podręcznych Notatkach GM-a dodanie sekcji „Notatki Google Docs / Drive”.
-  * Pole wklejenia i edycji linku URL do dokumentu.
-  * Przycisk bezpośredniego otwarcia w nowej karcie (`Otwórz w Google Docs ↗`).
-  * Tryb podglądu bezpośredniego w TableOps (Smart Embed via iframe w trybie `/preview` z możliwością zwijania/rozwijania).
+  * Przycisk **„Zewnętrzne notatki”** (`data-testid="external-notes-btn"`) na wysokości tytułu sesji w kokpicie GM-a ([`src/components/dashboard/GmDashboard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/GmDashboard.tsx)) z dynamicznym zielonym znacznikiem aktywności (`external-notes-active-dot`).
+  * Pływające, przeciągane okno dialogowe [`src/components/dashboard/DraggableNotesWindow.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/DraggableNotesWindow.tsx):
+    * Obsługa przemieszczania wskaźnikiem myszy/dotyku z ograniczeniem do widoku okna (`viewport clamping`).
+    * Formularz dołączania i edycji adresu URL z walidacją oraz wskazówkami udostępniania dokumentu.
+    * Podgląd Smart Embed za pomocą dedykowanej ramki `<iframe>` w trybie `/preview`.
+    * Przyciski szybkiej edycji, czyszczenia linku oraz bezpośredniego otwarcia w nowej karcie przeglądarki (`Otwórz w Google Docs ↗`).
+    * Przycisk minimalizacji okna (`Minus`) oraz zamknięcia (`X`).
+  * Dedykowany pasek dolny [`src/components/dashboard/BottomDock.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/BottomDock.tsx) (sticky bottom dock):
+    * Dokowanie zminimalizowanego okna notatek z pulsującą odznaką i przywracaniem kliknięciem.
+    * Przygotowanie slotu pod dynamiczny rzutnik kości 3D dla Fazy 10.
+  * Przycisk szybkiego wywołania zewnętrznych notatek w nagłówku podręcznych notatek GM-a w [`src/components/dashboard/TimelineSidebar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/TimelineSidebar.tsx).
+  * Pełna synchronizacja stanu z bazą Supabase PostgreSQL poprzez `useSessionFullState.ts` z nagłówkiem `x-guest-id`.
 * **Testowanie:**
-  * Testy komponentu notatek i renderowania ramki podglądu.
+  * [`src/components/dashboard/BottomDock.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/BottomDock.test.tsx): testy jednostkowe doku.
+  * [`src/components/dashboard/DraggableNotesWindow.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/DraggableNotesWindow.test.tsx): 7 testów okna pływającego, walidacji, przełączania widoków i embedu.
+  * [`src/components/dashboard/GmDashboard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/GmDashboard.test.tsx): integracyjne testy otwarcia, minimalizacji do doku i przywracania.
+  * [`e2e/notes.spec.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/e2e/notes.spec.ts): pełny test E2E Playwright sprawdzający cykl życia zewnętrznych notatek, zapis w bazie, minimalizację do doku i trwałość po odświeżeniu strony (F5).
+  * Wszystkie testy jednostkowe Vitest (100% zielone), 0 błędów Biome linter, czysty build Turbopack oraz testy Playwright E2E zielone.
 
 ---
 

@@ -167,6 +167,98 @@ describe('/api/sessions Endpoints (Chunk 1.1)', () => {
       expect(data.success).toBe(true);
       expect(data.session.name).toBe('Zaktualizowana Sesja');
     });
+
+    it('returns 400 when neither name nor googleDocUrl is provided', async () => {
+      const request = new Request('http://localhost/api/sessions/s-1', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+
+      const response = await PUT(request, {
+        params: Promise.resolve({ id: 's-1' }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.success).toBe(false);
+      expect(data.error).toContain('At least one field');
+    });
+
+    it('returns 400 on invalid googleDocUrl format', async () => {
+      const request = new Request('http://localhost/api/sessions/s-1', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ googleDocUrl: 'ftp://invalid-protocol.com' }),
+      });
+
+      const response = await PUT(request, {
+        params: Promise.resolve({ id: 's-1' }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.success).toBe(false);
+      expect(data.error).toContain('protocol');
+    });
+
+    it('updates googleDocUrl successfully and returns 200', async () => {
+      const updated = {
+        id: 's-1',
+        name: 'Sesja 1',
+        googleDocUrl: 'https://docs.google.com/document/d/123/edit',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      vi.spyOn(sessionsService, 'updateSession').mockResolvedValue(
+        updated as unknown as Awaited<ReturnType<typeof sessionsService.updateSession>>
+      );
+
+      const request = new Request('http://localhost/api/sessions/s-1', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ googleDocUrl: 'https://docs.google.com/document/d/123/edit' }),
+      });
+
+      const response = await PUT(request, {
+        params: Promise.resolve({ id: 's-1' }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.session.googleDocUrl).toBe('https://docs.google.com/document/d/123/edit');
+    });
+
+    it('clears googleDocUrl when passed null and returns 200', async () => {
+      const updated = {
+        id: 's-1',
+        name: 'Sesja 1',
+        googleDocUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      vi.spyOn(sessionsService, 'updateSession').mockResolvedValue(
+        updated as unknown as Awaited<ReturnType<typeof sessionsService.updateSession>>
+      );
+
+      const request = new Request('http://localhost/api/sessions/s-1', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ googleDocUrl: null }),
+      });
+
+      const response = await PUT(request, {
+        params: Promise.resolve({ id: 's-1' }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.success).toBe(true);
+      expect(data.session.googleDocUrl).toBeNull();
+    });
   });
 
   describe('DELETE /api/sessions/[id]', () => {

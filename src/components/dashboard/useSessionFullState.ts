@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Combatant, CombatPhase } from '@/components/initiative/types';
+import { getClientGuestId } from '@/lib/guest';
 import type { DashboardCharacter, DashboardLog } from './types';
 
 export const DEFAULT_LOGS: DashboardLog[] = [
@@ -38,6 +39,7 @@ export function useSessionFullState({
   const [characters, setCharacters] = useState<DashboardCharacter[]>(initialCharacters || []);
   const [isLoading, setIsLoading] = useState<boolean>(Boolean(sessionId));
   const [logs, setLogs] = useState<DashboardLog[]>([]);
+  const [googleDocUrl, setGoogleDocUrl] = useState<string | null>(null);
 
   const [activeCombatId, setActiveCombatId] = useState<string | null>(null);
   const [activeCombatRound, setActiveCombatRound] = useState<number>(1);
@@ -55,10 +57,18 @@ export function useSessionFullState({
   const fetchFullState = useCallback(async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/full-state`);
+      const guestId = getClientGuestId();
+      const headers: Record<string, string> = {};
+      if (guestId) headers['x-guest-id'] = guestId;
+
+      const res = await fetch(`/api/sessions/${sessionId}/full-state`, { headers });
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
+          if (data.session && data.session.googleDocUrl !== undefined) {
+            setGoogleDocUrl(data.session.googleDocUrl);
+          }
+
           if (Array.isArray(data.characters)) {
             setCharacters(data.characters);
             onCharactersLoadedRef.current?.(data.characters);
@@ -147,12 +157,41 @@ export function useSessionFullState({
     fetchFullState();
   }, [sessionId, fetchFullState]);
 
+  const updateGoogleDocUrl = useCallback(
+    async (newUrl: string | null) => {
+      setGoogleDocUrl(newUrl);
+      try {
+        const guestId = getClientGuestId();
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (guestId) headers['x-guest-id'] = guestId;
+
+        const res = await fetch(`/api/sessions/${sessionId}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ googleDocUrl: newUrl }),
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.session) {
+            setGoogleDocUrl(json.session.googleDocUrl ?? null);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to save googleDocUrl to backend:', err);
+      }
+    },
+    [sessionId]
+  );
+
   return {
     characters,
     setCharacters,
     isLoading,
     logs,
     setLogs,
+    googleDocUrl,
+    setGoogleDocUrl,
+    updateGoogleDocUrl,
     activeCombatId,
     activeCombatRound,
     activeCombatTurnIndex,

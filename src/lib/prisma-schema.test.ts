@@ -35,9 +35,11 @@ describe('Prisma Schema and Generated Client (Chunk 0.1)', () => {
     const sessionInput: Prisma.SessionCreateInput = {
       name: 'Wyprawa do Podmroku',
       userId: 'user-uuid-123',
+      googleDocUrl: 'https://docs.google.com/document/d/123/edit',
     };
     expect(sessionInput.name).toBe('Wyprawa do Podmroku');
     expect(sessionInput.userId).toBe('user-uuid-123');
+    expect(sessionInput.googleDocUrl).toBe('https://docs.google.com/document/d/123/edit');
 
     const characterInput: Prisma.CharacterCreateWithoutSessionInput = {
       name: 'Aelar',

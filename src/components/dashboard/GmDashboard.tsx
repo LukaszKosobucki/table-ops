@@ -1,13 +1,15 @@
 'use client';
 
-import { History, Skull, Sparkles, Swords, Users } from 'lucide-react';
+import { FileText, History, Skull, Sparkles, Swords, Users } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { EncounterBuilder } from '@/components/encounters/EncounterBuilder';
 import { InitiativeTracker } from '@/components/initiative/InitiativeTracker';
 import type { Combatant, CombatLogEntry } from '@/components/initiative/types';
 import { getXpForLevel } from '@/lib/dnd-rules';
 import type { MonsterData } from '@/lib/monsters';
+import { BottomDock } from './BottomDock';
 import { CharacterInspectionCard } from './CharacterInspectionCard';
+import { DraggableNotesWindow } from './DraggableNotesWindow';
 import { LogInspectionCard } from './LogInspectionCard';
 import { PartySidebar } from './PartySidebar';
 import { TimelineSidebar } from './TimelineSidebar';
@@ -88,6 +90,8 @@ export function GmDashboard({
     isLoading,
     logs,
     setLogs,
+    googleDocUrl,
+    updateGoogleDocUrl,
     activeCombatId,
     activeCombatRound,
     activeCombatTurnIndex,
@@ -108,6 +112,24 @@ export function GmDashboard({
   const [gmNotes, setGmNotes] = useState(
     'Notatki GM-a: Gobliny czają się na lewej flance. Zwróć uwagę na pułapkę pod mostem.'
   );
+
+  // External Notes Window State (Chunk 9.2)
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
+  const [isNotesMinimized, setIsNotesMinimized] = useState(false);
+
+  const handleToggleNotesWindow = useCallback(() => {
+    if (isNotesMinimized) {
+      setIsNotesMinimized(false);
+      setIsNotesOpen(true);
+    } else {
+      setIsNotesOpen((prev) => !prev);
+    }
+  }, [isNotesMinimized]);
+
+  const handleRestoreNotes = useCallback(() => {
+    setIsNotesMinimized(false);
+    setIsNotesOpen(true);
+  }, []);
 
   const handleLoadCombatants = (newCombatants: Combatant[]) => {
     setCombatants((prev) => {
@@ -511,47 +533,71 @@ export function GmDashboard({
           </div>
         </div>
 
-        {/* Mobile Tab Switcher (< lg screens) */}
-        <div className="flex lg:hidden rounded-xl bg-slate-900/90 p-1 border border-slate-800 w-full sm:w-auto">
+        {/* Right side controls: External Notes Button + Mobile Tab Switcher */}
+        <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
           <button
             type="button"
-            data-testid="mobile-tab-party"
-            onClick={() => setMobileTab('party')}
-            className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              mobileTab === 'party'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-slate-200'
+            data-testid="external-notes-btn"
+            onClick={handleToggleNotesWindow}
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all cursor-pointer shadow-sm ${
+              isNotesOpen && !isNotesMinimized
+                ? 'bg-indigo-600/25 border-indigo-500/60 text-indigo-200 ring-1 ring-indigo-500/40'
+                : 'bg-slate-900/90 hover:bg-slate-800 border-slate-700 text-slate-200 hover:text-white'
             }`}
+            title="Otwórz podręczne okno zewnętrznych notatek GM-a (Google Docs / Drive)"
           >
-            <Users className="w-3.5 h-3.5" />
-            <span>Drużyna {isLoading ? '' : `(${characters.length})`}</span>
+            <FileText className="w-3.5 h-3.5 text-amber-400" />
+            <span>Zewnętrzne notatki</span>
+            {googleDocUrl && (
+              <span
+                data-testid="external-notes-active-dot"
+                className="w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/60"
+              />
+            )}
           </button>
-          <button
-            type="button"
-            data-testid="mobile-tab-workspace"
-            onClick={() => setMobileTab('workspace')}
-            className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              mobileTab === 'workspace'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Swords className="w-3.5 h-3.5" />
-            <span>Scena Walki</span>
-          </button>
-          <button
-            type="button"
-            data-testid="mobile-tab-timeline"
-            onClick={() => setMobileTab('timeline')}
-            className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              mobileTab === 'timeline'
-                ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <History className="w-3.5 h-3.5" />
-            <span>Oś Czasu</span>
-          </button>
+
+          {/* Mobile Tab Switcher (< lg screens) */}
+          <div className="flex lg:hidden rounded-xl bg-slate-900/90 p-1 border border-slate-800 w-full sm:w-auto">
+            <button
+              type="button"
+              data-testid="mobile-tab-party"
+              onClick={() => setMobileTab('party')}
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                mobileTab === 'party'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Drużyna {isLoading ? '' : `(${characters.length})`}</span>
+            </button>
+            <button
+              type="button"
+              data-testid="mobile-tab-workspace"
+              onClick={() => setMobileTab('workspace')}
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                mobileTab === 'workspace'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Swords className="w-3.5 h-3.5" />
+              <span>Scena Walki</span>
+            </button>
+            <button
+              type="button"
+              data-testid="mobile-tab-timeline"
+              onClick={() => setMobileTab('timeline')}
+              className={`flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                mobileTab === 'timeline'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <History className="w-3.5 h-3.5" />
+              <span>Oś Czasu</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -696,9 +742,30 @@ export function GmDashboard({
               setLogs((prev) => [newLog, ...prev]);
             }}
             isLoading={isLoading}
+            googleDocUrl={googleDocUrl}
+            onOpenNotesWindow={handleToggleNotesWindow}
           />
         </div>
       </div>
+
+      {/* Draggable External Notes Window (Chunk 9.2) */}
+      <DraggableNotesWindow
+        isOpen={isNotesOpen}
+        isMinimized={isNotesMinimized}
+        onClose={() => setIsNotesOpen(false)}
+        onMinimize={() => setIsNotesMinimized(true)}
+        googleDocUrl={googleDocUrl}
+        onSaveUrl={updateGoogleDocUrl}
+      />
+
+      {/* Sticky Bottom Dock (Chunk 9.2) */}
+      <BottomDock
+        isNotesOpen={isNotesOpen}
+        isNotesMinimized={isNotesMinimized}
+        onRestoreNotes={handleRestoreNotes}
+        onToggleNotes={handleToggleNotesWindow}
+        hasNotesUrl={Boolean(googleDocUrl)}
+      />
     </div>
   );
 }

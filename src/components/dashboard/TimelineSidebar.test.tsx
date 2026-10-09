@@ -189,4 +189,28 @@ describe('TimelineSidebar (Chunk 7.2)', () => {
     expect(screen.getByText('Oś Czasu Sesji')).toBeInTheDocument();
     expect(screen.getByText('Podręczne Notatki GM-a')).toBeInTheDocument();
   });
+
+  it('renders Google Docs launcher button in GM notes header when onOpenNotesWindow is provided', () => {
+    const handleOpenNotes = vi.fn();
+    render(
+      <TimelineSidebar
+        logs={mockLogs}
+        selectedLogId={null}
+        onSelectLog={vi.fn()}
+        gmNotes=""
+        onChangeGmNotes={vi.fn()}
+        sessionId="sess-1"
+        heroes={mockHeroes}
+        googleDocUrl="https://docs.google.com/document/d/123/edit"
+        onOpenNotesWindow={handleOpenNotes}
+      />
+    );
+
+    const btn = screen.getByTestId('sidebar-open-notes-btn');
+    expect(btn).toBeInTheDocument();
+    expect(btn).toHaveTextContent('Google Docs ↗');
+
+    fireEvent.click(btn);
+    expect(handleOpenNotes).toHaveBeenCalledTimes(1);
+  });
 });

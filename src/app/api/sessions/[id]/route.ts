@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getUserIdFromRequest } from '@/lib/auth';
-import { deleteSession, updateSession, validateSessionName } from '@/lib/sessions';
+import {
+  deleteSession,
+  updateSession,
+  validateExternalNotesUrl,
+  validateSessionName,
+} from '@/lib/sessions';
 
 interface RouteContext {
   params: Promise<{
@@ -23,13 +28,33 @@ export async function PUT(request: Request, context: RouteContext) {
       return NextResponse.json({ success: false, error: 'Invalid request body' }, { status: 400 });
     }
 
-    const validation = validateSessionName(body.name);
-    if (!validation.valid) {
-      return NextResponse.json({ success: false, error: validation.error }, { status: 400 });
+    if (body.name === undefined && body.googleDocUrl === undefined) {
+      return NextResponse.json(
+        { success: false, error: 'At least one field (name or googleDocUrl) is required' },
+        { status: 400 }
+      );
+    }
+
+    if (body.name !== undefined) {
+      const validation = validateSessionName(body.name);
+      if (!validation.valid) {
+        return NextResponse.json({ success: false, error: validation.error }, { status: 400 });
+      }
+    }
+
+    if (body.googleDocUrl !== undefined) {
+      const urlValidation = validateExternalNotesUrl(body.googleDocUrl);
+      if (!urlValidation.valid) {
+        return NextResponse.json({ success: false, error: urlValidation.error }, { status: 400 });
+      }
     }
 
     const userId = await getUserIdFromRequest(request);
-    const updated = await updateSession(id, { name: validation.name, userId });
+    const updated = await updateSession(id, {
+      name: body.name,
+      googleDocUrl: body.googleDocUrl,
+      userId,
+    });
     if (!updated) {
       return NextResponse.json({ success: false, error: 'Session not found' }, { status: 404 });
     }

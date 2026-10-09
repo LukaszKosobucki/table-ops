@@ -48,6 +48,8 @@ interface TimelineSidebarProps {
   onRestComplete?: (updatedCharacters: DashboardCharacter[], newLog: DashboardLog) => void;
   onAddSessionLog?: (newLog: DashboardLog) => void;
   isLoading?: boolean;
+  googleDocUrl?: string | null;
+  onOpenNotesWindow?: () => void;
 }
 
 export type SidebarTab = 'timeline' | 'tactics';
@@ -71,6 +73,8 @@ export function TimelineSidebar({
   onRestComplete,
   onAddSessionLog,
   isLoading = false,
+  googleDocUrl,
+  onOpenNotesWindow,
 }: TimelineSidebarProps) {
   const [sidebarTab, setSidebarTab] = useState<SidebarTab>('timeline');
 
@@ -216,11 +220,24 @@ export function TimelineSidebar({
       {/* 2. GM Notes Section */}
       {sidebarTab === 'timeline' && (
         <div className="space-y-2 pb-4 border-b border-slate-800/80 shrink-0">
-          <div className="flex items-center gap-2">
-            <FileText className="w-3.5 h-3.5 text-slate-400" />
-            <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider font-mono">
-              Podręczne Notatki GM-a
-            </h3>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FileText className="w-3.5 h-3.5 text-slate-400" />
+              <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider font-mono">
+                Podręczne Notatki GM-a
+              </h3>
+            </div>
+            {onOpenNotesWindow && (
+              <button
+                type="button"
+                data-testid="sidebar-open-notes-btn"
+                onClick={onOpenNotesWindow}
+                className="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 transition cursor-pointer"
+                title="Otwórz zewnętrzne notatki"
+              >
+                <span>{googleDocUrl ? 'Google Docs ↗' : '+ Dodaj Docs'}</span>
+              </button>
+            )}
           </div>
           <textarea
             value={gmNotes}
