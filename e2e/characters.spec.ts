@@ -69,7 +69,7 @@ test.describe('Character Wizard Module', () => {
     );
     await page.locator('button:has-text("Zapisz Kartę Postaci")').click();
     await savePromise;
-    await expect(page.locator('h3:has-text("Thorin Awansujący")')).toBeVisible();
+    await expect(page.locator('h3:has-text("Thorin Awansujący")').first()).toBeVisible();
 
     // 2. Navigate back to Ekran Prowadzenia (GM)
     await page.click('button:has-text("Ekran Prowadzenia (GM)")');

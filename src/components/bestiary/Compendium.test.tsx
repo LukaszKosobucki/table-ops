@@ -301,4 +301,81 @@ describe('Compendium (Bestiary, Spells, Items)', () => {
     expect(screen.getByText('Longsword')).toBeInTheDocument();
     expect(screen.getByText('Święty Symbol')).toBeInTheDocument();
   });
+
+  it('renders pagination and loads more records when clicking Załaduj więcej', async () => {
+    const user = userEvent.setup();
+
+    // Create 25 mock monsters
+    const twentyFiveMonsters: MonsterData[] = Array.from({ length: 25 }, (_, i) => ({
+      index: `monster-${i + 1}`,
+      name: `Potwór #${i + 1}`,
+      armorClass: 12,
+      hitPoints: 10 + i,
+      challengeRating: 1,
+      xp: 100,
+    }));
+
+    // Mock fetch for loading more
+    global.fetch = vi.fn().mockImplementation((url: string) => {
+      if (url.includes('/api/compendium/monsters') && url.includes('offset=20')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              success: true,
+              count: 5,
+              total: 25,
+              hasMore: false,
+              monsters: twentyFiveMonsters.slice(20, 25),
+            }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            success: true,
+            count: 20,
+            total: 25,
+            hasMore: true,
+            monsters: twentyFiveMonsters.slice(0, 20),
+          }),
+      });
+    });
+
+    render(
+      <Bestiary
+        initialMonsters={twentyFiveMonsters}
+        initialSpells={[]}
+        initialItems={[]}
+        characters={[]}
+      />
+    );
+
+    // Initial page should have first 20 monsters
+    expect(screen.getByText('Potwór #1')).toBeInTheDocument();
+    expect(screen.getByText('Potwór #20')).toBeInTheDocument();
+    expect(screen.queryByText('Potwór #21')).not.toBeInTheDocument();
+
+    // Counter should indicate 25 total and 20 displayed
+    expect(screen.getByText(/Znaleziono:/i)).toHaveTextContent('25');
+
+    // Load more button should be rendered
+    const loadMoreBtn = screen.getByTestId('load-more-monsters-btn');
+    expect(loadMoreBtn).toBeInTheDocument();
+    expect(loadMoreBtn).toHaveTextContent(/Załaduj więcej/i);
+
+    // Click load more
+    await user.click(loadMoreBtn);
+
+    // Now Potwór #21 to #25 should be rendered
+    await waitFor(() => {
+      expect(screen.getByText('Potwór #25')).toBeInTheDocument();
+    });
+
+    // The load more button should disappear when all are loaded
+    await waitFor(() => {
+      expect(screen.queryByTestId('load-more-monsters-btn')).not.toBeInTheDocument();
+    });
+  });
 });

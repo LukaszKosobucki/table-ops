@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { getCompendiumSpells } from '@/lib/compendium';
+import { getPaginatedCompendiumSpells } from '@/lib/compendium';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,18 +14,33 @@ export async function GET(request: NextRequest) {
       : undefined;
     const ritual = searchParams.has('ritual') ? searchParams.get('ritual') === 'true' : undefined;
 
-    const spells = await getCompendiumSpells({
+    const limitParam = searchParams.get('limit');
+    const limit = limitParam !== null ? Math.min(100, Math.max(1, Number(limitParam))) : 20;
+    const offsetParam = searchParams.get('offset');
+    const offset = offsetParam !== null ? Math.max(0, Number(offsetParam)) : 0;
+
+    const {
+      data: spells,
+      total,
+      hasMore,
+    } = await getPaginatedCompendiumSpells({
       search,
       level,
       school,
       class: targetClass,
       concentration,
       ritual,
+      limit,
+      offset,
     });
 
     return NextResponse.json({
       success: true,
       count: spells.length,
+      total,
+      limit,
+      offset,
+      hasMore,
       spells,
     });
   } catch (error) {

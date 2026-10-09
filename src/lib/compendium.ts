@@ -1,6 +1,21 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { isDemoMode } from './mock-data';
 import { getMonsters, type MonsterData } from './monsters';
+import { prisma } from './prisma';
+
+export interface PaginationOptions {
+  limit?: number;
+  offset?: number;
+}
+
+export interface PaginatedResult<T> {
+  data: T[];
+  total: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+}
 
 export interface CompendiumSpell {
   index: string;
@@ -19,7 +34,7 @@ export interface CompendiumSpell {
   higherLevels?: string;
 }
 
-export interface SpellFilterOptions {
+export interface SpellFilterOptions extends PaginationOptions {
   search?: string;
   level?: number | string;
   school?: string;
@@ -41,13 +56,13 @@ export interface CompendiumItem {
   description: string;
 }
 
-export interface ItemFilterOptions {
+export interface ItemFilterOptions extends PaginationOptions {
   search?: string;
   type?: string;
   rarity?: string;
 }
 
-export interface MonsterFilterOptions {
+export interface MonsterFilterOptions extends PaginationOptions {
   search?: string;
   cr?: string | number;
   type?: string;
@@ -90,8 +105,75 @@ function loadItems(): CompendiumItem[] {
   return [];
 }
 
-export async function getCompendiumSpells(filter?: SpellFilterOptions): Promise<CompendiumSpell[]> {
-  const spells = loadSpells();
+async function fetchSpellsData(): Promise<CompendiumSpell[]> {
+  if (isDemoMode()) {
+    return loadSpells();
+  }
+  if (process.env.DATABASE_URL) {
+    try {
+      const dbSpells = await prisma.spell.findMany({
+        orderBy: { name: 'asc' },
+      });
+      if (dbSpells.length > 0) {
+        return dbSpells.map((s) => ({
+          index: s.index,
+          name: s.name,
+          level: s.level,
+          school: s.school,
+          castingTime: s.castingTime,
+          range: s.range,
+          duration: s.duration,
+          components: Array.isArray(s.components) ? (s.components as string[]) : ['V', 'S'],
+          material: s.material || undefined,
+          ritual: s.ritual,
+          concentration: s.concentration,
+          classes: Array.isArray(s.classes) ? (s.classes as string[]) : [],
+          description: s.description,
+          higherLevels: s.higherLevels || undefined,
+        }));
+      }
+    } catch {
+      // Database connection fallback
+    }
+  }
+  return loadSpells();
+}
+
+async function fetchItemsData(): Promise<CompendiumItem[]> {
+  if (isDemoMode()) {
+    return loadItems();
+  }
+  if (process.env.DATABASE_URL) {
+    try {
+      const dbItems = await prisma.item.findMany({
+        orderBy: { name: 'asc' },
+      });
+      if (dbItems.length > 0) {
+        return dbItems.map((i) => ({
+          index: i.index,
+          name: i.name,
+          type: i.type,
+          rarity: i.rarity,
+          cost: i.cost,
+          weight: i.weight ?? undefined,
+          properties: Array.isArray(i.properties) ? (i.properties as string[]) : undefined,
+          damage: (i.damage as { dice: string; type: string }) || undefined,
+          armorClass:
+            (i.armorClass as { base: number; dexBonus: boolean; maxDex?: number }) || undefined,
+          description: i.description,
+        }));
+      }
+    } catch {
+      // Database connection fallback
+    }
+  }
+  return loadItems();
+}
+
+function filterSpellsList(
+  spells: CompendiumSpell[],
+  filter?: SpellFilterOptions
+): CompendiumSpell[] {
   if (!filter) return spells;
 
   const searchQuery = filter.search?.trim().toLowerCase();
@@ -132,8 +214,36 @@ export async function getCompendiumSpells(filter?: SpellFilterOptions): Promise<
   });
 }
 
-export async function getCompendiumItems(filter?: ItemFilterOptions): Promise<CompendiumItem[]> {
-  const items = loadItems();
+export async function getCompendiumSpells(filter?: SpellFilterOptions): Promise<CompendiumSpell[]> {
+  const allSpells = await fetchSpellsData();
+  const filtered = filterSpellsList(allSpells, filter);
+  if (filter?.limit !== undefined) {
+    const offset = Math.max(0, Number(filter.offset) || 0);
+    const limit = Math.max(1, Number(filter.limit));
+    return filtered.slice(offset, offset + limit);
+  }
+  return filtered;
+}
+
+export async function getPaginatedCompendiumSpells(
+  filter?: SpellFilterOptions
+): Promise<PaginatedResult<CompendiumSpell>> {
+  const allSpells = await fetchSpellsData();
+  const filtered = filterSpellsList(allSpells, filter);
+  const total = filtered.length;
+  const limit = filter?.limit !== undefined ? Math.max(1, Number(filter.limit)) : 20;
+  const offset = filter?.offset !== undefined ? Math.max(0, Number(filter.offset)) : 0;
+  const data = filtered.slice(offset, offset + limit);
+  return {
+    data,
+    total,
+    limit,
+    offset,
+    hasMore: offset + data.length < total,
+  };
+}
+
+function filterItemsList(items: CompendiumItem[], filter?: ItemFilterOptions): CompendiumItem[] {
   if (!filter) return items;
 
   const searchQuery = filter.search?.trim().toLowerCase();
@@ -149,7 +259,7 @@ export async function getCompendiumItems(filter?: ItemFilterOptions): Promise<Co
     }
 
     if (targetType) {
-      if (item.type.toLowerCase() !== targetType) return false;
+      if (!item.type.toLowerCase().includes(targetType)) return false;
     }
 
     if (targetRarity) {
@@ -160,15 +270,43 @@ export async function getCompendiumItems(filter?: ItemFilterOptions): Promise<Co
   });
 }
 
-export async function getCompendiumMonsters(filter?: MonsterFilterOptions): Promise<MonsterData[]> {
-  const allMonsters = await getMonsters();
-  if (!filter) return allMonsters;
+export async function getCompendiumItems(filter?: ItemFilterOptions): Promise<CompendiumItem[]> {
+  const allItems = await fetchItemsData();
+  const filtered = filterItemsList(allItems, filter);
+  if (filter?.limit !== undefined) {
+    const offset = Math.max(0, Number(filter.offset) || 0);
+    const limit = Math.max(1, Number(filter.limit));
+    return filtered.slice(offset, offset + limit);
+  }
+  return filtered;
+}
+
+export async function getPaginatedCompendiumItems(
+  filter?: ItemFilterOptions
+): Promise<PaginatedResult<CompendiumItem>> {
+  const allItems = await fetchItemsData();
+  const filtered = filterItemsList(allItems, filter);
+  const total = filtered.length;
+  const limit = filter?.limit !== undefined ? Math.max(1, Number(filter.limit)) : 20;
+  const offset = filter?.offset !== undefined ? Math.max(0, Number(filter.offset)) : 0;
+  const data = filtered.slice(offset, offset + limit);
+  return {
+    data,
+    total,
+    limit,
+    offset,
+    hasMore: offset + data.length < total,
+  };
+}
+
+function filterMonstersList(monsters: MonsterData[], filter?: MonsterFilterOptions): MonsterData[] {
+  if (!filter) return monsters;
 
   const searchQuery = filter.search?.trim().toLowerCase();
   const targetCr = filter.cr !== undefined && filter.cr !== 'all' ? String(filter.cr) : null;
   const targetType = filter.type && filter.type !== 'all' ? filter.type.toLowerCase() : null;
 
-  return allMonsters.filter((monster) => {
+  return monsters.filter((monster) => {
     if (searchQuery) {
       const nameMatch = monster.name.toLowerCase().includes(searchQuery);
       if (!nameMatch) return false;
@@ -184,4 +322,33 @@ export async function getCompendiumMonsters(filter?: MonsterFilterOptions): Prom
 
     return true;
   });
+}
+
+export async function getCompendiumMonsters(filter?: MonsterFilterOptions): Promise<MonsterData[]> {
+  const allMonsters = await getMonsters();
+  const filtered = filterMonstersList(allMonsters, filter);
+  if (filter?.limit !== undefined) {
+    const offset = Math.max(0, Number(filter.offset) || 0);
+    const limit = Math.max(1, Number(filter.limit));
+    return filtered.slice(offset, offset + limit);
+  }
+  return filtered;
+}
+
+export async function getPaginatedCompendiumMonsters(
+  filter?: MonsterFilterOptions
+): Promise<PaginatedResult<MonsterData>> {
+  const allMonsters = await getMonsters();
+  const filtered = filterMonstersList(allMonsters, filter);
+  const total = filtered.length;
+  const limit = filter?.limit !== undefined ? Math.max(1, Number(filter.limit)) : 20;
+  const offset = filter?.offset !== undefined ? Math.max(0, Number(filter.offset)) : 0;
+  const data = filtered.slice(offset, offset + limit);
+  return {
+    data,
+    total,
+    limit,
+    offset,
+    hasMore: offset + data.length < total,
+  };
 }

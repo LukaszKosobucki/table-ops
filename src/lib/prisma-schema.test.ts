@@ -30,6 +30,8 @@ describe('Prisma Schema and Generated Client (Chunk 0.1)', () => {
     expect(prisma.combatStatus).toBeDefined();
     expect(prisma.sessionLog).toBeDefined();
     expect(prisma.monster).toBeDefined();
+    expect(prisma.spell).toBeDefined();
+    expect(prisma.item).toBeDefined();
   });
 
   it('supports strong typing for session creation input', () => {

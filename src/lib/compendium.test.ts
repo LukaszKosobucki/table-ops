@@ -71,7 +71,13 @@ describe('Compendium Domain Service (Chunk 8.1)', () => {
     it('filters items by search query', async () => {
       const items = await getCompendiumItems({ search: 'potion' });
       expect(items.length).toBeGreaterThan(0);
-      expect(items.every((i) => i.name.toLowerCase().includes('potion'))).toBe(true);
+      expect(
+        items.every(
+          (i) =>
+            i.name.toLowerCase().includes('potion') ||
+            i.description.toLowerCase().includes('potion')
+        )
+      ).toBe(true);
     });
 
     it('filters items by item type', async () => {

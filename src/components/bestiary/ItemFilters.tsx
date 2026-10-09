@@ -16,8 +16,16 @@ export const ITEM_TYPES = [
   { value: 'Weapon', label: 'Broń (Weapon)' },
   { value: 'Armor', label: 'Pancerz i Tarcze (Armor)' },
   { value: 'Potion', label: 'Mikstury (Potion)' },
-  { value: 'Wondrous Item', label: 'Cudowne Przedmioty (Wondrous)' },
+  { value: 'Ring', label: 'Pierścienie (Ring)' },
+  { value: 'Scroll', label: 'Zwoje (Scroll)' },
+  { value: 'Wand', label: 'Różdżki (Wand)' },
+  { value: 'Staff', label: 'Kostury (Staff)' },
+  { value: 'Rod', label: 'Berła (Rod)' },
+  { value: 'Wondrous Items', label: 'Cudowne Przedmioty (Wondrous)' },
   { value: 'Adventuring Gear', label: 'Wyposażenie Wyprawowe (Gear)' },
+  { value: 'Tools', label: 'Narzędzia (Tools)' },
+  { value: 'Ammunition', label: 'Amunicja (Ammunition)' },
+  { value: 'Mounts and Vehicles', label: 'Wierzchowce i Pojazdy (Mounts/Vehicles)' },
 ];
 
 export const ITEM_RARITIES = [
@@ -27,6 +35,8 @@ export const ITEM_RARITIES = [
   { value: 'rare', label: 'Rzadki (Rare)' },
   { value: 'very rare', label: 'Bardzo Rzadki (Very Rare)' },
   { value: 'legendary', label: 'Legendarny (Legendary)' },
+  { value: 'artifact', label: 'Artefakt (Artifact)' },
+  { value: 'varies', label: 'Zmienna (Varies)' },
 ];
 
 export function ItemFilters({

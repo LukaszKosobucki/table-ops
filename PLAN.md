@@ -35,10 +35,12 @@ flowchart TD
     F3["Faza 3: Kreator i Zarządzanie Postaciami (Bohaterowie & NPC)"]
     F4["Faza 4: Grupy Potyczkowe (Encounter Builder)"]
     F5["Faza 5: Aktywna Potyczka (Combat Tracker & Cykl Tur)"]
+    F6["Faza 6: Autentykacja (Login/Hasło + Google OAuth) i Izolacja Sesji"]
     F7["Faza 7: Oś Czasu, Historia i System Odpoczynków (Short/Long Rest)"]
     F8["Faza 8: Kompendium, Ekwipunek, EXP, Awatary & Kronika (Chunk 8.1 - 8.5)"]
     F9["Faza 9: Integracja Notatek Zewnętrznych (Google Docs / Smart Embed)"]
-    F10["Faza 10: Podręczny Rzutnik Kości 3D (Dice Tray & Roller), Testy E2E & CI"]
+    F10["Faza 10: Podręczny Rzutnik Kości (Dice Tray & Quick Roller), Testy E2E & CI"]
+    F11["Faza 11: Zaawansowana Mechanika Walki, Karty Postaci i Ekwipunek (Krok 2)"]
 
     K0 --> F1
     F1 --> F2
@@ -50,6 +52,7 @@ flowchart TD
     F7 --> F8
     F8 --> F9
     F9 --> F10
+    F10 --> F11
 ```
 
 ---
@@ -637,6 +640,136 @@ flowchart TD
 
 ---
 
+## FAZA 11: Zaawansowana Mechanika Walki, Karty Postaci, Ekwipunek i Auto-Kalkulator (Krok 2)
+
+*Kontekst:* Wdrożenie pełnego zestawu reguł mechanicznych D&D 5e w oparciu o zasilone w Kroku 1 oficjalne kompendium SRD 5.1 (334 potwory, 319 czarów, 599 przedmiotów). Rozszerzenie wiersza walki, kart postaci i ekwipunku o automatyczne wyliczenia i bezpośrednią integrację z szybkim rzutnikiem kości.
+
+### Chunk 11.1: Ekonomia Akcji i Wieloataki w Wierszu Walki (US-ACT-01, US-ACT-02)
+* **User Stories & Wymagania:**
+  * **US-ACT-01: Wizualne śledzenie akcji w turze (Action Pips)**
+    * *Jako* Mistrz Gry (GM),
+    * *Chcę* widzieć i przełączać stan Akcji Głównej, Bonusowej (Bonus Action) oraz Reakcji dla aktywnej jednostki,
+    * *Aby* natychmiast kontrolować, czy potwór lub gracz może jeszcze wykonać ruch w danej rundzie.
+    * *Kryteria Akceptacji:*
+      - Wewnątrz karty aktywnej tury (`CombatantCard`) renderowany jest dedykowany rząd żetonów akcji (`Action Pips`):
+        - `[● Akcja]` (domyślnie aktywny, odcień błękitny/indygo `tableops-azure`)
+        - `[● Bonus Action]` (domyślnie aktywny, odcień bursztynowy `amber-500`)
+        - `[● Reakcja]` (domyślnie aktywny, odcień szmaragdowy `tableops-emerald`)
+      - Kliknięcie żetonu przełącza jego stan na `Zużyty` (`[○ Zużyty]` – wyszarzone tło, przekreślony tekst, obniżona przezroczystość).
+      - Kliknięcie przycisku `Następna Tura >` w panelu potyczki automatycznie odświeża `Akcję` i `Bonus Action` dla nowo aktywnej jednostki.
+      - `Reakcja` resetuje się wyłącznie w momencie, gdy kolejka ponownie przechodzi na daną jednostkę (zgodnie z regułą D&D 5e: reakcję można zużyć poza własną turą, a odnawia się na początku własnej tury).
+  * **US-ACT-02: Licznik ataków wielokrotnych (Multiattack / Extra Attack)**
+    * *Jako* Mistrz Gry,
+    * *Chcę* mieć dynamiczny licznik wykonanych ataków w ramach jednej Akcji Ataku,
+    * *Aby* nie gubić rachuby przy jednostkach wykonujących 2, 3 lub więcej uderzeń w turze.
+    * *Kryteria Akceptacji:*
+      - Jeśli potwór posiada cechę `Multiattack` lub postać gracza posiada `Extra Attack`, w wierszu pojawia się segmentowy wskaźnik: `Ataki: [●] [○] [○] (Pozostało: X/Y)`.
+      - Kliknięcie rzutu ataku lub ręczne kliknięcie w segment odznacza atak jako wykonany (`[✓]`).
+      - Dostępny przycisk `+ Dodatkowa Akcja` (obsługujący np. Action Surge Wojownika, czar Haste lub akcje legendarne), dodający tymczasowy żeton do bieżącej tury.
+* **Architektura & Frontend:**
+  * Komponent [`src/components/initiative/ActionEconomyBar.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/ActionEconomyBar.tsx) zintegrowany z [`CombatantCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantCard.tsx).
+  * Rozszerzenie modelu stanu tury w [`src/lib/combat.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/combat.ts): `turnResources: { actionUsed: boolean; bonusActionUsed: boolean; reactionUsed: boolean; attacksRemaining: number; totalAttacks: number; extraActions: number }`.
+* **Testowanie:**
+  * Testy jednostkowe cyklu tury i odnawiania reakcji w [`src/lib/combat.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/combat.test.ts).
+  * Testy komponentu w `src/components/initiative/ActionEconomyBar.test.tsx` (interakcja z żetonami, odznaczanie multiataku).
+
+### Chunk 11.2: Biegłości w 18 Umiejętnościach, Odporności i Zmysły w Kartach Postaci (US-CS-01, US-CS-02)
+* **User Stories & Wymagania:**
+  * **US-CS-01: Biegłości w 18 umiejętnościach (Skills & Proficiency)**
+    * *Jako* Mistrz Gry,
+    * *Chcę* w podglądzie/edycji postaci widzieć pełną listę 18 umiejętności z D&D 5e (np. Akrobatyka, Percepcja, Skradanie) z zaznaczonym poziomem biegłości,
+    * *Aby* system automatycznie wyliczał właściwy modyfikator testu bez konieczności liczenia go w pamięci.
+    * *Kryteria Akceptacji:*
+      - Pełna lista 18 oficjalnych umiejętności D&D 5e przypisanych do bazowych atrybutów:
+        - Siła (STR): *Athletics* (Atletyka).
+        - Zręczność (DEX): *Acrobatics* (Akrobatyka), *Sleight of Hand* (Zwinne dłonie), *Stealth* (Skradanie).
+        - Inteligencja (INT): *Arcana* (Wiedza tajemna), *History* (Historia), *Investigation* (Śledztwo), *Nature* (Przyroda), *Religion* (Religia).
+        - Mądrość (WIS): *Animal Handling* (Opieka nad zwierzętami), *Insight* (Wyczucie pobudek), *Medicine* (Medycyna), *Perception* (Percepcja), *Survival* (Sztuka przetrwania).
+        - Charyzma (CHA): *Deception* (Oszustwo), *Intimidation* (Zastraszanie), *Performance* (Występy), *Persuasion* (Perswazja).
+      - Każda umiejętność posiada 3 przełączane kliknięciem stany:
+        - `Brak` (modyfikator bazowy atrybutu)
+        - `Biegłość / Proficient` (+Bonus Biegłości postaci, np. +2 na poz. 1-4, +3 na 5-8 itd.)
+        - `Ekspertyza / Expertise` (+Podwójny Bonus Biegłości postaci)
+      - Kliknięcie w nazwę umiejętności wykonuje natychmiastowy rzut kością k20 z wyliczonym modyfikatorem w szybkim rzutniku kości i loguje test w Kronice Walki.
+  * **US-CS-02: Odporności, niewrażliwości i zmysły (Resistances, Immunities, Senses)**
+    * *Jako* Mistrz Gry,
+    * *Chcę* przypisywać postaciom i potworom tagi odporności, niewrażliwości oraz zmysłów,
+    * *Aby* widzieć je w postaci kompaktowych badge'y i tooltipów w panelu drużyny oraz na liście inicjatywy.
+    * *Kryteria Akceptacji:*
+      - Multiselect typów obrażeń: `Ogień`, `Zimno`, `Kwas`, `Elektryczność`, `Trucizna`, `Nekrotyczne`, `Promienne`, `Moc`, `Psychiczne`, `Kłute`, `Cięte`, `Obuchowe`.
+      - Podział na kategorie: `Odporności (Resistances - 50% obrażeń)`, `Niewrażliwości (Immunities - 0 obrażeń)`, `Niewrażliwości na stany (Condition Immunities)` oraz `Zmysły (Senses - Darkvision, Blindsight, Truesight)`.
+      - Na liście inicjatywy przy nazwie potwora/gracza pojawia się kompaktowa ikonka tarczy ochronnej (`Shield`). Hover lub kliknięcie wyświetla czytelny tooltip:
+        - *Odporność: Ogień (50% obr.)*
+        - *Niewrażliwość: Przerażenie, Uśpienie*
+        - *Zmysły: Widzenie w ciemności 18m*
+* **Architektura & Persystencja:**
+  * Wykorzystanie istniejących pól `Json?` w schemacie Prisma (`Character.proficiencies` oraz `Character.traits`) – brak konieczności migracji bazy.
+  * Nowy komponent [`src/components/characters/CharacterSkillsList.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/characters/CharacterSkillsList.tsx) oraz rozbudowa [`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx).
+* **Testowanie:**
+  * Testy logiki wyliczania biegłości i ekspertyzy w [`src/lib/dnd-rules.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.test.ts).
+  * Testy renderowania i interakcji listy umiejętności w `src/components/characters/CharacterSkillsList.test.tsx`.
+
+### Chunk 11.3: Ekwipunek – Integracja z Kompendium, Snapshoty i Dostrojenie (US-EQ-01, US-EQ-02)
+* **User Stories & Wymagania:**
+  * **US-EQ-01: Wybór ekwipunku z kompendium SRD oraz tworzenie przedmiotów autorskich (Homebrew)**
+    * *Jako* Mistrz Gry,
+    * *Chcę* dodawać przedmioty do ekwipunku bohatera, korzystając z wyszukiwarki kompendium lub tworząc wpis od zera,
+    * *Aby* błyskawicznie wyposażyć drużynę bez ręcznego wpisywania parametrów.
+    * *Kryteria Akceptacji:*
+      - Modal ekwipunku zawiera pole wyszukiwania z autouzupełnianiem filtrujące w pamięci zasilone 599 przedmiotów kompendium SRD (bronie, pancerze, mikstury, różdżki itp.).
+      - Pozycje w wynikach wyszukiwania są oznaczone źródłem: `[SRD]` lub `[Homebrew]`.
+      - Wybranie przedmiotu kopiuje jego parametry do karty postaci w formie niezależnego rekordu (snapshot w `Character.inventory`), co gwarantuje stabilność ekwipunku niezależnie od modyfikacji bazy ogólnej.
+      - Opcja „Stwórz własny przedmiot” (Homebrew) z polami: Nazwa, Typ (Broń / Pancerz / Tarcza / Przedmiot cudowny / Amunicja / Mikstura), Waga (lbs), Wartość, Kość obrażeń i Właściwości.
+      - Wsteczna kompatybilność: zachowanie obsługi dotychczasowych prostych tablic `string[]` z automatyczną konwersją do obiektów `EquipmentItem`.
+  * **US-EQ-02: Zarządzanie stanem założenia (Equipped / Attuned)**
+    * *Jako* Mistrz Gry,
+    * *Chcę* jednym kliknięciem oznaczać przedmioty w plecaku jako założone (`Equipped`) lub dostrojone (`Attuned`),
+    * *Aby* system wiedział, które przedmioty wpływają na statystyki obronne i ofensywne.
+    * *Kryteria Akceptacji:*
+      - Przełącznik `Założone (Equipped)`: aktywny pancerz, aktywna tarcza, broń w ręku. Dozwolony maksymalnie jeden pancerz i jedna tarcza jednocześnie (walidacja UI).
+      - Przełącznik `Dostrojone (Attuned)`: dla przedmiotów z wymogiem dostrojenia (*Requires Attunement*), z limitem maks. 3 dostrojone przedmioty (reguła D&D 5e).
+      - Prezentacja sumarycznej wagi plecaka oraz maksymalnego udźwigu bohatera (`STR × 15 lbs`).
+* **Architektura & Typy:**
+  * Typ `EquipmentItem`: `{ id: string; name: string; category: ItemCategory; weight: number; cost?: string; isEquipped: boolean; isAttuned: boolean; requiresAttunement: boolean; armorClass?: { base: number; dexBonus: boolean; maxBonus?: number }; weaponDetails?: { damageDice: string; damageType: string; isFinesse: boolean; isRanged: boolean; attackBonus?: number }; description?: string; isCustom?: boolean }`.
+  * Komponent [`src/components/inventory/InventoryManager.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/inventory/InventoryManager.tsx) oraz rozbudowa [`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx).
+* **Testowanie:**
+  * Testy migracji formatów ekwipunku i snapshotów w `src/lib/inventory.test.ts`.
+  * Testy walidacji (reguła 1 pancerza, limit 3 dostrojeń) w `src/components/inventory/InventoryManager.test.tsx`.
+
+### Chunk 11.4: Automatyczny Kalkulator AC, Ataków i Manual Override (FR-CALC-01 do FR-CALC-04)
+* **Wymagania Funkcjonalne:**
+  * **FR-CALC-01: Automatyczne wyliczanie Klasy Pancerza (AC)**
+    * Wyliczenie AC w oparciu o założony pancerz i tarczę:
+      - Brak pancerza (Unarmored): `10 + DEX mod` (z uwzględnieniem cech klasowych, np. Barbarzyńca `10 + DEX + CON`, Mnich `10 + DEX + WIS`).
+      - Pancerz lekki: `Baza pancerza + DEX mod`.
+      - Pancerz średni: `Baza pancerza + min(DEX mod, 2)`.
+      - Pancerz ciężki: `Baza pancerza` (brak wpływu DEX).
+      - Tarcza: `+2 AC` jeśli oznaczona jako założona.
+      - Przedmioty magiczne (np. Pierścień Ochrony): `+X AC` jeśli dostrojone/założone.
+  * **FR-CALC-02: Manual Override Klasy Pancerza (Custom AC)**
+    * Możliwość włączenia opcji *„Własne AC (Manual Override)”* i ręcznego wpisania wartości (dla efektów czarów, premii sytuacyjnych lub zasad homebrew).
+    * Czytelna plakietka: `🛡️ AC: 16 (Auto)` vs `🛡️ AC: 18 (Ręczne / Nadpisane)`.
+  * **FR-CALC-03: Automatyczny kalkulator bonusu ataku i obrażeń broni**
+    * Wyliczanie modyfikatorów dla założonych broni:
+      - Broń biała (Melee): `STR mod + Bonus Biegłości` (jeśli proficient).
+      - Broń finezyjna (Finesse): `max(STR mod, DEX mod) + Bonus Biegłości`.
+      - Broń dystansowa (Ranged): `DEX mod + Bonus Biegłości`.
+      - Bonus broni magicznej (np. +1): doliczany do testu ataku i do obrażeń.
+      - Obrażenia: `[Kość broni] + [Odpowiedni modyfikator atrybutu] + [Bonus magiczny]` (np. `1d8 + 3 cięte`).
+  * **FR-CALC-04: Szybkie rzuty z karty postaci do Rzutnika Kości**
+    * Każda założona broń w ekwipunku posiada interaktywne przyciski `[⚔️ Atak (+X)]` oraz `[💥 Obrażenia (1d8+X)]`.
+    * Kliknięcie `[Atak]` automatycznie wysyła rzut k20 z modyfikatorem do rzutnika kości i rejestruje akcję w Osi Czasu / Kronice.
+    * Kliknięcie `[Obrażenia]` wysyła kości obrażeń do rzutnika kości.
+* **Architektura:**
+  * Rozszerzenie biblioteki reguł [`src/lib/dnd-rules.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.ts): funkcje `calculateArmorClass`, `calculateWeaponAttackBonus`, `calculateWeaponDamageFormula`.
+  * Integracja w [`CharacterInspectionCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.tsx) i [`CombatantCard.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/initiative/CombatantCard.tsx).
+* **Testowanie:**
+  * Testy jednostkowe kalkulatora AC (wszystkie kategorie pancerzy, tarcze, cechy bezpancerzowe, manual override) w [`src/lib/dnd-rules.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.test.ts).
+  * Testy kalkulatora broni (finezyjne, dystansowe, magiczne) w [`src/lib/dnd-rules.test.ts`](file:///Users/lukaszkosobucki/Documents/table-ops/src/lib/dnd-rules.test.ts).
+  * Testy integracyjne z rzutnikiem kości w [`src/components/dashboard/CharacterInspectionCard.test.tsx`](file:///Users/lukaszkosobucki/Documents/table-ops/src/components/dashboard/CharacterInspectionCard.test.tsx).
+
+---
+
 ## 📋 Matryca Zależności Zadań
 
 | Etap | Zadanie | Zależności | Czas realizacji (orientacyjny) |
@@ -651,4 +784,5 @@ flowchart TD
 | **Faza 7** | Oś Czasu, Historia i System Odpoczynków | Faza 6 | 2 chunki |
 | **Faza 8** | Kompendium, Ekwipunek, EXP & Awans Postaci (w tym Chunk 8.5) | Faza 3 | 5 chunków |
 | **Faza 9** | Integracja Notatek Zewnętrznych (Google Docs / Smart Embed) | Faza 1, 7 | 2 chunki |
-| **Faza 10** | Podręczny Rzutnik Kości 3D (Dice Tray & Roller), weryfikacja E2E & CI | Faza 1-9 | 5 chunków |
+| **Faza 10** | Podręczny Rzutnik Kości (Dice Tray & Quick Roller), weryfikacja E2E & CI | Faza 1-9 | 5 chunków |
+| **Faza 11** | Zaawansowana Mechanika Walki, Karty Postaci, Ekwipunek i Auto-Kalkulator (Krok 2) | Faza 5, 8, 10 | 4 chunki |

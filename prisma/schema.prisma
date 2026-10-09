@@ -197,3 +197,49 @@ model Monster {
 
   @@map("monsters")
 }
+
+model Spell {
+  id            String   @id @default(uuid())
+  index         String   @unique
+  name          String
+  level         Int      @default(0)
+  school        String
+  castingTime   String   @map("casting_time")
+  range         String
+  duration      String
+  components    Json?
+  material      String?
+  ritual        Boolean  @default(false)
+  concentration Boolean  @default(false)
+  classes       Json?
+  description   String
+  higherLevels  String?  @map("higher_levels")
+  rawData       Json?    @map("raw_data")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([level])
+  @@index([school])
+  @@map("spells")
+}
+
+model Item {
+  id          String   @id @default(uuid())
+  index       String   @unique
+  name        String
+  type        String
+  rarity      String   @default("Common")
+  cost        String   @default("0 gp")
+  weight      Float?
+  properties  Json?
+  damage      Json?
+  armorClass  Json?    @map("armor_class")
+  description String
+  rawData     Json?    @map("raw_data")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([type])
+  @@index([rarity])
+  @@map("items")
+}

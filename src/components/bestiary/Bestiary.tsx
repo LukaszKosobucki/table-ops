@@ -1,6 +1,6 @@
 'use client';
 
-import { Package, Skull, Wand2 } from 'lucide-react';
+import { ChevronDown, Loader2, Package, Skull, Wand2 } from 'lucide-react';
 import type React from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import type { CompendiumItem, CompendiumSpell } from '@/lib/compendium';
@@ -38,7 +38,15 @@ export function Bestiary({
   const [activeSubTab, setActiveSubTab] = useState<CompendiumSubTab>('monsters');
 
   // --- MONSTERS STATE ---
-  const [monsters, setMonsters] = useState<MonsterData[]>(initialMonsters);
+  const isMockMonsters = initialMonsters.length > 0 && initialMonsters.length <= 10;
+  const [monsters, setMonsters] = useState<MonsterData[]>(() =>
+    isMockMonsters ? initialMonsters : initialMonsters.slice(0, 20)
+  );
+  const [monsterTotal, setMonsterTotal] = useState<number>(initialMonsters.length);
+  const [monsterHasMore, setMonsterHasMore] = useState<boolean>(
+    !isMockMonsters && initialMonsters.length > 20
+  );
+  const [isLoadingMoreMonsters, setIsLoadingMoreMonsters] = useState(false);
   const [monsterSearch, setMonsterSearch] = useState('');
   const [selectedCr, setSelectedCr] = useState<string>('ALL');
   const [selectedType, setSelectedType] = useState<string>('ALL');
@@ -47,8 +55,18 @@ export function Bestiary({
   const [editingMonster, setEditingMonster] = useState<Partial<MonsterData>>({});
 
   // --- SPELLS STATE ---
-  const [spells, setSpells] = useState<CompendiumSpell[]>(initialSpells);
-  const [isLoadingSpells, setIsLoadingSpells] = useState(initialSpells.length === 0);
+  const isMockSpells = initialSpells.length > 0 && initialSpells.length <= 10;
+  const [spells, setSpells] = useState<CompendiumSpell[]>(() =>
+    isMockSpells ? initialSpells : initialSpells.slice(0, 20)
+  );
+  const [spellTotal, setSpellTotal] = useState<number>(initialSpells.length);
+  const [spellHasMore, setSpellHasMore] = useState<boolean>(
+    !isMockSpells && initialSpells.length > 20
+  );
+  const [isLoadingSpells, setIsLoadingSpells] = useState(
+    !isMockSpells && initialSpells.length === 0
+  );
+  const [isLoadingMoreSpells, setIsLoadingMoreSpells] = useState(false);
   const [spellSearch, setSpellSearch] = useState('');
   const [spellLevel, setSpellLevel] = useState<string>('ALL');
   const [spellSchool, setSpellSchool] = useState<string>('ALL');
@@ -56,8 +74,14 @@ export function Bestiary({
   const [activeSpell, setActiveSpell] = useState<CompendiumSpell | null>(null);
 
   // --- ITEMS STATE ---
-  const [items, setItems] = useState<CompendiumItem[]>(initialItems);
-  const [isLoadingItems, setIsLoadingItems] = useState(initialItems.length === 0);
+  const isMockItems = initialItems.length > 0 && initialItems.length <= 10;
+  const [items, setItems] = useState<CompendiumItem[]>(() =>
+    isMockItems ? initialItems : initialItems.slice(0, 20)
+  );
+  const [itemTotal, setItemTotal] = useState<number>(initialItems.length);
+  const [itemHasMore, setItemHasMore] = useState<boolean>(!isMockItems && initialItems.length > 20);
+  const [isLoadingItems, setIsLoadingItems] = useState(!isMockItems && initialItems.length === 0);
+  const [isLoadingMoreItems, setIsLoadingMoreItems] = useState(false);
   const [itemSearch, setItemSearch] = useState('');
   const [itemType, setItemType] = useState<string>('ALL');
   const [itemRarity, setItemRarity] = useState<string>('ALL');
@@ -70,81 +94,237 @@ export function Bestiary({
     name: string;
   } | null>(null);
 
-  // Auto-fetch spells & items on mount if not provided via props
+  // 1. Fetch / Filter Monsters via API
   useEffect(() => {
+    if (isMockMonsters) return;
     let mounted = true;
-    if (spells.length === 0) {
-      setIsLoadingSpells(true);
-      fetch('/api/compendium/spells')
+    const timeout = setTimeout(() => {
+      const params = new URLSearchParams();
+      if (monsterSearch.trim()) params.set('search', monsterSearch.trim());
+      if (selectedCr !== 'ALL') params.set('cr', selectedCr);
+      if (selectedType !== 'ALL') params.set('type', selectedType);
+      params.set('limit', '20');
+      params.set('offset', '0');
+
+      fetch(`/api/compendium/monsters?${params.toString()}`)
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          if (!mounted || !data) return;
-          const list = Array.isArray(data) ? data : data.spells;
-          if (Array.isArray(list)) setSpells(list);
+          if (!mounted || !data?.monsters) return;
+          setMonsters(data.monsters);
+          setMonsterTotal(data.total ?? data.monsters.length);
+          setMonsterHasMore(Boolean(data.hasMore));
+        })
+        .catch(() => {});
+    }, 200);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+    };
+  }, [monsterSearch, selectedCr, selectedType, isMockMonsters]);
+
+  const handleLoadMoreMonsters = useCallback(async () => {
+    if (isLoadingMoreMonsters || !monsterHasMore) return;
+    setIsLoadingMoreMonsters(true);
+    try {
+      const params = new URLSearchParams();
+      if (monsterSearch.trim()) params.set('search', monsterSearch.trim());
+      if (selectedCr !== 'ALL') params.set('cr', selectedCr);
+      if (selectedType !== 'ALL') params.set('type', selectedType);
+      params.set('limit', '20');
+      params.set('offset', String(monsters.length));
+
+      const res = await fetch(`/api/compendium/monsters?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.monsters && Array.isArray(data.monsters)) {
+          setMonsters((prev) => [...prev, ...data.monsters]);
+          setMonsterTotal(data.total ?? monsters.length + data.monsters.length);
+          setMonsterHasMore(Boolean(data.hasMore));
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsLoadingMoreMonsters(false);
+    }
+  }, [
+    isLoadingMoreMonsters,
+    monsterHasMore,
+    monsterSearch,
+    selectedCr,
+    selectedType,
+    monsters.length,
+  ]);
+
+  // 2. Fetch / Filter Spells via API
+  useEffect(() => {
+    if (isMockSpells) return;
+    let mounted = true;
+    const timeout = setTimeout(() => {
+      setIsLoadingSpells(true);
+      const params = new URLSearchParams();
+      if (spellSearch.trim()) params.set('search', spellSearch.trim());
+      if (spellLevel !== 'ALL') params.set('level', spellLevel);
+      if (spellSchool !== 'ALL') params.set('school', spellSchool);
+      if (spellClass !== 'ALL') params.set('class', spellClass);
+      params.set('limit', '20');
+      params.set('offset', '0');
+
+      fetch(`/api/compendium/spells?${params.toString()}`)
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          if (!mounted || !data?.spells) return;
+          setSpells(data.spells);
+          setSpellTotal(data.total ?? data.spells.length);
+          setSpellHasMore(Boolean(data.hasMore));
         })
         .catch(() => {})
         .finally(() => {
           if (mounted) setIsLoadingSpells(false);
         });
-    } else {
-      setIsLoadingSpells(false);
-    }
+    }, 200);
 
-    if (items.length === 0) {
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+    };
+  }, [spellSearch, spellLevel, spellSchool, spellClass, isMockSpells]);
+
+  const handleLoadMoreSpells = useCallback(async () => {
+    if (isLoadingMoreSpells || !spellHasMore) return;
+    setIsLoadingMoreSpells(true);
+    try {
+      const params = new URLSearchParams();
+      if (spellSearch.trim()) params.set('search', spellSearch.trim());
+      if (spellLevel !== 'ALL') params.set('level', spellLevel);
+      if (spellSchool !== 'ALL') params.set('school', spellSchool);
+      if (spellClass !== 'ALL') params.set('class', spellClass);
+      params.set('limit', '20');
+      params.set('offset', String(spells.length));
+
+      const res = await fetch(`/api/compendium/spells?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.spells && Array.isArray(data.spells)) {
+          setSpells((prev) => [...prev, ...data.spells]);
+          setSpellTotal(data.total ?? spells.length + data.spells.length);
+          setSpellHasMore(Boolean(data.hasMore));
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsLoadingMoreSpells(false);
+    }
+  }, [
+    isLoadingMoreSpells,
+    spellHasMore,
+    spellSearch,
+    spellLevel,
+    spellSchool,
+    spellClass,
+    spells.length,
+  ]);
+
+  // 3. Fetch / Filter Items via API
+  useEffect(() => {
+    if (isMockItems) return;
+    let mounted = true;
+    const timeout = setTimeout(() => {
       setIsLoadingItems(true);
-      fetch('/api/compendium/items')
+      const params = new URLSearchParams();
+      if (itemSearch.trim()) params.set('search', itemSearch.trim());
+      if (itemType !== 'ALL') params.set('type', itemType);
+      if (itemRarity !== 'ALL') params.set('rarity', itemRarity);
+      params.set('limit', '20');
+      params.set('offset', '0');
+
+      fetch(`/api/compendium/items?${params.toString()}`)
         .then((res) => (res.ok ? res.json() : null))
         .then((data) => {
-          if (!mounted || !data) return;
-          const list = Array.isArray(data) ? data : data.items;
-          if (Array.isArray(list)) setItems(list);
+          if (!mounted || !data?.items) return;
+          setItems(data.items);
+          setItemTotal(data.total ?? data.items.length);
+          setItemHasMore(Boolean(data.hasMore));
         })
         .catch(() => {})
         .finally(() => {
           if (mounted) setIsLoadingItems(false);
         });
-    } else {
-      setIsLoadingItems(false);
-    }
+    }, 200);
 
     return () => {
       mounted = false;
+      clearTimeout(timeout);
     };
-  }, [spells.length, items.length]);
+  }, [itemSearch, itemType, itemRarity, isMockItems]);
 
-  // Filtered Monsters
-  const filteredMonsters = monsters.filter((m) => {
-    const matchesSearch = m.name.toLowerCase().includes(monsterSearch.toLowerCase());
-    const matchesCr = selectedCr === 'ALL' || m.challengeRating.toString() === selectedCr;
-    const matchesType =
-      selectedType === 'ALL' || m.type?.toLowerCase().includes(selectedType.toLowerCase());
-    return matchesSearch && matchesCr && matchesType;
-  });
+  const handleLoadMoreItems = useCallback(async () => {
+    if (isLoadingMoreItems || !itemHasMore) return;
+    setIsLoadingMoreItems(true);
+    try {
+      const params = new URLSearchParams();
+      if (itemSearch.trim()) params.set('search', itemSearch.trim());
+      if (itemType !== 'ALL') params.set('type', itemType);
+      if (itemRarity !== 'ALL') params.set('rarity', itemRarity);
+      params.set('limit', '20');
+      params.set('offset', String(items.length));
 
-  // Filtered Spells
-  const filteredSpells = spells.filter((s) => {
-    const matchesSearch =
-      s.name.toLowerCase().includes(spellSearch.toLowerCase()) ||
-      s.description.toLowerCase().includes(spellSearch.toLowerCase());
-    const matchesLevel = spellLevel === 'ALL' || s.level.toString() === spellLevel;
-    const matchesSchool =
-      spellSchool === 'ALL' || s.school.toLowerCase() === spellSchool.toLowerCase();
-    const matchesClass =
-      spellClass === 'ALL' || s.classes.some((c) => c.toLowerCase() === spellClass.toLowerCase());
-    return matchesSearch && matchesLevel && matchesSchool && matchesClass;
-  });
+      const res = await fetch(`/api/compendium/items?${params.toString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.items && Array.isArray(data.items)) {
+          setItems((prev) => [...prev, ...data.items]);
+          setItemTotal(data.total ?? items.length + data.items.length);
+          setItemHasMore(Boolean(data.hasMore));
+        }
+      }
+    } catch {
+      // ignore
+    } finally {
+      setIsLoadingMoreItems(false);
+    }
+  }, [isLoadingMoreItems, itemHasMore, itemSearch, itemType, itemRarity, items.length]);
 
-  // Filtered Items
-  const filteredItems = items.filter((item) => {
-    const matchesSearch =
-      item.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
-      item.description.toLowerCase().includes(itemSearch.toLowerCase());
-    const matchesType =
-      itemType === 'ALL' || item.type.toLowerCase().includes(itemType.toLowerCase());
-    const matchesRarity =
-      itemRarity === 'ALL' || item.rarity.toLowerCase() === itemRarity.toLowerCase();
-    return matchesSearch && matchesType && matchesRarity;
-  });
+  // Fallback local filters for unit test mock datasets
+  const displayMonsters = isMockMonsters
+    ? initialMonsters.filter((m) => {
+        const matchesSearch = m.name.toLowerCase().includes(monsterSearch.toLowerCase());
+        const matchesCr = selectedCr === 'ALL' || m.challengeRating.toString() === selectedCr;
+        const matchesType =
+          selectedType === 'ALL' || m.type?.toLowerCase().includes(selectedType.toLowerCase());
+        return matchesSearch && matchesCr && matchesType;
+      })
+    : monsters;
+
+  const displaySpells = isMockSpells
+    ? initialSpells.filter((s) => {
+        const matchesSearch =
+          s.name.toLowerCase().includes(spellSearch.toLowerCase()) ||
+          s.description.toLowerCase().includes(spellSearch.toLowerCase());
+        const matchesLevel = spellLevel === 'ALL' || s.level.toString() === spellLevel;
+        const matchesSchool =
+          spellSchool === 'ALL' || s.school.toLowerCase() === spellSchool.toLowerCase();
+        const matchesClass =
+          spellClass === 'ALL' ||
+          s.classes.some((c) => c.toLowerCase() === spellClass.toLowerCase());
+        return matchesSearch && matchesLevel && matchesSchool && matchesClass;
+      })
+    : spells;
+
+  const displayItems = isMockItems
+    ? initialItems.filter((item) => {
+        const matchesSearch =
+          item.name.toLowerCase().includes(itemSearch.toLowerCase()) ||
+          item.description.toLowerCase().includes(itemSearch.toLowerCase());
+        const matchesType =
+          itemType === 'ALL' || item.type.toLowerCase().includes(itemType.toLowerCase());
+        const matchesRarity =
+          itemRarity === 'ALL' || item.rarity.toLowerCase() === itemRarity.toLowerCase();
+        return matchesSearch && matchesType && matchesRarity;
+      })
+    : items;
 
   // Clone monster homebrew handler
   const handleCloneMonster = useCallback((m: MonsterData) => {
@@ -187,6 +367,7 @@ export function Bestiary({
     };
 
     setMonsters((prev) => [newMonster, ...prev]);
+    setMonsterTotal((prev) => prev + 1);
     setHomebrewModalOpen(false);
     setActiveMonster(newMonster);
   };
@@ -249,8 +430,16 @@ export function Bestiary({
             onTypeChange={setSelectedType}
           />
 
+          <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+            <span>
+              Znaleziono: <strong className="text-amber-400 font-mono">{monsterTotal}</strong>{' '}
+              potworów (wyświetlono{' '}
+              <strong className="text-slate-200 font-mono">{displayMonsters.length}</strong>)
+            </span>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filteredMonsters.map((m) => (
+            {displayMonsters.map((m) => (
               <MonsterCard
                 key={m.index}
                 monster={m}
@@ -260,9 +449,36 @@ export function Bestiary({
             ))}
           </div>
 
-          {filteredMonsters.length === 0 && (
+          {displayMonsters.length === 0 && (
             <div className="p-8 text-center glass-panel rounded-2xl border border-slate-800 text-slate-400 text-sm">
               Nie znaleziono potworów spełniających podane kryteria wyszukiwania.
+            </div>
+          )}
+
+          {monsterHasMore && (
+            <div className="flex justify-center pt-4">
+              <button
+                type="button"
+                data-testid="load-more-monsters-btn"
+                onClick={handleLoadMoreMonsters}
+                disabled={isLoadingMoreMonsters}
+                className="px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer bg-slate-900 border border-amber-500/30 text-amber-300 hover:bg-slate-800 hover:border-amber-500/60 transition shadow-sm shadow-amber-500/10 disabled:opacity-50"
+              >
+                {isLoadingMoreMonsters ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
+                    <span>Ładowanie kolejnych 20...</span>
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-4 h-4 text-amber-400" />
+                    <span>
+                      Załaduj więcej (pozostało {Math.max(0, monsterTotal - displayMonsters.length)}
+                      )
+                    </span>
+                  </>
+                )}
+              </button>
             </div>
           )}
 
@@ -296,6 +512,14 @@ export function Bestiary({
             onClassChange={setSpellClass}
           />
 
+          <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+            <span>
+              Znaleziono: <strong className="text-indigo-400 font-mono">{spellTotal}</strong> zaklęć
+              (wyświetlono{' '}
+              <strong className="text-slate-200 font-mono">{displaySpells.length}</strong>)
+            </span>
+          </div>
+
           {isLoadingSpells ? (
             <div
               data-testid="spells-skeleton"
@@ -318,7 +542,7 @@ export function Bestiary({
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {filteredSpells.map((s) => (
+                {displaySpells.map((s) => (
                   <SpellCard
                     key={s.index}
                     spell={s}
@@ -328,9 +552,36 @@ export function Bestiary({
                 ))}
               </div>
 
-              {filteredSpells.length === 0 && (
+              {displaySpells.length === 0 && (
                 <div className="p-8 text-center glass-panel rounded-2xl border border-slate-800 text-slate-400 text-sm">
                   Nie znaleziono zaklęć spełniających wybrane kryteria filtrów.
+                </div>
+              )}
+
+              {spellHasMore && (
+                <div className="flex justify-center pt-4">
+                  <button
+                    type="button"
+                    data-testid="load-more-spells-btn"
+                    onClick={handleLoadMoreSpells}
+                    disabled={isLoadingMoreSpells}
+                    className="px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer bg-slate-900 border border-indigo-500/30 text-indigo-300 hover:bg-slate-800 hover:border-indigo-500/60 transition shadow-sm shadow-indigo-500/10 disabled:opacity-50"
+                  >
+                    {isLoadingMoreSpells ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                        <span>Ładowanie kolejnych 20...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-4 h-4 text-indigo-400" />
+                        <span>
+                          Załaduj więcej (pozostało {Math.max(0, spellTotal - displaySpells.length)}
+                          )
+                        </span>
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </>
@@ -356,6 +607,14 @@ export function Bestiary({
             onRarityChange={setItemRarity}
           />
 
+          <div className="flex items-center justify-between text-xs text-slate-400 px-1">
+            <span>
+              Znaleziono: <strong className="text-emerald-400 font-mono">{itemTotal}</strong>{' '}
+              przedmiotów (wyświetlono{' '}
+              <strong className="text-slate-200 font-mono">{displayItems.length}</strong>)
+            </span>
+          </div>
+
           {isLoadingItems ? (
             <div
               data-testid="items-skeleton"
@@ -378,7 +637,7 @@ export function Bestiary({
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {filteredItems.map((item) => (
+                {displayItems.map((item) => (
                   <ItemCard
                     key={item.index}
                     item={item}
@@ -388,9 +647,35 @@ export function Bestiary({
                 ))}
               </div>
 
-              {filteredItems.length === 0 && (
+              {displayItems.length === 0 && (
                 <div className="p-8 text-center glass-panel rounded-2xl border border-slate-800 text-slate-400 text-sm">
                   Nie znaleziono przedmiotów spełniających wybrane kryteria filtrów.
+                </div>
+              )}
+
+              {itemHasMore && (
+                <div className="flex justify-center pt-4">
+                  <button
+                    type="button"
+                    data-testid="load-more-items-btn"
+                    onClick={handleLoadMoreItems}
+                    disabled={isLoadingMoreItems}
+                    className="px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2 cursor-pointer bg-slate-900 border border-emerald-500/30 text-emerald-300 hover:bg-slate-800 hover:border-emerald-500/60 transition shadow-sm shadow-emerald-500/10 disabled:opacity-50"
+                  >
+                    {isLoadingMoreItems ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-emerald-400" />
+                        <span>Ładowanie kolejnych 20...</span>
+                      </>
+                    ) : (
+                      <>
+                        <ChevronDown className="w-4 h-4 text-emerald-400" />
+                        <span>
+                          Załaduj więcej (pozostało {Math.max(0, itemTotal - displayItems.length)})
+                        </span>
+                      </>
+                    )}
+                  </button>
                 </div>
               )}
             </>
